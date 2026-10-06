@@ -1,0 +1,58 @@
+import type { LucideIcon } from 'lucide-react';
+
+/** Admin = Super Admin, HR = Admin (menus and locations from Settings), Karyawan = employee portal. */
+export type Role = 'Admin' | 'HR' | 'Karyawan';
+
+export type MenuLevel = 'view' | 'edit';
+
+export interface AuthUser {
+    id: number;
+    name: string;
+    email: string | null;
+    role: Role;
+    role_label: string;
+    karyawan_id: number | null;
+}
+
+export interface Auth {
+    user: AuthUser | null;
+    can: {
+        viewSensitiveData: boolean;
+        manageUsers: boolean;
+    };
+    /** Menu key => level, for the sidebar and the edit buttons. */
+    menus: Record<string, MenuLevel>;
+}
+
+export interface NavItem {
+    id: string;
+    label: string;
+    icon: LucideIcon;
+    href?: string;
+    disabled?: boolean;
+    /** The access menu (Settings → Akun & Akses) that shows this item; 'settings' = Super Admin. */
+    menu?: string;
+    /** Sub-modules, shown indented under this item. */
+    children?: NavItem[];
+}
+
+export interface NavModule {
+    id: string;
+    label: string;
+    icon: LucideIcon;
+    items: NavItem[];
+}
+
+declare module '@inertiajs/core' {
+    export interface InertiaConfig {
+        sharedPageProps: {
+            auth: Auth;
+        };
+        /** One-off messages set with Inertia::flash() before a redirect. */
+        flashDataType: {
+            success?: string;
+            error?: string;
+            warnings?: string[];
+        };
+    }
+}

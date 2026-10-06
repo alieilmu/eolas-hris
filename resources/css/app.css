@@ -1,0 +1,46 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* PT Riung Mitra Lestari: slate blue #586c9a (brand-600) and yellow #fcd100 (accent-400), taken from the logo. */
+    --color-brand-50: #f2f4f9;
+    --color-brand-100: #e4e8f1;
+    --color-brand-200: #c9d1e3;
+    --color-brand-300: #a3b0cd;
+    --color-brand-400: #7d8db4;
+    --color-brand-500: #6a7ca6;
+    --color-brand-600: #586c9a;
+    --color-brand-700: #475782;
+    --color-brand-800: #3a4769;
+    --color-brand-900: #2c3651;
+    --color-brand-950: #1e2438;
+
+    --color-accent-50: #fffbe6;
+    --color-accent-100: #fff4bf;
+    --color-accent-200: #ffe980;
+    --color-accent-300: #fede4d;
+    --color-accent-400: #fcd100;
+    --color-accent-500: #e6be00;
+    --color-accent-600: #c29f00;
+    --color-accent-700: #8f7500;
+    --color-accent-800: #6b5800;
+
+    --color-riung-gray: #8b8b8b;
+
+    --radius-xl: 1rem;
+    --radius-2xl: 1.5rem;
+}
+
+@utility scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
