@@ -80,6 +80,17 @@ class CutiTest extends TestCase
         $t = Cuti::tahunan(CarbonImmutable::parse('2023-01-10'), [], 0, $at);
         $this->assertSame(24, $t['saldo']);
         $this->assertSame(12, $t['hangus_akhir_tahun']);
+        // Per leave: which year's quota it came from, and the later quota that paid a hutang.
+        $t = Cuti::tahunan(CarbonImmutable::parse('2023-01-10'), [2024 => 15, 2025 => 10], 0, $at, [
+            ['key' => 'a', 'tahun' => 2024, 'hari' => 15, 'urut' => '2024-05-01'],
+            ['key' => 'b', 'tahun' => 2025, 'hari' => 4, 'urut' => '2025-02-01'],
+            ['key' => 'c', 'tahun' => 2025, 'hari' => 6, 'urut' => '2025-08-01'],
+        ]);
+        $this->assertSame([['jatah' => 2024, 'hari' => 12, 'hutang' => false], ['jatah' => 2025, 'hari' => 3, 'hutang' => true]], $t['alokasi']['a']);
+        $this->assertSame([['jatah' => 2025, 'hari' => 4, 'hutang' => false]], $t['alokasi']['b']);
+        $this->assertSame([['jatah' => 2025, 'hari' => 5, 'hutang' => false], ['jatah' => 2026, 'hari' => 1, 'hutang' => true]], $t['alokasi']['c']);
+        $this->assertSame([11, 0], [$t['saldo'], $t['hutang']]);
+
         // Not reached yet this year: the anniversary has not come.
         $this->assertSame(0, Cuti::tahunan(CarbonImmutable::parse('2025-09-01'), [], 0, $at)['saldo']);
     }

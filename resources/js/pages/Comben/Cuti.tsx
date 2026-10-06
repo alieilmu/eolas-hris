@@ -18,7 +18,7 @@ interface Row {
     masa_kerja: string | null;
     tahunan: Tahunan;
     besar: Besar;
-    pengambilan: CutiItem[];
+    jumlah_pengambilan: number;
 }
 
 interface Props {
@@ -188,66 +188,31 @@ export default function CutiPage({ tab, filters, rows, locations, sub_locations,
 // --- Cuti Tahunan, in the layout of the old sheet ------------------------------------------
 
 function TahunanTable({ rows, onOpen }: { rows: Row[]; onOpen: (id: number) => void }) {
-    const taken = useMemo(() => rows.map((r) => r.pengambilan.filter((i) => i.potong > 0 && i.status !== 'ditolak')), [rows]);
-    const pairs = Math.max(5, ...taken.map((t) => t.length));
     const sticky = 'sticky z-10 bg-white';
 
     return (
         <table className="min-w-full border-separate border-spacing-0 text-xs">
             <thead className="sticky top-0 z-20">
                 <tr>
-                    <th rowSpan={2} className={`${th} ${sticky} left-0 w-10 !bg-slate-100`}>
-                        No
-                    </th>
-                    <th rowSpan={2} className={`${th} ${sticky} left-10 min-w-48 !bg-slate-100 text-left`}>
-                        Nama Lengkap
-                    </th>
-                    <th rowSpan={2} className={th}>
-                        NRP
-                    </th>
-                    <th rowSpan={2} className={`${th} text-left`}>
-                        Departemen
-                    </th>
-                    <th rowSpan={2} className={th}>
-                        Tgl. Masuk
-                    </th>
-                    <th rowSpan={2} className={th}>
-                        Masa Kerja
-                    </th>
-                    <th rowSpan={2} className={`${th} !bg-emerald-100 text-emerald-800`}>
-                        Sisa Cuti Tahunan Aktif
-                    </th>
-                    <th rowSpan={2} className={th}>
-                        Total Cuti Diajukan
-                    </th>
-                    <th rowSpan={2} className={th}>
-                        Hutang
-                    </th>
-                    <th rowSpan={2} className={th}>
-                        Menunggu
-                    </th>
-                    <th rowSpan={2} className={th}>
-                        Hangus 31.12
-                    </th>
-                    <th colSpan={pairs * 2} className={`${th} !bg-brand-600 text-white`}>
-                        Pengambilan Cuti Tahunan
-                    </th>
-                </tr>
-                <tr>
-                    {Array.from({ length: pairs }, (_, i) => [
-                        <th key={`h${i}`} className={`${th} w-8`}>
-                            {i + 1}
-                        </th>,
-                        <th key={`t${i}`} className={`${th} min-w-40`}>
-                            Tgl
-                        </th>,
-                    ])}
+                    <th className={`${th} ${sticky} left-0 w-10 !bg-slate-100`}>No</th>
+                    <th className={`${th} ${sticky} left-10 min-w-48 !bg-slate-100 text-left`}>Nama Lengkap</th>
+                    <th className={th}>NRP</th>
+                    <th className={`${th} text-left`}>Departemen</th>
+                    <th className={th}>Tgl. Masuk</th>
+                    <th className={th}>Masa Kerja</th>
+                    <th className={`${th} !bg-emerald-100 text-emerald-800`}>Sisa Cuti Tahunan Aktif</th>
+                    <th className={th}>Total Cuti Diajukan</th>
+                    <th className={th}>Hutang</th>
+                    <th className={th}>Menunggu</th>
+                    <th className={th}>Hangus 31.12</th>
+                    <th className={th}>Jatah Berikutnya</th>
+                    <th className={th}>Pengambilan Cuti</th>
                 </tr>
             </thead>
             <tbody>
                 {rows.length === 0 && (
                     <tr>
-                        <td colSpan={11 + pairs * 2} className="px-5 py-12 text-center text-sm text-slate-400">
+                        <td colSpan={13} className="px-5 py-12 text-center text-sm text-slate-400">
                             Tidak ada karyawan.
                         </td>
                     </tr>
@@ -255,15 +220,10 @@ function TahunanTable({ rows, onOpen }: { rows: Row[]; onOpen: (id: number) => v
                 {rows.map((r, n) => {
                     const t = r.tahunan;
                     return (
-                        <tr key={r.id} className="group hover:bg-brand-50/30">
+                        <tr key={r.id} onClick={() => onOpen(r.id)} className="group cursor-pointer hover:bg-brand-50/40">
                             <td className={`${td} ${sticky} left-0 text-center text-slate-400 group-hover:bg-brand-50`}>{n + 1}</td>
                             <td className={`${td} ${sticky} left-10 group-hover:bg-brand-50`}>
-                                <button
-                                    onClick={() => onOpen(r.id)}
-                                    className="text-left font-bold text-slate-700 hover:text-brand-600 hover:underline"
-                                >
-                                    {r.name}
-                                </button>
+                                <span className="font-bold text-slate-700 group-hover:text-brand-600">{r.name}</span>
                                 <span className="block text-[10px] text-slate-400">
                                     {[r.work_location, r.sub_location].filter(Boolean).join(' · ')}
                                 </span>
@@ -291,31 +251,14 @@ function TahunanTable({ rows, onOpen }: { rows: Row[]; onOpen: (id: number) => v
                             <td className={`${td} text-center tabular-nums ${t.hangus_akhir_tahun ? 'text-amber-700' : 'text-slate-300'}`}>
                                 {t.hangus_akhir_tahun || '-'}
                             </td>
-                            {Array.from({ length: pairs }, (_, i) => {
-                                const item = taken[n][i];
-                                return [
-                                    <td
-                                        key={`h${i}`}
-                                        className={`${td} text-center font-bold tabular-nums ${item?.status === 'diajukan' ? 'text-amber-700' : 'text-slate-700'}`}
-                                    >
-                                        {item?.potong ?? ''}
-                                    </td>,
-                                    <td
-                                        key={`t${i}`}
-                                        className={`${td} whitespace-nowrap ${item?.status === 'diajukan' ? 'text-amber-700' : 'text-slate-500'}`}
-                                    >
-                                        {item && (
-                                            <>
-                                                {itemWhen(item)}
-                                                {item.sumber === 'trip' && item.jenis !== 'tahunan' && (
-                                                    <span className="ml-1 text-[9px] text-slate-400">({KATEGORI_LABEL[item.jenis]})</span>
-                                                )}
-                                                {item.status === 'diajukan' && <span className="ml-1 text-[9px]">menunggu</span>}
-                                            </>
-                                        )}
-                                    </td>,
-                                ];
-                            })}
+                            <td className={`${td} text-center whitespace-nowrap text-slate-500 tabular-nums`}>
+                                {t.ada ? fmtDate(t.hak_berikutnya) : '-'}
+                            </td>
+                            <td className={`${td} text-center`}>
+                                <span className="inline-flex items-center gap-1 rounded-lg bg-brand-50 px-2 py-1 text-[11px] font-bold whitespace-nowrap text-brand-700 group-hover:bg-brand-100">
+                                    Lihat ({r.jumlah_pengambilan})
+                                </span>
+                            </td>
                         </tr>
                     );
                 })}
@@ -686,6 +629,7 @@ function Detail({ id, canEdit, onClose }: { id: number; canEdit: boolean; onClos
                                         <th className="px-3 py-2">Jenis</th>
                                         <th className="px-3 py-2 text-right">Hari</th>
                                         <th className="px-3 py-2 text-right">Potong tahunan</th>
+                                        <th className="px-3 py-2">Dipotong dari jatah</th>
                                         <th className="px-3 py-2">Sumber</th>
                                         <th className="w-8" />
                                     </tr>
@@ -693,7 +637,7 @@ function Detail({ id, canEdit, onClose }: { id: number; canEdit: boolean; onClos
                                 <tbody className="divide-y divide-slate-100">
                                     {data.pengambilan.length === 0 && (
                                         <tr>
-                                            <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
+                                            <td colSpan={8} className="px-3 py-6 text-center text-slate-400">
                                                 Belum ada pengambilan cuti.
                                             </td>
                                         </tr>
@@ -708,6 +652,9 @@ function Detail({ id, canEdit, onClose }: { id: number; canEdit: boolean; onClos
                                             </td>
                                             <td className="px-3 py-1.5 text-right tabular-nums">{i.hari}</td>
                                             <td className="px-3 py-1.5 text-right font-bold tabular-nums">{i.potong}</td>
+                                            <td className="px-3 py-1.5">
+                                                <PotongDari item={i} />
+                                            </td>
                                             <td className="px-3 py-1.5 text-slate-500">
                                                 {{ import: 'Excel lama', manual: 'Manual HR', trip: 'Trip & Leave' }[i.sumber]}
                                             </td>
@@ -740,5 +687,33 @@ function Stat({ label, value, tone }: { label: string; value: number | string | 
             <p className="text-[11px] font-bold text-slate-400">{label}</p>
             <p className={`text-2xl font-black tabular-nums ${tone}`}>{value ?? '-'}</p>
         </div>
+    );
+}
+
+/** "Cuti 2024 · 2 hr", "Hutang → cuti 2026 · 1 hr": which year's quota a leave was taken from. */
+function PotongDari({ item }: { item: CutiItem }) {
+    if (item.status === 'diajukan') return <span className="text-amber-700">menunggu persetujuan</span>;
+    if (!item.potong) return <span className="text-slate-400">tidak memotong</span>;
+    if (!item.potong_dari.length) return <span className="text-slate-400">—</span>;
+    return (
+        <span className="flex flex-wrap gap-1">
+            {item.potong_dari.map((p, n) => (
+                <span
+                    key={n}
+                    title={
+                        p.hutang
+                            ? p.jatah
+                                ? `Melebihi saldo saat diambil; dibayar dari jatah ${p.jatah}`
+                                : 'Melebihi saldo; belum terbayar'
+                            : `Dari jatah cuti tahun ${p.jatah}`
+                    }
+                    className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold whitespace-nowrap ring-1 ring-inset ${
+                        p.hutang ? 'bg-rose-50 text-rose-700 ring-rose-100' : 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+                    }`}
+                >
+                    {p.hutang ? (p.jatah ? `Hutang → cuti ${p.jatah}` : 'Hutang') : `Cuti ${p.jatah}`} · {p.hari} hr
+                </span>
+            ))}
+        </span>
     );
 }

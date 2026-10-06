@@ -59,17 +59,22 @@ class Cuti
         $pengambilan = ($data['pengambilan'][$k->id] ?? collect())->where('jenis', 'tahunan');
         $trips = ($data['trips'][$k->id] ?? collect())->when($exceptTrip, fn ($c) => $c->where('id', '!=', $exceptTrip));
 
-        $diambil = [];
+        // Each leave taken, in the year it counts in, oldest first: the ledger says which quota it used.
+        $items = [];
         foreach ($pengambilan as $p) {
-            $diambil[$p->tahun] = ($diambil[$p->tahun] ?? 0) + $p->hari;
+            $items[] = ['key' => "p{$p->id}", 'tahun' => $p->tahun, 'hari' => $p->hari, 'urut' => $p->tanggal_awal?->toDateString() ?? "{$p->tahun}-00"];
         }
-        foreach ($trips->where('status', 'disetujui') as $t) {
-            $diambil[$t->tanggal_awal->year] = ($diambil[$t->tanggal_awal->year] ?? 0) + $t->potong_tahunan;
+        foreach ($trips->where('status', 'disetujui')->where('potong_tahunan', '>', 0) as $t) {
+            $items[] = ['key' => "t{$t->id}", 'tahun' => $t->tanggal_awal->year, 'hari' => $t->potong_tahunan, 'urut' => $t->tanggal_awal->toDateString()];
+        }
+        $diambil = [];
+        foreach ($items as $i) {
+            $diambil[$i['tahun']] = ($diambil[$i['tahun']] ?? 0) + $i['hari'];
         }
         $menunggu = (int) $trips->where('status', 'diajukan')->sum('potong_tahunan');
 
         return [
-            'tahunan' => self::tahunan($masuk, $diambil, $menunggu, $today),
+            'tahunan' => self::tahunan($masuk, $diambil, $menunggu, $today, $items),
             'besar' => self::besar($masuk, $data['besar'][$k->id] ?? collect(), $trips, $today),
         ];
     }
@@ -77,17 +82,32 @@ class Cuti
     /**
      * The annual balance: quota buckets per year, used oldest first.
      *
+     * With $items (each leave: key, tahun, hari, urut) it also tells, per leave, which year's
+     * quota its days came from — or hutang, and the later quota that paid it.
+     *
      * @param  array<int, int>  $diambil  year => days taken
+     * @param  list<array{key: string, tahun: int, hari: int, urut: string}>  $items
      */
-    public static function tahunan(?CarbonImmutable $masuk, array $diambil, int $menunggu, CarbonImmutable $today): array
+    public static function tahunan(?CarbonImmutable $masuk, array $diambil, int $menunggu, CarbonImmutable $today, array $items = []): array
     {
         $a = CutiAturan::current();
         if (! $masuk) {
             return ['ada' => false, 'alasan' => 'Tanggal masuk belum diisi di profil.', 'menunggu' => $menunggu, 'diambil_total' => array_sum($diambil)];
         }
+        if (! $items) {
+            foreach ($diambil as $y => $hari) {
+                $items[] = ['key' => "y{$y}", 'tahun' => $y, 'hari' => $hari, 'urut' => "{$y}"];
+            }
+        }
+        usort($items, fn ($x, $y) => [$x['tahun'], $x['urut']] <=> [$y['tahun'], $y['urut']]);
+        $byYear = [];
+        foreach ($items as $i) {
+            $byYear[$i['tahun']][] = $i;
+        }
         $first = min($masuk->year + 1, ...(array_keys($diambil) ?: [$today->year]));
         $buckets = []; // [year granted => days left]
-        $hutang = 0;
+        $debts = []; // [[key, days]] taken beyond the balance, oldest first
+        $alokasi = []; // key => [{jatah, hari, hutang}]
         $years = [];
         $hangus = 0;
         for ($y = $first; $y <= $today->year; $y++) {
@@ -98,24 +118,48 @@ class Cuti
                 }
             }
             $jatah = $y >= $masuk->year + 1 && self::anniversary($masuk, $y)->lte($today) ? $a->jatah_tahunan : 0;
-            // A new quota first pays the hutang.
-            $pay = min($hutang, $jatah);
-            $hutang -= $pay;
-            if ($jatah - $pay > 0) {
-                $buckets[$y] = $jatah - $pay;
+            // A new quota first pays the hutang, oldest first.
+            $left = $jatah;
+            foreach ($debts as $n => [$key, $days]) {
+                if ($left <= 0) {
+                    break;
+                }
+                $pay = min($days, $left);
+                $alokasi[$key][] = ['jatah' => $y, 'hari' => $pay, 'hutang' => true];
+                $debts[$n][1] -= $pay;
+                $left -= $pay;
             }
-            $take = $diambil[$y] ?? 0;
+            $debts = array_values(array_filter($debts, fn ($d) => $d[1] > 0));
+            if ($left > 0) {
+                $buckets[$y] = $left;
+            }
             ksort($buckets);
-            foreach ($buckets as $from => $left) {
-                $use = min($left, $take);
-                $buckets[$from] -= $use;
-                $take -= $use;
+            foreach ($byYear[$y] ?? [] as $item) {
+                $take = $item['hari'];
+                foreach ($buckets as $from => $rest) {
+                    if ($take <= 0) {
+                        break;
+                    }
+                    $use = min($rest, $take);
+                    if ($use > 0) {
+                        $buckets[$from] -= $use;
+                        $take -= $use;
+                        $alokasi[$item['key']][] = ['jatah' => $from, 'hari' => $use, 'hutang' => false];
+                    }
+                }
+                if ($take > 0) {
+                    $debts[] = [$item['key'], $take];
+                }
             }
-            $hutang += $take;
+            $hutang = array_sum(array_column($debts, 1));
             $saldo = array_sum($buckets);
             // What expires at the end of this year unused.
             $hangus = array_sum(array_filter($buckets, fn ($left, $from) => $from + $a->masa_aktif_tahun - 1 === $y, ARRAY_FILTER_USE_BOTH));
             $years[] = ['tahun' => $y, 'jatah' => $jatah, 'diambil' => $diambil[$y] ?? 0, 'sisa' => $saldo, 'hutang' => $hutang];
+        }
+        // Hutang not paid yet.
+        foreach ($debts as [$key, $days]) {
+            $alokasi[$key][] = ['jatah' => null, 'hari' => $days, 'hutang' => true];
         }
         $now = end($years) ?: ['jatah' => 0, 'diambil' => 0, 'sisa' => 0, 'hutang' => 0];
         $next = self::anniversary($masuk, $today->year);
@@ -136,6 +180,7 @@ class Cuti
             'hangus_akhir_tahun' => $hangus,
             'hak_berikutnya' => $next->toDateString(),
             'tahun' => $years,
+            'alokasi' => $alokasi,
         ];
     }
 
@@ -230,7 +275,7 @@ class Cuti
         $l = self::lapangan($k);
 
         return [
-            'tahunan' => array_diff_key($s['tahunan'], ['tahun' => 1]),
+            'tahunan' => array_diff_key($s['tahunan'], ['tahun' => 1, 'alokasi' => 1]),
             'lapangan' => $l ? ['cuti' => $l->hari_cuti, 'berangkat' => $l->hari_berangkat, 'kembali' => $l->hari_kembali, 'total' => $l->total()] : null,
             'besar' => collect($s['besar']['periode'])->whereIn('status', ['diambil', 'belum_dipilih', 'menunggu'])->values(),
             'kategori' => self::KATEGORI,

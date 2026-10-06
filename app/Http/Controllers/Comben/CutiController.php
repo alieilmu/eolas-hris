@@ -52,11 +52,13 @@ class CutiController extends Controller
     {
         $karyawan->load(['profile', 'jabatan:id,name', 'workLocation:id,name', 'subLocation:id,name']);
         $data = Cuti::load([$karyawan->id]);
+        $summary = Cuti::summary($karyawan, data: $data);
 
         return response()->json([
             'karyawan' => ['id' => $karyawan->id, 'nrp' => $karyawan->nrp, 'name' => $karyawan->name, 'jabatan' => $karyawan->jabatan?->name],
-            ...Cuti::summary($karyawan, data: $data),
-            'pengambilan' => self::items($karyawan, $data, true),
+            'tahunan' => array_diff_key($summary['tahunan'], ['alokasi' => 1]),
+            'besar' => $summary['besar'],
+            'pengambilan' => self::items($karyawan, $data, true, $summary['tahunan']['alokasi'] ?? []),
             'lapangan' => ($l = Cuti::lapangan($karyawan)) ? ['cuti' => $l->hari_cuti, 'berangkat' => $l->hari_berangkat, 'kembali' => $l->hari_kembali, 'total' => $l->total()] : null,
         ]);
     }
@@ -139,7 +141,7 @@ class CutiController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $filters = $this->filters($request);
-        $book = CutiExcel::build($this->rows([...$filters, 'tab' => 'tahunan']), CarbonImmutable::today());
+        $book = CutiExcel::build($this->rows([...$filters, 'tab' => 'tahunan'], true), CarbonImmutable::today());
 
         return response()->streamDownload(fn () => (new Xlsx($book))->save('php://output'), 'sisa-cuti-tahunan-'.CarbonImmutable::today()->format('Y-m-d').'.xlsx', [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -167,7 +169,8 @@ class CutiController extends Controller
         return ['tab' => $f['tab'] ?? 'tahunan', 'lokasi' => $f['lokasi'] ?? null, 'sub' => $f['sub'] ?? '', 'q' => $f['q'] ?? '', 'status' => $f['status'] ?? ''];
     }
 
-    private function rows(array $f): array
+    /** Employees with their balance; $withItems adds every leave (the export lists them as Hari | Tgl). */
+    private function rows(array $f, bool $withItems = false): array
     {
         $sub = Roll::subLocationFilter($f['sub'] ?: null);
         $q = trim($f['q']);
@@ -181,8 +184,9 @@ class CutiController extends Controller
         $data = Cuti::load($karyawans->pluck('id'));
         $today = CarbonImmutable::today();
 
-        $rows = $karyawans->map(function (Karyawan $k) use ($data, $today) {
+        $rows = $karyawans->map(function (Karyawan $k) use ($data, $today, $withItems) {
             $s = Cuti::summary($k, $today, $data);
+            $items = self::items($k, $data, false, $s['tahunan']['alokasi'] ?? []);
 
             return [
                 'id' => $k->id,
@@ -194,9 +198,10 @@ class CutiController extends Controller
                 'sub_location' => $k->subLocation?->name,
                 'masuk' => $k->profile?->tanggal_masuk?->toDateString(),
                 'masa_kerja' => $k->profile?->masa_kerja,
-                'tahunan' => array_diff_key($s['tahunan'], ['tahun' => 1]),
+                'tahunan' => array_diff_key($s['tahunan'], ['tahun' => 1, 'alokasi' => 1]),
                 'besar' => $s['besar'],
-                'pengambilan' => self::items($k, $data),
+                'jumlah_pengambilan' => count($items),
+                'pengambilan' => $withItems ? $items : [],
             ];
         });
 
@@ -207,8 +212,11 @@ class CutiController extends Controller
         return $rows->values()->all();
     }
 
-    /** Every leave of the employee (imported, typed, and from Trip & Leave), oldest first. */
-    public static function items(Karyawan $k, array $data, bool $withIds = false): array
+    /**
+     * Every leave of the employee (imported, typed, and from Trip & Leave), oldest first,
+     * with the quota each one was taken from ($alokasi from the ledger).
+     */
+    public static function items(Karyawan $k, array $data, bool $withIds = false, array $alokasi = []): array
     {
         $items = collect();
         foreach ($data['pengambilan'][$k->id] ?? [] as $p) {
@@ -224,6 +232,7 @@ class CutiController extends Controller
                 'potong' => $p->hari,
                 'status' => 'disetujui',
                 'catatan' => $p->catatan,
+                'potong_dari' => $alokasi["p{$p->id}"] ?? [],
             ]);
         }
         foreach ($data['trips'][$k->id] ?? [] as $t) {
@@ -241,6 +250,7 @@ class CutiController extends Controller
                 'potong_besar' => $t->potong_besar,
                 'status' => $t->status,
                 'catatan' => $t->keterangan,
+                'potong_dari' => $alokasi["t{$t->id}"] ?? [],
             ]);
         }
 

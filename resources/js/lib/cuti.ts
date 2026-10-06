@@ -64,6 +64,8 @@ export interface CutiItem {
     potong_besar?: number;
     status: 'diajukan' | 'disetujui' | 'ditolak';
     catatan: string | null;
+    /** The quota (year) each part was taken from; hutang = beyond the balance, paid by that later quota (none yet: jatah null). */
+    potong_dari: { jatah: number | null; hari: number; hutang: boolean }[];
 }
 
 /** What the cuti form needs: balance, the location's field-leave allowance, the Cuti Besar to take. */
