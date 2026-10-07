@@ -69,7 +69,7 @@ export default function PortalHome({
         <>
             <Head title="Portal Karyawan" />
             <div className="space-y-5">
-                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <p className="text-xs font-bold text-slate-400">Selamat datang,</p>
                     <h1 className="text-xl font-black text-slate-800">{karyawan.name}</h1>
                     <p className="mt-0.5 text-sm text-slate-500">
@@ -115,8 +115,8 @@ export default function PortalHome({
                 </Link>
 
                 {/* Plafon */}
-                <section className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section className="grid gap-4 md:grid-cols-2 [&>*]:min-w-0">
+                    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                         <h2 className="flex items-center gap-2 text-sm font-bold text-slate-700">
                             <Stethoscope size={16} className="text-emerald-600" />
                             Plafon Pengobatan {plafon.tahun}
@@ -142,7 +142,7 @@ export default function PortalHome({
                             Bulan buku berjalan {bulan_buku.label} ({bulan_buku.span}). Plafon direset tiap awal tahun.
                         </p>
                     </div>
-                    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                         <h2 className="flex items-center gap-2 text-sm font-bold text-slate-700">
                             <Glasses size={16} className="text-sky-600" />
                             Plafon Kacamata
@@ -176,7 +176,7 @@ export default function PortalHome({
                 <CutiCard cuti={cuti} aturan={cuti_aturan} />
 
                 {/* Pengajuan */}
-                <section className="grid gap-4 lg:grid-cols-2">
+                <section className="grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
                     <History title="Deklarasi saya" empty="Belum ada deklarasi.">
                         {deklarasis.map((d) => (
                             <Item
@@ -245,8 +245,8 @@ export default function PortalHome({
 
 function History({ title, empty, children }: { title: string; empty: string; children: React.ReactNode[] }) {
     return (
-        <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-            <h2 className="flex items-center gap-2 border-b border-slate-100 px-5 py-3.5 text-sm font-bold text-slate-700">
+        <div className="min-w-0 rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <h2 className="flex items-center gap-2 border-b border-slate-100 px-4 py-3.5 sm:px-5 text-sm font-bold text-slate-700">
                 <Clock size={15} className="text-brand-500" />
                 {title}
             </h2>
@@ -314,8 +314,8 @@ function CutiCard({ cuti, aturan }: { cuti: CutiInfo; aturan: Props['cuti_aturan
             router.post('/portal/cuti-besar', { periode_ke, keputusan }, { preserveScroll: true });
     };
     return (
-        <section className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="grid gap-4 md:grid-cols-2 [&>*]:min-w-0">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                 <h2 className="flex items-center gap-2 text-sm font-bold text-slate-700">
                     <Palmtree size={16} className="text-violet-600" />
                     Cuti Tahunan
@@ -340,7 +340,7 @@ function CutiCard({ cuti, aturan }: { cuti: CutiInfo; aturan: Props['cuti_aturan
                     </>
                 )}
             </div>
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                 <h2 className="flex items-center gap-2 text-sm font-bold text-slate-700">
                     <Palmtree size={16} className="text-emerald-600" />
                     Cuti Besar

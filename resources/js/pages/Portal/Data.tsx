@@ -198,7 +198,7 @@ export default function PortalData({ karyawan, profile, anak, sections, options,
         <>
             <Head title="Data Saya" />
             <div className="space-y-5 pb-28">
-                <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <Link href="/portal" className="mb-2 inline-flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-brand-600">
                         <ArrowLeft size={13} /> Beranda
                     </Link>
@@ -241,7 +241,7 @@ export default function PortalData({ karyawan, profile, anak, sections, options,
                 )}
 
                 {sections.map((s) => (
-                    <section key={s.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <section key={s.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                         <h2 className="mb-3 text-sm font-bold text-slate-700">{s.title.replace(/^\d+\.\s*/, '')}</h2>
                         {s.kind === 'anak' ? (
                             anakSection

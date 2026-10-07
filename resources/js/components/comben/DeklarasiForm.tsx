@@ -223,16 +223,18 @@ export function DeklarasiForm({
                 </>
             }
         >
-            <div className="grid gap-5 lg:grid-cols-[1fr_280px]">
+            <div className="grid gap-5 lg:grid-cols-[1fr_280px] [&>*]:min-w-0">
                 {/* The form */}
-                <div className="space-y-4 rounded-2xl border border-slate-300 bg-white p-5">
-                    <div className="flex items-center gap-3 border-b border-slate-200 pb-3">
+                <div className="space-y-4 rounded-2xl border border-slate-300 bg-white p-3 sm:p-5">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 pb-3">
                         <img src="/images/riung-logo.webp" alt="Riung" className="h-7 w-auto" />
                         <div className="leading-tight">
                             <p className="text-[11px] font-bold text-slate-500">PT. RIUNG MITRA LESTARI</p>
                             <p className="text-[10px] text-slate-400">Mining Contractor</p>
                         </div>
-                        <h3 className="ml-auto text-sm font-black tracking-wide text-slate-800">DEKLARASI PENGOBATAN / KACAMATA</h3>
+                        <h3 className="w-full text-sm font-black tracking-wide text-slate-800 sm:ml-auto sm:w-auto">
+                            DEKLARASI PENGOBATAN / KACAMATA
+                        </h3>
                     </div>
 
                     <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
@@ -291,7 +293,7 @@ export function DeklarasiForm({
                                 <tr className="bg-slate-200 text-xs font-black text-slate-700">
                                     <th className={`${cell} w-44 text-left`}>JENIS</th>
                                     {columns.map((c, i) => (
-                                        <th key={c.uid} className={`${cell} min-w-36 ${enabled(c) ? '' : 'text-slate-400'}`}>
+                                        <th key={c.uid} className={`${cell} min-w-28 sm:min-w-36 ${enabled(c) ? '' : 'text-slate-400'}`}>
                                             {header(c, i)}
                                         </th>
                                     ))}
@@ -462,7 +464,7 @@ export function DeklarasiForm({
 
 function Line({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-        <div className="grid grid-cols-[120px_1fr] items-center gap-2">
+        <div className="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[120px_minmax(0,1fr)]">
             <span className="text-xs font-bold text-slate-500">{label}</span>
             <div className="min-w-0 rounded-lg border border-slate-300 px-1">{children}</div>
         </div>

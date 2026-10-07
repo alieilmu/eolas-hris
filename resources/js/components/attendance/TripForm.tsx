@@ -345,7 +345,7 @@ export function TripForm({
     const saldo = cuti?.tahunan.ada ? (cuti.tahunan.saldo ?? 0) - (cuti.tahunan.hutang ?? 0) - cuti.tahunan.menunggu : null;
     const cutiSection = form.data.jenis === 'cuti' && (
         <div className="space-y-3 rounded-2xl border border-violet-200 bg-violet-50/30 p-3">
-            <div className="grid gap-3 sm:grid-cols-[220px_1fr]">
+            <div className="grid gap-3 sm:grid-cols-[220px_1fr] [&>*]:min-w-0">
                 <div>
                     <label className={label} htmlFor="trip-kategori">
                         Jenis cuti *
@@ -570,7 +570,7 @@ export function TripForm({
         return (
             <div className="space-y-4">
                 {jenisToggle}
-                <div className="grid grid-cols-2 gap-4">{fields}</div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 [&>*]:min-w-0">{fields}</div>
                 {cutiSection}
                 {tiket}
                 {uangMuka}
