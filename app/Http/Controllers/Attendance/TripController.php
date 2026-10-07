@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Attendance;
 use App\Http\Controllers\Controller;
 use App\Models\Karyawan;
 use App\Models\Lampiran;
+use App\Models\SubLocation;
 use App\Models\Trip;
+use App\Models\WorkLocation;
 use App\Support\Access\AccessScope;
 use App\Support\Attendance\Bandara;
 use App\Support\Attendance\Onsite;
@@ -13,6 +15,7 @@ use App\Support\Attendance\Period;
 use App\Support\Attendance\Roll;
 use App\Support\Attendance\TripWriter;
 use App\Support\Cuti\Cuti;
+use App\Support\Excel\TableExcel;
 use App\Support\Karyawan\MasterOptions;
 use App\Support\Lampiran\Attachments;
 use Carbon\CarbonImmutable;
@@ -23,6 +26,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Trip & Leave: business trips (dinas) and leave (cuti). Each entry fills its
@@ -105,6 +109,116 @@ class TripController extends Controller
             'bandara' => Bandara::options(),
             'lampiran_limits' => Attachments::limits(),
         ]);
+    }
+
+    /**
+     * Trips and leave in Excel: from Trip & Leave for a range of months (those touching it),
+     * or from Pengajuan Dinas with the filters of the list.
+     */
+    public function export(Request $request): StreamedResponse
+    {
+        $f = $request->validate([
+            'dari' => ['nullable', 'date_format:Y-m'],
+            'sampai' => ['nullable', 'date_format:Y-m'],
+            'jenis' => ['nullable', Rule::in(['dinas', 'cuti', 'semua'])],
+            'perjalanan' => ['nullable', Rule::in(['akan', 'berjalan', 'selesai'])],
+            'status' => ['nullable', Rule::in(Trip::STATUS)],
+            'uang' => ['nullable', 'string', 'max:100'],
+            'q' => ['nullable', 'string', 'max:100'],
+            'lokasi' => ['nullable', 'integer'],
+            'sub' => ['nullable', 'string', 'max:10'],
+        ]);
+        $today = CarbonImmutable::today();
+        $d = $today->toDateString();
+        $months = ($f['dari'] ?? null) ? Period::range($f['dari'], $f['sampai'] ?? $f['dari'], 36) : null;
+        $from = $months ? $months[0]->start : null;
+        $to = $months ? end($months)->end() : null;
+        $jenis = $f['jenis'] ?? 'semua';
+        $sub = Roll::subLocationFilter($f['sub'] ?? null);
+
+        $trips = Trip::with(['karyawan.jabatan:id,name', 'karyawan.workLocation:id,name', 'karyawan.subLocation:id,name', 'karyawan.departemen', 'karyawan.section.departemen'])
+            ->when($months, fn ($q) => $q->whereDate('tanggal_awal', '<=', $to->toDateString())->whereDate('tanggal_akhir', '>=', $from->toDateString()))
+            ->when($jenis !== 'semua', fn ($q) => $q->where('jenis', $jenis))
+            ->when($f['perjalanan'] ?? null, fn ($q, $p) => match ($p) {
+                'akan' => $q->whereDate('tanggal_awal', '>', $d),
+                'selesai' => $q->whereDate('tanggal_akhir', '<', $d),
+                default => $q->whereDate('tanggal_awal', '<=', $d)->whereDate('tanggal_akhir', '>=', $d),
+            })
+            ->when($f['uang'] ?? null, fn ($q, $st) => $q->where('status_uang', $st))
+            ->when($f['status'] ?? null, fn ($q, $st) => $q->where('status', $st))
+            ->when($f['lokasi'] ?? null, fn ($q, $l) => $q->whereHas('karyawan', fn ($k) => $k->where('work_location_id', $l)))
+            ->when($sub !== null, fn ($q) => $q->whereHas('karyawan', fn ($k) => $sub === Roll::NO_SUB_LOCATION ? $k->whereNull('sub_location_id') : $k->where('sub_location_id', $sub)))
+            ->when(trim($f['q'] ?? ''), fn ($q, $s) => $q->where(fn ($w) => $w
+                ->whereHas('karyawan', fn ($k) => $k->where('name', 'like', "%{$s}%")->orWhere('nrp', 'like', "%{$s}%"))
+                ->orWhere('kota_tujuan', 'like', "%{$s}%")
+                ->orWhere('kota_asal', 'like', "%{$s}%")))
+            ->orderBy('tanggal_awal')
+            ->orderBy('id')
+            ->get();
+
+        $route = fn (?string $a, ?string $b) => $a || $b ? ($a ?? '?').' → '.($b ?? '?') : null;
+        $rows = $trips->values()->map(fn (Trip $t, int $i) => [
+            $i + 1,
+            Trip::JENIS[$t->jenis] ?? $t->jenis,
+            $t->karyawan->nrp,
+            $t->karyawan->name,
+            $t->karyawan->jabatan?->name,
+            $t->karyawan->placementDepartemen()?->name,
+            $t->karyawan->workLocation?->name,
+            $t->karyawan->subLocation?->name,
+            $t->tanggal_awal->toDateString(),
+            $t->tanggal_akhir->toDateString(),
+            $t->lamaHari(),
+            $t->kota_asal,
+            $t->kota_tujuan,
+            $t->kategori_cuti ? (Cuti::KATEGORI[$t->kategori_cuti] ?? $t->kategori_cuti) : null,
+            $t->hari_cuti,
+            $t->potong_tahunan ?: null,
+            $t->potong_besar ?: null,
+            $t->tiket_pesawat ? $route($t->bandara_asal, $t->bandara_tujuan) : null,
+            $t->tiket_pesawat && $t->pesawat_pp ? $t->pulang_tanggal?->toDateString() : null,
+            $t->tiket_pesawat && $t->pesawat_pp ? $route($t->pulang_bandara_asal, $t->pulang_bandara_tujuan) : null,
+            $t->tiket_kereta ? 'Ya' : null,
+            $t->uang_muka ? $t->uang_muka_nominal : null,
+            $t->status_uang,
+            ['akan' => 'Akan berangkat', 'berjalan' => 'Berjalan', 'selesai' => 'Selesai'][$t->statusPerjalanan($today)],
+            ucfirst($t->status),
+            ['hr' => 'HR', 'portal' => 'Portal'][$t->sumber] ?? $t->sumber,
+            $t->keterangan,
+            $t->catatan_verifikasi,
+        ]);
+
+        $name = $months ? $from->format('Y-m').($from->format('Y-m') !== $to->format('Y-m') ? '-sd-'.$to->format('Y-m') : '') : 'semua';
+
+        return TableExcel::download("trip-leave-{$name}-".$today->format('Y-m-d').'.xlsx', [[
+            'title' => 'Trip & Leave',
+            'info' => TableExcel::info([
+                $months ? 'Periode '.$from->format('d.m.Y').' – '.$to->format('d.m.Y') : 'Semua tanggal',
+                $jenis === 'semua' ? 'Dinas & cuti' : Trip::JENIS[$jenis],
+                ($f['lokasi'] ?? null) ? 'Lokasi '.WorkLocation::whereKey($f['lokasi'])->value('name') : null,
+                match (true) {
+                    $sub === Roll::NO_SUB_LOCATION => 'Tanpa sub lokasi',
+                    is_int($sub) => 'Sub lokasi '.SubLocation::whereKey($sub)->value('name'),
+                    default => null,
+                },
+                ($f['perjalanan'] ?? null) ? 'Perjalanan '.$f['perjalanan'] : null,
+                ($f['status'] ?? null) ? 'Status '.$f['status'] : null,
+                ($f['uang'] ?? null) ? 'Status uang '.$f['uang'] : null,
+                trim($f['q'] ?? '') !== '' ? 'Cari "'.trim($f['q']).'"' : null,
+                $trips->count().' data',
+            ]),
+            'freeze' => 4,
+            'columns' => [
+                ['No', 5, 'int'], ['Jenis', 8], ['NRP', 12], ['Nama', 28], ['Jabatan', 26], ['Departemen', 22], ['Lokasi', 16], ['Sub Lokasi', 16],
+                ['Berangkat / Mulai', 12, 'date'], ['Kembali / Selesai', 12, 'date'], ['Lama (hari)', 8, 'int', 'sum' => true],
+                ['Kota Asal', 16], ['Kota Tujuan', 16], ['Kategori Cuti', 22], ['Hari Cuti', 7, 'int', 'sum' => true],
+                ['Potong Tahunan', 9, 'int', 'sum' => true], ['Potong Besar', 9, 'int', 'sum' => true],
+                ['Tiket Pesawat Pergi', 16], ['Tgl Pulang (PP)', 12, 'date'], ['Tiket Pesawat Pulang', 16], ['Tiket Kereta', 8],
+                ['Uang Muka', 14, 'rupiah', 'sum' => true], ['Status Uang', 18], ['Perjalanan', 14], ['Status', 11], ['Sumber', 8],
+                ['Keterangan', 32], ['Catatan Verifikasi', 28],
+            ],
+            'rows' => $rows,
+        ]]);
     }
 
     public function store(Request $request): RedirectResponse

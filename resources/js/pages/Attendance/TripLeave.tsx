@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowRight, Briefcase, MapPin, Palmtree, Plane, Users } from 'lucide-react';
+import { ArrowRight, Briefcase, Download, MapPin, Palmtree, Plane, Users } from 'lucide-react';
 import { OnsiteChart, onsitePct, type OnsiteDay } from '@/components/attendance/OnsiteChart';
 import { TripForm, type TripPerson } from '@/components/attendance/TripForm';
 import type { Bandara } from '@/components/attendance/BandaraPicker';
@@ -7,9 +8,13 @@ import type { LampiranLimits } from '@/lib/lampiran';
 import {
     AttendanceHeader,
     JenisBadge,
+    Modal,
     NO_SUB_LOCATION,
     PeriodPicker,
     SubLocationSelect,
+    ghostButton,
+    primaryButton,
+    secondaryButton,
     smallInput,
     subLocationFor,
     type SubLocationOption,
@@ -77,6 +82,8 @@ export default function TripLeave({
         });
     };
 
+    const [exporting, setExporting] = useState(false);
+
     const past = daily.filter((d) => d.date <= period.today && d.total > 0);
     const average = past.length ? past.reduce((s, d) => s + onsitePct(d), 0) / past.length : null;
     const subName = sub === NO_SUB_LOCATION ? 'tanpa sub lokasi' : sub_locations.find((s) => String(s.id) === sub)?.name;
@@ -108,7 +115,12 @@ export default function TripLeave({
                     Pengajuan Dinas
                     <ArrowRight size={15} />
                 </Link>
+                <button onClick={() => setExporting(true)} className={secondaryButton}>
+                    <Download size={16} />
+                    Export Excel
+                </button>
             </AttendanceHeader>
+            {exporting && <ExportDialog period={period.value} lokasi={lokasi} sub={sub} scope={locationName} onClose={() => setExporting(false)} />}
 
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto bg-slate-50 p-6">
                 {/* Input */}
@@ -248,5 +260,78 @@ export default function TripLeave({
                 </section>
             </div>
         </>
+    );
+}
+
+/** Trips and leave touching the chosen months, for the location picked on the page. */
+function ExportDialog({
+    period,
+    lokasi,
+    sub,
+    scope,
+    onClose,
+}: {
+    period: string;
+    lokasi: number | null;
+    sub: string;
+    scope: string;
+    onClose: () => void;
+}) {
+    const [dari, setDari] = useState(period);
+    const [sampai, setSampai] = useState(period);
+    const [jenis, setJenis] = useState<'semua' | 'dinas' | 'cuti'>('semua');
+    const invalid = !dari || !sampai || sampai < dari;
+    const url = () => {
+        const q = new URLSearchParams({ dari, sampai, jenis });
+        if (lokasi) q.set('lokasi', String(lokasi));
+        if (sub) q.set('sub', sub);
+        return `/attendance/trip-leave/export?${q}`;
+    };
+
+    return (
+        <Modal
+            title="Export Trip & Leave"
+            subtitle={`Dinas & cuti yang tanggalnya mengenai bulan terpilih · ${scope}`}
+            onClose={onClose}
+            footer={
+                <>
+                    <button onClick={onClose} className={ghostButton}>
+                        Batal
+                    </button>
+                    <a
+                        href={invalid ? undefined : url()}
+                        onClick={(e) => (invalid ? e.preventDefault() : setTimeout(onClose, 300))}
+                        aria-disabled={invalid}
+                        className={`${primaryButton} ${invalid ? 'pointer-events-none opacity-50' : ''}`}
+                    >
+                        <Download size={16} />
+                        Unduh Excel
+                    </a>
+                </>
+            }
+        >
+            <div className="grid gap-4 sm:grid-cols-2 [&>*]:min-w-0">
+                <label className="block">
+                    <span className="mb-1 block text-[11px] font-bold text-slate-500">Dari bulan</span>
+                    <input type="month" value={dari} onChange={(e) => setDari(e.target.value)} className={`${smallInput} w-full`} />
+                </label>
+                <label className="block">
+                    <span className="mb-1 block text-[11px] font-bold text-slate-500">Sampai bulan</span>
+                    <input type="month" value={sampai} min={dari} onChange={(e) => setSampai(e.target.value)} className={`${smallInput} w-full`} />
+                </label>
+                <label className="block sm:col-span-2">
+                    <span className="mb-1 block text-[11px] font-bold text-slate-500">Jenis</span>
+                    <select value={jenis} onChange={(e) => setJenis(e.target.value as typeof jenis)} className={`${smallInput} w-full`}>
+                        <option value="semua">Dinas &amp; cuti</option>
+                        <option value="dinas">Dinas saja</option>
+                        <option value="cuti">Cuti saja</option>
+                    </select>
+                </label>
+            </div>
+            {sampai < dari && <p className="mt-3 text-xs font-bold text-rose-600">Bulan akhir tidak boleh sebelum bulan awal.</p>}
+            <p className="mt-3 text-[11px] text-slate-500">
+                Paling banyak 36 bulan sekali unduh. Untuk daftar sesuai status / pencarian, pakai Export di Pengajuan Dinas.
+            </p>
+        </Modal>
     );
 }

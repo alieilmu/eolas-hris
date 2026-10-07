@@ -8,10 +8,12 @@ use App\Models\CutiBesar;
 use App\Models\CutiPengambilan;
 use App\Models\Karyawan;
 use App\Models\Trip;
+use App\Models\WorkLocation;
 use App\Support\Access\AccessScope;
 use App\Support\Attendance\Roll;
 use App\Support\Cuti\Cuti;
 use App\Support\Cuti\CutiExcel;
+use App\Support\Excel\TableExcel;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -30,6 +32,16 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class CutiController extends Controller
 {
+    private const BESAR_STATUS = [
+        'belum_dipilih' => 'Belum dipilih',
+        'menunggu' => 'Menunggu HR',
+        'diambil' => 'Diambil',
+        'diuangkan' => 'Diuangkan',
+        'otomatis_diuangkan' => 'Lewat batas → diuangkan',
+    ];
+
+    private const SUMBER = ['import' => 'Import', 'manual' => 'Dicatat HR', 'trip' => 'Trip & Leave'];
+
     public function index(Request $request): Response
     {
         $filters = $this->filters($request);
@@ -138,14 +150,105 @@ class CutiController extends Controller
         return back();
     }
 
+    /**
+     * Excel: the "SISA CUTI TAHUNAN" sheet in the old layout, the Cuti Besar entitlements
+     * (one row per period; the status filter of the Cuti Besar tab applies) and every leave
+     * with the quota it was taken from.
+     */
     public function export(Request $request): StreamedResponse
     {
         $filters = $this->filters($request);
-        $book = CutiExcel::build($this->rows([...$filters, 'tab' => 'tahunan'], true), CarbonImmutable::today());
+        $today = CarbonImmutable::today();
+        $rows = $this->rows([...$filters, 'tab' => 'tahunan'], true);
+        $book = CutiExcel::build($rows, $today);
+        $aturan = CutiAturan::current();
+        $scope = [
+            $filters['lokasi'] ? 'Lokasi '.WorkLocation::whereKey($filters['lokasi'])->value('name') : null,
+            $filters['q'] !== '' ? 'Cari "'.$filters['q'].'"' : null,
+            count($rows).' karyawan aktif',
+        ];
 
-        return response()->streamDownload(fn () => (new Xlsx($book))->save('php://output'), 'sisa-cuti-tahunan-'.CarbonImmutable::today()->format('Y-m-d').'.xlsx', [
+        $besar = [];
+        foreach ($rows as $r) {
+            $identity = [$r['nrp'], $r['name'], $r['departemen'], $r['work_location'], $r['sub_location'], $r['masuk'], $r['masa_kerja']];
+            $periode = collect($r['besar']['periode'])->when($filters['status'], fn ($c, $st) => $c->where('status', $st));
+            foreach ($periode as $p) {
+                $besar[] = [
+                    count($besar) + 1, ...$identity,
+                    $p['periode_ke'], $p['masa_kerja'], $p['tanggal_hak'], $p['batas'],
+                    self::BESAR_STATUS[$p['status']] ?? $p['status'],
+                    $p['status'] === 'diambil' ? $p['hari'] : null,
+                    $p['status'] === 'diambil' ? $p['terpakai'] : null,
+                    $p['menunggu'] ?: null,
+                    $p['status'] === 'diambil' ? $p['sisa'] : null,
+                    $p['gapok'] ? "{$p['gapok']}x gapok" : null,
+                    $r['besar']['berikutnya'],
+                ];
+            }
+            // Not reached yet: one row with when it will be (left out when filtering by status).
+            if (! $r['besar']['periode'] && ! $filters['status']) {
+                $besar[] = [count($besar) + 1, ...$identity, null, null, null, null, $r['masuk'] ? 'Belum tercapai' : 'Tgl masuk kosong', null, null, null, null, null, $r['besar']['berikutnya']];
+            }
+        }
+        TableExcel::addSheet($book, [
+            'title' => 'CUTI BESAR',
+            'info' => TableExcel::info([
+                "Tiap {$aturan->besar_interval_tahun} thn: diambil {$aturan->besar_hari} hari + {$aturan->besar_gapok_diambil}x gapok, atau diuangkan {$aturan->besar_gapok_diuangkan}x gapok; batas pilih {$aturan->besar_batas_bulan} bulan",
+                $filters['status'] ? 'Status '.(self::BESAR_STATUS[$filters['status']] ?? $filters['status']) : null,
+                ...$scope,
+            ]),
+            'freeze' => 3,
+            'columns' => [
+                ['No', 5, 'int'], ['NRP', 12], ['Nama', 28], ['Departemen', 22], ['Lokasi', 16], ['Sub Lokasi', 16], ['Tgl Masuk', 12, 'date'], ['Masa Kerja', 16],
+                ['Periode Ke', 8, 'int'], ['Masa Kerja (thn)', 9, 'int'], ['Tanggal Hak', 12, 'date'], ['Batas Pilih', 12, 'date'], ['Status', 22],
+                ['Hak Hari', 8, 'int'], ['Terpakai', 8, 'int'], ['Menunggu', 8, 'int'], ['Sisa Hari', 8, 'int'], ['Gapok', 10], ['Hak Berikutnya', 13, 'date'],
+            ],
+            'rows' => $besar,
+        ]);
+
+        $rincian = [];
+        foreach ($rows as $r) {
+            foreach ($r['pengambilan'] as $item) {
+                $rincian[] = [
+                    count($rincian) + 1, $r['nrp'], $r['name'], $r['departemen'],
+                    Cuti::KATEGORI[$item['jenis']] ?? ucfirst($item['jenis']),
+                    self::SUMBER[$item['sumber']] ?? $item['sumber'],
+                    $item['tahun'], $item['tanggal_awal'], $item['tanggal_akhir'], $item['tanggal_awal'] ? null : $item['keterangan'],
+                    $item['hari'], $item['potong'] ?: null, ($item['potong_besar'] ?? 0) ?: null,
+                    self::potongDari($item),
+                    ucfirst($item['status']), $item['catatan'],
+                ];
+            }
+        }
+        TableExcel::addSheet($book, [
+            'title' => 'RINCIAN PENGAMBILAN',
+            'info' => TableExcel::info(['Sisa per '.$today->format('d.m.Y'), ...$scope]),
+            'freeze' => 3,
+            'columns' => [
+                ['No', 5, 'int'], ['NRP', 12], ['Nama', 28], ['Departemen', 22], ['Jenis Cuti', 20], ['Sumber', 12], ['Tahun', 7, 'int'],
+                ['Tgl Awal', 12, 'date'], ['Tgl Akhir', 12, 'date'], ['Tanggal (teks lama)', 22], ['Hari', 6, 'int', 'sum' => true],
+                ['Potong Tahunan', 9, 'int', 'sum' => true], ['Potong Besar', 9, 'int', 'sum' => true], ['Dipotong dari Jatah', 34], ['Status', 11], ['Catatan', 30],
+            ],
+            'rows' => $rincian,
+        ]);
+        $book->setActiveSheetIndex(0);
+
+        return response()->streamDownload(fn () => (new Xlsx($book))->save('php://output'), 'cuti-tahunan-besar-'.$today->format('Y-m-d').'.xlsx', [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
+    }
+
+    /** "Cuti 2024 · 2 hr, Hutang → cuti 2026 · 1 hr", as in the detail popup. */
+    private static function potongDari(array $item): ?string
+    {
+        if ($item['status'] === 'diajukan') {
+            return 'menunggu persetujuan';
+        }
+        if (! $item['potong']) {
+            return 'tidak memotong';
+        }
+
+        return implode(', ', array_map(fn (array $p) => ($p['hutang'] ? ($p['jatah'] ? "Hutang → cuti {$p['jatah']}" : 'Hutang') : "Cuti {$p['jatah']}")." · {$p['hari']} hr", $item['potong_dari'])) ?: null;
     }
 
     /** For the cuti form in Trip & Leave: balance, field-leave allowance, Cuti Besar. */

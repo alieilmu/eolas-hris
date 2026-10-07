@@ -505,11 +505,25 @@ function KaryawanTab({ karyawans, locations }: Props) {
         );
     }, [karyawans, q, lokasi, akun]);
     const withoutAccount = rows.filter((k) => !k.account);
-    const chosen = rows.filter((k) => selected.has(k.id) && !k.account);
+    const ticked = rows.filter((k) => selected.has(k.id));
+    const chosen = ticked.filter((k) => !k.account);
+    const chosenAccounts = ticked.filter((k) => k.account);
+    const allTicked = rows.length > 0 && rows.every((k) => selected.has(k.id));
 
     const create = (ids: number[]) => {
         if (!ids.length || !confirm(`Buat ${ids.length} akun karyawan? Login dengan NRP, password awal tanggal lahir (ddmmyyyy).`)) return;
         router.post('/settings/akun-karyawan', { karyawan_ids: ids }, { ...visit, onSuccess: () => setSelected(new Set()) });
+    };
+    const resetMany = () => {
+        const ids = chosenAccounts.map((k) => k.account!.id);
+        if (
+            !ids.length ||
+            !confirm(
+                `Reset password ${ids.length} akun karyawan ke password awal (tanggal lahir ddmmyyyy, atau NRP bila tanggal lahir kosong)?\n\nPassword yang sudah mereka ganti tidak berlaku lagi, dan mereka wajib menggantinya saat login berikutnya.`,
+            )
+        )
+            return;
+        router.post('/settings/akun-karyawan/reset-masal', { user_ids: ids }, { ...visit, onSuccess: () => setSelected(new Set()) });
     };
 
     return (
@@ -533,7 +547,11 @@ function KaryawanTab({ karyawans, locations }: Props) {
                     <option value="aktif">Akun aktif</option>
                     <option value="nonaktif">Akun nonaktif</option>
                 </select>
-                <div className="ml-auto flex gap-2">
+                <div className="ml-auto flex flex-wrap gap-2">
+                    <button onClick={resetMany} disabled={!chosenAccounts.length} className={secondaryButton}>
+                        <KeyRound size={15} />
+                        Reset password yang dicentang ({chosenAccounts.length})
+                    </button>
                     <button onClick={() => create(chosen.map((k) => k.id))} disabled={!chosen.length} className={secondaryButton}>
                         <UserPlus size={15} />
                         Buat akun yang dicentang ({chosen.length})
@@ -546,7 +564,8 @@ function KaryawanTab({ karyawans, locations }: Props) {
             </div>
             <p className="border-b border-slate-100 bg-slate-50/60 px-5 py-2 text-[11px] text-slate-500">
                 Karyawan login di halaman yang sama dengan <b>NRP</b>. Password awal = <b>tanggal lahir (ddmmyyyy)</b>, atau NRP bila tanggal lahir
-                belum diisi; wajib diganti saat login pertama. Karyawan yang sudah keluar tidak bisa login.
+                belum diisi; wajib diganti saat login pertama. Karyawan yang sudah keluar tidak bisa login. Centang akun yang sudah ada lalu{' '}
+                <b>Reset password yang dicentang</b> untuk mengembalikan banyak password sekaligus (mis. pakai filter lokasi, lalu centang semua).
             </p>
             <div className="max-h-[calc(100vh-17rem)] overflow-auto">
                 <table className="w-full text-left text-sm">
@@ -555,9 +574,10 @@ function KaryawanTab({ karyawans, locations }: Props) {
                             <th className={`${th} w-10 pl-5`}>
                                 <input
                                     type="checkbox"
-                                    checked={withoutAccount.length > 0 && withoutAccount.every((k) => selected.has(k.id))}
-                                    onChange={(e) => setSelected(e.target.checked ? new Set(withoutAccount.map((k) => k.id)) : new Set())}
-                                    aria-label="Centang semua yang belum punya akun"
+                                    checked={allTicked}
+                                    onChange={(e) => setSelected(e.target.checked ? new Set(rows.map((k) => k.id)) : new Set())}
+                                    aria-label="Centang semua yang tampil"
+                                    title="Centang semua yang tampil"
                                     className="accent-brand-600"
                                 />
                             </th>
@@ -573,15 +593,13 @@ function KaryawanTab({ karyawans, locations }: Props) {
                         {rows.map((k) => (
                             <tr key={k.id} className="hover:bg-slate-50/60">
                                 <td className="py-2 pl-5">
-                                    {!k.account && (
-                                        <input
-                                            type="checkbox"
-                                            checked={selected.has(k.id)}
-                                            onChange={(e) => setSelected((s) => toggleSet(s, k.id, e.target.checked))}
-                                            aria-label={`Centang ${k.name}`}
-                                            className="accent-brand-600"
-                                        />
-                                    )}
+                                    <input
+                                        type="checkbox"
+                                        checked={selected.has(k.id)}
+                                        onChange={(e) => setSelected((s) => toggleSet(s, k.id, e.target.checked))}
+                                        aria-label={`Centang ${k.name}`}
+                                        className="accent-brand-600"
+                                    />
                                 </td>
                                 <td className="px-3 py-2 font-mono text-xs text-slate-500">{k.nrp}</td>
                                 <td className="px-3 py-2">

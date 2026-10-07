@@ -79,6 +79,7 @@ export default function CutiPage({ tab, filters, rows, locations, sub_locations,
         if (filters.lokasi) q.set('lokasi', String(filters.lokasi));
         if (filters.sub) q.set('sub', filters.sub);
         if (filters.q) q.set('q', filters.q);
+        if (tab === 'besar' && filters.status) q.set('status', filters.status);
         return `/comben/cuti/export?${q}`;
     };
 
@@ -89,7 +90,7 @@ export default function CutiPage({ tab, filters, rows, locations, sub_locations,
                 title="Cuti Tahunan & Cuti Besar"
                 subtitle={`Tahunan ${aturan.jatah_tahunan} hari/thn, berlaku ${aturan.masa_aktif_tahun} thn (FIFO) · Besar tiap ${aturan.besar_interval_tahun} thn: ${aturan.besar_hari} hari + ${gapok(aturan.besar_gapok_diambil)}, atau ${gapok(aturan.besar_gapok_diuangkan)}`}
             >
-                <a href={exportUrl()} className={secondaryButton}>
+                <a href={exportUrl()} className={secondaryButton} title="Sisa cuti tahunan, Cuti Besar dan rincian pengambilan">
                     <Download size={16} />
                     Export Excel
                 </a>

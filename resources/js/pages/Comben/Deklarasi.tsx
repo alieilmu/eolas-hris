@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Pencil, Plus, Search, Trash2 } from 'lucide-react';
-import { AttendanceHeader, primaryButton, smallInput } from '@/components/attendance/ui';
+import { ChevronLeft, ChevronRight, Download, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { AttendanceHeader, primaryButton, secondaryButton, smallInput } from '@/components/attendance/ui';
 import { DeklarasiForm, type DeklarasiPerson } from '@/components/comben/DeklarasiForm';
 import { rupiah, type DeklarasiRow } from '@/lib/comben';
 import { fmtDate } from '@/lib/format';
@@ -74,6 +74,12 @@ export default function Deklarasi({ deklarasis, filters, bulan_buku, people, tem
     };
 
     const th = 'px-3 py-3 text-[10px] font-bold tracking-wide text-slate-500 uppercase';
+    const exportUrl = () => {
+        const q = new URLSearchParams();
+        for (const [k, v] of Object.entries({ bulan: filters.bulan, jenis: filters.jenis, status: filters.status, q: filters.q.trim() }))
+            if (v) q.set(k, v);
+        return `/comben/deklarasi/export?${q}`;
+    };
 
     return (
         <>
@@ -82,6 +88,10 @@ export default function Deklarasi({ deklarasis, filters, bulan_buku, people, tem
                 title="Deklarasi Pengobatan / Kacamata"
                 subtitle={`Bulan buku berjalan: ${bulan_buku.label} (${bulan_buku.span}) · tutup buku tiap tanggal 8`}
             >
+                <a href={exportUrl()} className={secondaryButton} title="Unduh daftar sesuai filter (rekap + rincian)">
+                    <Download size={16} />
+                    Export Excel
+                </a>
                 {can_edit && (
                     <button onClick={() => setForm('new')} className={primaryButton}>
                         <Plus size={16} />

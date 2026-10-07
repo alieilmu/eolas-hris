@@ -11,8 +11,10 @@ use App\Support\Comben\BukuBulan;
 use App\Support\Comben\DeklarasiCheck;
 use App\Support\Comben\Entitlement;
 use App\Support\Comben\Usage;
+use App\Support\Excel\TableExcel;
 use App\Support\Lampiran\Attachments;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,6 +23,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Deklarasi Pengobatan / Kacamata: the claim form (as on paper, without
@@ -28,24 +31,17 @@ use Inertia\Response;
  */
 class DeklarasiController extends Controller
 {
+    private const SUMBER = ['hr' => 'HR', 'portal' => 'Portal', 'import' => 'Import'];
+
     private const RELATIONS = ['jabatan', 'subGroup', 'departemen', 'section.departemen', 'workLocation', 'profile.anak'];
 
     public function index(Request $request): Response
     {
-        $filters = $request->validate([
-            'bulan' => ['nullable', 'date_format:Y-m'],
-            'jenis' => ['nullable', Rule::in(['pengobatan', 'kacamata'])],
-            'status' => ['nullable', Rule::in(Deklarasi::STATUS)],
-            'q' => ['nullable', 'string', 'max:100'],
-        ]);
+        $filters = self::filters($request);
         $jenis = $filters['jenis'] ?? null;
 
-        $deklarasis = Deklarasi::with(['karyawan.jabatan', 'karyawan.subGroup', 'items.anak', 'lampirans'])
-            ->when($filters['bulan'] ?? null, fn ($q, $b) => $q->where('bulan_buku', $b))
-            ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
-            ->when($jenis, fn ($q) => $q->whereHas('items', fn ($i) => $i->whereIn('jenis', $jenis === 'kacamata' ? DeklarasiItem::KACAMATA : DeklarasiItem::PENGOBATAN)))
-            ->when(trim($filters['q'] ?? ''), fn ($q, $s) => $q->where(fn ($w) => $w->where('nomor', 'like', "%{$s}%")
-                ->orWhereHas('karyawan', fn ($k) => $k->where('name', 'like', "%{$s}%")->orWhere('nrp', 'like', "%{$s}%"))))
+        $deklarasis = self::query($filters)
+            ->with(['karyawan.jabatan', 'karyawan.subGroup', 'items.anak', 'lampirans'])
             // Waiting for HR first.
             ->orderByRaw("case when status = 'diajukan' then 0 else 1 end")
             ->orderByDesc('tanggal')
@@ -77,6 +73,101 @@ class DeklarasiController extends Controller
                 ->map(fn (Karyawan $k) => ['id' => $k->id, 'nrp' => $k->nrp, 'name' => $k->name, 'jabatan' => $k->jabatan?->name]),
             // Places typed before (the "Ugang Sayu, 2 Okt 2026" line), as suggestions.
             'tempat_options' => Deklarasi::whereNotNull('tempat')->distinct()->orderBy('tempat')->pluck('tempat'),
+        ]);
+    }
+
+    /**
+     * The list as it is filtered, in Excel: a Rekap sheet (one row per deklarasi, the amount
+     * per kind) and a Rincian sheet (one row per amount, with who it was for).
+     */
+    public function export(Request $request): StreamedResponse
+    {
+        $filters = self::filters($request);
+        $deklarasis = self::query($filters)
+            ->with(['karyawan.jabatan', 'karyawan.departemen', 'karyawan.section.departemen', 'karyawan.workLocation', 'karyawan.subLocation', 'items.anak'])
+            ->orderBy('tanggal')
+            ->orderBy('id')
+            ->get();
+
+        $sum = fn (Deklarasi $d, string ...$jenis) => (int) $d->items->whereIn('jenis', $jenis)->sum('nominal');
+        $rekap = $deklarasis->values()->map(fn (Deklarasi $d, int $i) => [
+            $i + 1,
+            $d->nomor,
+            $d->tanggal->toDateString(),
+            BukuBulan::label($d->bulan_buku),
+            $d->karyawan->nrp,
+            $d->karyawan->name,
+            $d->karyawan->jabatan?->name,
+            $d->karyawan->placementDepartemen()?->name,
+            $d->karyawan->workLocation?->name,
+            $d->karyawan->subLocation?->name,
+            $d->tempat,
+            $sum($d, 'perawatan'),
+            $sum($d, 'pengobatan'),
+            $sum($d, 'bingkai'),
+            $sum($d, 'lensa'),
+            (int) $d->items->sum('nominal'),
+            $d->jumlah_kwitansi,
+            ucfirst($d->status),
+            self::SUMBER[$d->sumber] ?? $d->sumber,
+            $d->keterangan,
+            $d->catatan_verifikasi,
+        ]);
+        $rincian = [];
+        foreach ($deklarasis as $d) {
+            foreach ($d->items as $item) {
+                $rincian[] = [
+                    count($rincian) + 1,
+                    $d->nomor,
+                    $d->tanggal->toDateString(),
+                    BukuBulan::label($d->bulan_buku),
+                    $d->karyawan->nrp,
+                    $d->karyawan->name,
+                    DeklarasiItem::JENIS[$item->jenis] ?? $item->jenis,
+                    DeklarasiItem::PENERIMA[$item->penerima] ?? $item->penerima,
+                    $item->anak?->nama,
+                    $item->nominal,
+                    ucfirst($d->status),
+                ];
+            }
+        }
+
+        $info = TableExcel::info([
+            ($filters['bulan'] ?? null) ? 'Bulan buku '.BukuBulan::label($filters['bulan']) : 'Semua bulan buku',
+            match ($filters['jenis'] ?? null) {
+                'pengobatan' => 'Pengobatan',
+                'kacamata' => 'Kacamata',
+                default => null,
+            },
+            ($filters['status'] ?? null) ? 'Status '.$filters['status'] : null,
+            trim($filters['q'] ?? '') !== '' ? 'Cari "'.trim($filters['q']).'"' : null,
+            $deklarasis->count().' deklarasi',
+        ]);
+
+        return TableExcel::download('deklarasi-'.($filters['bulan'] ?? 'semua').'-'.now()->format('Y-m-d').'.xlsx', [
+            [
+                'title' => 'Rekap Deklarasi',
+                'info' => $info,
+                'freeze' => 6,
+                'columns' => [
+                    ['No', 5, 'int'], ['Nomor', 18], ['Tanggal', 12, 'date'], ['Bulan Buku', 14], ['NRP', 12], ['Nama', 28], ['Jabatan', 26],
+                    ['Departemen', 22], ['Lokasi', 16], ['Sub Lokasi', 16], ['Tempat', 18],
+                    ['Perawatan', 13, 'rupiah', 'sum' => true], ['Pengobatan', 13, 'rupiah', 'sum' => true], ['Kacamata Bingkai', 13, 'rupiah', 'sum' => true],
+                    ['Kacamata Lensa', 13, 'rupiah', 'sum' => true], ['Total', 14, 'rupiah', 'sum' => true], ['Jumlah Nota', 9, 'int', 'sum' => true],
+                    ['Status', 11], ['Sumber', 9], ['Keterangan', 28], ['Catatan Verifikasi', 28],
+                ],
+                'rows' => $rekap,
+            ],
+            [
+                'title' => 'Rincian Deklarasi',
+                'info' => $info,
+                'freeze' => 6,
+                'columns' => [
+                    ['No', 5, 'int'], ['Nomor', 18], ['Tanggal', 12, 'date'], ['Bulan Buku', 14], ['NRP', 12], ['Nama', 28],
+                    ['Jenis', 20], ['Penerima', 14], ['Nama Anak', 22], ['Nominal', 14, 'rupiah', 'sum' => true], ['Status', 11],
+                ],
+                'rows' => $rincian,
+            ],
         ]);
     }
 
@@ -229,6 +320,29 @@ class DeklarasiController extends Controller
             'bulan_buku' => $bulan,
             'tahun_plafon' => $tahun,
         ], $items];
+    }
+
+    private static function filters(Request $request): array
+    {
+        return $request->validate([
+            'bulan' => ['nullable', 'date_format:Y-m'],
+            'jenis' => ['nullable', Rule::in(['pengobatan', 'kacamata'])],
+            'status' => ['nullable', Rule::in(Deklarasi::STATUS)],
+            'q' => ['nullable', 'string', 'max:100'],
+        ]);
+    }
+
+    /** The deklarasi matching the filters of the list. */
+    private static function query(array $filters): Builder
+    {
+        $jenis = $filters['jenis'] ?? null;
+
+        return Deklarasi::query()
+            ->when($filters['bulan'] ?? null, fn ($q, $b) => $q->where('bulan_buku', $b))
+            ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
+            ->when($jenis, fn ($q) => $q->whereHas('items', fn ($i) => $i->whereIn('jenis', $jenis === 'kacamata' ? DeklarasiItem::KACAMATA : DeklarasiItem::PENGOBATAN)))
+            ->when(trim($filters['q'] ?? ''), fn ($q, $s) => $q->where(fn ($w) => $w->where('nomor', 'like', "%{$s}%")
+                ->orWhereHas('karyawan', fn ($k) => $k->where('name', 'like', "%{$s}%")->orWhere('nrp', 'like', "%{$s}%"))));
     }
 
     /** DKL/2026/10/0001 — numbered within the book month. */

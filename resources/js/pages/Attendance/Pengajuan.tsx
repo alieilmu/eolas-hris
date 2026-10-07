@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Pencil, Search, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, Pencil, Search, Trash2 } from 'lucide-react';
 import { TripForm, type TripData, type TripPerson } from '@/components/attendance/TripForm';
-import { AttendanceHeader, JenisBadge, Modal, smallInput } from '@/components/attendance/ui';
+import { AttendanceHeader, JenisBadge, Modal, secondaryButton, smallInput } from '@/components/attendance/ui';
 import { fmtDate } from '@/lib/format';
 import { StatusBadge, VerifyButtons } from '@/components/Verification';
 import { TiketBadges, type Bandara } from '@/components/attendance/BandaraPicker';
@@ -112,6 +112,11 @@ export default function Pengajuan({ trips, filters, status_uang, people, cities,
         { value: 'semua', label: 'Semua' },
     ] as const;
     const th = 'px-3 py-3 text-[10px] font-bold tracking-wide text-slate-500 uppercase';
+    const exportUrl = () => {
+        const q = new URLSearchParams();
+        for (const [k, v] of Object.entries({ ...filters, q: filters.q.trim() })) if (v) q.set(k, v);
+        return `/attendance/trip-leave/export?${q}`;
+    };
 
     return (
         <>
@@ -124,6 +129,10 @@ export default function Pengajuan({ trips, filters, status_uang, people, cities,
                     <ArrowLeft size={15} />
                     Trip &amp; Leave
                 </Link>
+                <a href={exportUrl()} className={secondaryButton} title="Unduh daftar sesuai filter">
+                    <Download size={16} />
+                    Export Excel
+                </a>
             </AttendanceHeader>
 
             <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-6">

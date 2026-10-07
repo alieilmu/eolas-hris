@@ -208,6 +208,25 @@ class UserController extends Controller
         return back();
     }
 
+    /** The same for many accounts at once (the ones ticked, or all shown). */
+    public function resetKaryawanMany(Request $request): RedirectResponse
+    {
+        $ids = $request->validate(['user_ids' => ['required', 'array', 'min:1'], 'user_ids.*' => ['integer']], ['user_ids.required' => 'Centang minimal satu akun.'])['user_ids'];
+        $users = User::with('karyawan.profile:id,karyawan_id,tanggal_lahir')->where('role', User::ROLE_KARYAWAN)->whereIn('id', $ids)->get()->filter(fn (User $u) => $u->karyawan);
+
+        DB::transaction(function () use ($users) {
+            foreach ($users as $u) {
+                // Straight to the table: one query per account, the cheap first-time hash.
+                User::whereKey($u->id)->update(['password' => self::initialPasswordHash($u->karyawan), 'must_change_password' => true]);
+            }
+        });
+        $withoutBirthDate = $users->filter(fn (User $u) => ! $u->karyawan->profile?->tanggal_lahir)->count();
+        Inertia::flash('success', "Password {$users->count()} akun karyawan dikembalikan ke password awal (tanggal lahir ddmmyyyy)"
+            .($withoutBirthDate ? "; {$withoutBirthDate} tanpa tanggal lahir memakai NRP." : '.'));
+
+        return back();
+    }
+
     public function toggleKaryawan(User $user): RedirectResponse
     {
         abort_unless($user->isKaryawan(), 404);

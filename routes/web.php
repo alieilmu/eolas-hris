@@ -178,6 +178,7 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
             Route::middleware('menu:trip-leave,pengajuan-dinas')->group(function () {
                 Route::put('/trip-leave/{trip}', 'update')->name('trip.update');
                 Route::delete('/trip-leave/{trip}', 'destroy')->name('trip.destroy');
+                Route::get('/trip-leave/export', 'export')->name('trip.export');
                 // The cuti form: balance, field-leave allowance and Cuti Besar of the employee.
                 Route::get('/cuti-info/{karyawan}', [CutiController::class, 'info'])->whereNumber('karyawan')->name('cuti-info');
             });
@@ -206,6 +207,7 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
     Route::prefix('comben')->name('comben.')->group(function () {
         Route::controller(DeklarasiController::class)->middleware('menu:deklarasi')->group(function () {
             Route::get('/deklarasi', 'index')->name('deklarasi');
+            Route::get('/deklarasi/export', 'export')->name('deklarasi.export');
             Route::post('/deklarasi', 'store')->name('deklarasi.store');
             Route::put('/deklarasi/{deklarasi}', 'update')->name('deklarasi.update');
             Route::delete('/deklarasi/{deklarasi}', 'destroy')->name('deklarasi.destroy');
@@ -213,6 +215,7 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
             Route::get('/karyawan/{karyawan}/plafon', 'info')->whereNumber('karyawan')->name('karyawan.plafon');
         });
         Route::get('/monitoring', [MonitoringController::class, 'index'])->middleware('menu:monitoring-plafon')->name('monitoring');
+        Route::get('/monitoring/export', [MonitoringController::class, 'export'])->middleware('menu:monitoring-plafon')->name('monitoring.export');
 
         // Cuti Tahunan & Cuti Besar.
         Route::controller(CutiController::class)->middleware('menu:cuti')->prefix('cuti')->name('cuti')->group(function () {
@@ -252,6 +255,7 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
         Route::put('/akun/{user}', 'update')->whereNumber('user')->name('users.update');
         Route::delete('/akun/{user}', 'destroy')->whereNumber('user')->name('users.destroy');
         Route::post('/akun-karyawan', 'storeKaryawan')->name('karyawan-accounts.store');
+        Route::post('/akun-karyawan/reset-masal', 'resetKaryawanMany')->name('karyawan-accounts.reset-many');
         Route::post('/akun-karyawan/{user}/reset', 'resetKaryawan')->whereNumber('user')->name('karyawan-accounts.reset');
         Route::post('/akun-karyawan/{user}/status', 'toggleKaryawan')->whereNumber('user')->name('karyawan-accounts.toggle');
         Route::delete('/akun-karyawan/{user}', 'destroyKaryawan')->whereNumber('user')->name('karyawan-accounts.destroy');

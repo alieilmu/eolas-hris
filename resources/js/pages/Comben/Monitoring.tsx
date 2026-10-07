@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
-import { AlertTriangle, Glasses, Search, Stethoscope } from 'lucide-react';
+import { AlertTriangle, Download, Glasses, Search, Stethoscope } from 'lucide-react';
 import {
     AttendanceHeader,
     SubLocationSelect,
     matchesSubLocation,
+    secondaryButton,
     smallInput,
     subLocationFor,
     type SubLocationOption,
@@ -112,6 +113,12 @@ export default function Monitoring({ tahun, tahuns, months, current_bulan, pengo
     const goTahun = (value: string) =>
         router.get('/comben/monitoring', { ...Object.fromEntries(new URL(window.location.href).searchParams), tahun: value });
 
+    const exportUrl = () => {
+        const q = new URLSearchParams({ tahun: String(tahun) });
+        for (const [k, v] of Object.entries({ lokasi, sub, departemen, q: search.trim() })) if (v) q.set(k, v);
+        return `/comben/monitoring/export?${q}`;
+    };
+
     const monthHead = (m: { value: string; label: string; span: string }) => (
         <th
             key={m.value}
@@ -142,6 +149,10 @@ export default function Monitoring({ tahun, tahuns, months, current_bulan, pengo
                         </option>
                     ))}
                 </select>
+                <a href={exportUrl()} className={secondaryButton} title="Unduh Pengobatan & Kacamata sesuai filter">
+                    <Download size={16} />
+                    Export Excel
+                </a>
             </AttendanceHeader>
 
             <div className="flex min-h-0 flex-1 flex-col bg-slate-50">
