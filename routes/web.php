@@ -37,8 +37,12 @@ use App\Http\Controllers\Manpower\OrgStructureController;
 use App\Http\Controllers\Manpower\PengajuanUpdateDataController;
 use App\Http\Controllers\Portal\DataController as PortalDataController;
 use App\Http\Controllers\Portal\PortalController;
+use App\Http\Controllers\Settings\BrandingController;
 use App\Http\Controllers\Settings\UserController;
 use Illuminate\Support\Facades\Route;
+
+// White label logos and favicon: also on the login page, so without signing in.
+Route::get('/branding/{jenis}', [BrandingController::class, 'file'])->whereIn('jenis', ['logo', 'logo-full', 'favicon'])->name('branding.file');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -259,6 +263,11 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
         Route::post('/akun-karyawan/{user}/reset', 'resetKaryawan')->whereNumber('user')->name('karyawan-accounts.reset');
         Route::post('/akun-karyawan/{user}/status', 'toggleKaryawan')->whereNumber('user')->name('karyawan-accounts.toggle');
         Route::delete('/akun-karyawan/{user}', 'destroyKaryawan')->whereNumber('user')->name('karyawan-accounts.destroy');
+    });
+    // Settings → White Label: Super Admin only.
+    Route::middleware('can:manage-users')->prefix('settings')->name('settings.')->controller(BrandingController::class)->group(function () {
+        Route::get('/white-label', 'edit')->name('branding');
+        Route::post('/white-label', 'update')->name('branding.update');
     });
 
     // A nota / signed form, for whoever may see its deklarasi or cuti / dinas.

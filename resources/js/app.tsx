@@ -6,7 +6,9 @@ import AppLayout from '@/layouts/AppLayout';
 import PortalLayout from '@/layouts/PortalLayout';
 import type { Auth } from '@/types';
 
-const appName = import.meta.env.VITE_APP_NAME || 'HR Puspita';
+// White label: the name set in Settings → White Label, written into the page head by the server.
+const appName = document.querySelector<HTMLMetaElement>('meta[name="app-name"]')?.content || import.meta.env.VITE_APP_NAME || 'HRIS';
+const accent = getComputedStyle(document.documentElement).getPropertyValue('--color-accent-400').trim();
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
@@ -25,6 +27,6 @@ createInertiaApp({
         createRoot(el).render(<App {...props} />);
     },
     progress: {
-        color: '#fcd100',
+        color: accent || '#f2b705',
     },
 });

@@ -6,7 +6,7 @@ import { KaryawanHeader } from '@/components/manpower/KaryawanHeader';
 import { fmtDate } from '@/lib/format';
 import type { DashboardData, PkwtListItem } from '@/types/manpower';
 
-// Riung blue and gold, nudged in chroma/lightness to pass the palette validator, plus a neutral
+// A fixed blue and gold that pass the palette validator (whatever the white label colours are), plus a neutral
 // for "not filled in" so a missing value never looks like a real category.
 const COLOR_A = '#4a67a8';
 const COLOR_B = '#d9a300';

@@ -7,7 +7,8 @@
     --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 
-    /* PT Riung Mitra Lestari: slate blue #586c9a (brand-600) and yellow #fcd100 (accent-400), taken from the logo. */
+    /* Built-in scales (brand-600 #586c9a, accent-400 #fcd100). Settings → White Label overrides them per installation
+       with scales drawn from its two colours (App\Support\Branding\Palette, in the page head). */
     --color-brand-50: #f2f4f9;
     --color-brand-100: #e4e8f1;
     --color-brand-200: #c9d1e3;
@@ -29,8 +30,6 @@
     --color-accent-600: #c29f00;
     --color-accent-700: #8f7500;
     --color-accent-800: #6b5800;
-
-    --color-riung-gray: #8b8b8b;
 
     --radius-xl: 1rem;
     --radius-2xl: 1.5rem;

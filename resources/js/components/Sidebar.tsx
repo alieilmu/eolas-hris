@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { ChevronDown, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { BrandLogo } from '@/components/BrandLogo';
 import type { NavItem, NavModule } from '@/types';
 
 interface SidebarProps {
@@ -12,6 +13,7 @@ const CLOSED_KEY = 'app.sidebarClosed';
 export function Sidebar({ modules: allModules }: SidebarProps) {
     const { url, props } = usePage();
     const user = props.auth.user;
+    const branding = props.branding;
     // Settings → Akun & Akses: only the menus this account may open.
     const allowed = (item: NavItem) =>
         !item.menu || (item.menu === 'settings' ? props.auth.can.manageUsers : props.auth.menus?.[item.menu] !== undefined);
@@ -161,10 +163,10 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
     return (
         <aside className="flex h-full w-72 shrink-0 flex-col bg-brand-900 text-white">
             <div className="flex h-16 shrink-0 items-center gap-3 border-b-[3px] border-accent-400 bg-white pr-2 pl-5">
-                <img src="/images/riung-logo.webp" alt="Riung" className="h-8 w-auto" />
+                <BrandLogo className="h-8" />
                 <div className="min-w-0 flex-1 border-l border-slate-200 pl-3 leading-tight">
-                    <h1 className="text-sm font-black tracking-tight text-brand-700">HR Puspita</h1>
-                    <p className="truncate text-[10px] font-semibold text-riung-gray">PT Riung Mitra Lestari</p>
+                    <h1 className="truncate text-sm font-black tracking-tight text-brand-700">{branding.app_name}</h1>
+                    {branding.company_name && <p className="truncate text-[10px] font-semibold text-slate-400">{branding.company_name}</p>}
                 </div>
                 <button
                     onClick={() => toggle(true)}

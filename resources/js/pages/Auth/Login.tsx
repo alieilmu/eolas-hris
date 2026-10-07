@@ -1,17 +1,28 @@
 import { Form, Head } from '@inertiajs/react';
 import { Loader2, LogIn } from 'lucide-react';
+import { LoginMark, useBranding } from '@/components/BrandLogo';
 
 const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500';
 
 export default function Login() {
+    const branding = useBranding();
+
     return (
         <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-slate-50 to-accent-50 p-6">
             <Head title="Masuk" />
 
             <div className="w-full max-w-sm">
                 <div className="mb-8 flex flex-col items-center gap-3">
-                    <img src="/images/riung-logo-full.webp" alt="PT Riung Mitra Lestari — Mining Contractor" className="w-60" />
-                    <span className="rounded-full bg-brand-600 px-3 py-1 text-xs font-bold tracking-wide text-white">HR Puspita</span>
+                    {branding.logo_full_url ? (
+                        <img
+                            src={branding.logo_full_url}
+                            alt={[branding.company_name, branding.tagline].filter(Boolean).join(' — ') || branding.app_name}
+                            className="max-h-28 w-60 object-contain"
+                        />
+                    ) : (
+                        <LoginMark b={branding} />
+                    )}
+                    <span className="rounded-full bg-brand-600 px-3 py-1 text-xs font-bold tracking-wide text-white">{branding.app_name}</span>
                 </div>
 
                 <Form
@@ -44,7 +55,7 @@ export default function Login() {
                                     autoComplete="username"
                                     autoFocus
                                     required
-                                    placeholder="nama@hrpuspita.local atau NRP"
+                                    placeholder="Email atau NRP"
                                     className={inputClass}
                                 />
                             </div>

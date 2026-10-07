@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
 import { AlertTriangle, Glasses, Loader2, Plus, Save, Stethoscope, X } from 'lucide-react';
+import { BrandLogo, useBranding } from '@/components/BrandLogo';
 import { DateInput } from '@/components/DateInput';
 import { MoneyInput } from '@/components/comben/MoneyInput';
 import { Modal, ghostButton, primaryButton } from '@/components/attendance/ui';
@@ -56,6 +57,7 @@ export function DeklarasiForm({
     limits: LampiranLimits;
     onClose: () => void;
 }) {
+    const branding = useBranding();
     const [nrp, setNrp] = useState(self?.person.nrp ?? deklarasi?.nrp ?? '');
     const [tanggal, setTanggal] = useState(deklarasi?.tanggal ?? today());
     const [tempat, setTempat] = useState(deklarasi?.tempat ?? '');
@@ -227,10 +229,10 @@ export function DeklarasiForm({
                 {/* The form */}
                 <div className="space-y-4 rounded-2xl border border-slate-300 bg-white p-3 sm:p-5">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 pb-3">
-                        <img src="/images/riung-logo.webp" alt="Riung" className="h-7 w-auto" />
+                        <BrandLogo className="h-7" />
                         <div className="leading-tight">
-                            <p className="text-[11px] font-bold text-slate-500">PT. RIUNG MITRA LESTARI</p>
-                            <p className="text-[10px] text-slate-400">Mining Contractor</p>
+                            <p className="text-[11px] font-bold text-slate-500 uppercase">{branding.company_name ?? branding.app_name}</p>
+                            {branding.tagline && <p className="text-[10px] text-slate-400">{branding.tagline}</p>}
                         </div>
                         <h3 className="w-full text-sm font-black tracking-wide text-slate-800 sm:ml-auto sm:w-auto">
                             DEKLARASI PENGOBATAN / KACAMATA

@@ -16,7 +16,7 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
  */
 class CutiExcel
 {
-    private const FIXED = ['NO', 'NAMA LENGKAP', 'N R P', 'DEPARTEMEN', 'TGL. MASUK PT. RML', 'MASA KERJA', 'SISA CUTI TAHUNAN AKTIF', 'TOTAL CUTI DI AJUKAN', 'HUTANG CUTI', 'MENUNGGU PERSETUJUAN'];
+    private const FIXED = ['NO', 'NAMA LENGKAP', 'N R P', 'DEPARTEMEN', 'TGL. MASUK', 'MASA KERJA', 'SISA CUTI TAHUNAN AKTIF', 'TOTAL CUTI DI AJUKAN', 'HUTANG CUTI', 'MENUNGGU PERSETUJUAN'];
 
     public static function build(array $rows, CarbonImmutable $today): Spreadsheet
     {

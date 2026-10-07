@@ -14,6 +14,19 @@ export interface AuthUser {
     karyawan_id: number | null;
 }
 
+/** White label (Settings → White Label), shared with every page. */
+export interface Branding {
+    app_name: string;
+    company_name: string | null;
+    tagline: string | null;
+    brand_color: string;
+    accent_color: string;
+    /** Null when none was uploaded: the initial of the app name is shown instead. */
+    logo_url: string | null;
+    logo_full_url: string | null;
+    favicon_url: string;
+}
+
 export interface Auth {
     user: AuthUser | null;
     can: {
@@ -47,6 +60,7 @@ declare module '@inertiajs/core' {
     export interface InertiaConfig {
         sharedPageProps: {
             auth: Auth;
+            branding: Branding;
         };
         /** One-off messages set with Inertia::flash() before a redirect. */
         flashDataType: {

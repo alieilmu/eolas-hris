@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Branding;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -40,6 +41,8 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
+            // White label: names, logos and colours (Settings → White Label).
+            'branding' => fn () => Branding::current()->toShare(),
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,

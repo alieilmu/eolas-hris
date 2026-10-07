@@ -10,6 +10,7 @@ import {
     Gauge,
     HandCoins,
     LayoutGrid,
+    Palette,
     Palmtree,
     Network,
     Plane,
@@ -77,6 +78,9 @@ export const APP_MODULES: NavModule[] = [
         id: 'settings',
         label: 'Settings',
         icon: SlidersHorizontal,
-        items: [{ id: 'users', label: 'Akun & Akses', icon: ShieldCheck, href: '/settings/akun', menu: 'settings' }],
+        items: [
+            { id: 'users', label: 'Akun & Akses', icon: ShieldCheck, href: '/settings/akun', menu: 'settings' },
+            { id: 'white-label', label: 'White Label', icon: Palette, href: '/settings/white-label', menu: 'settings' },
+        ],
     },
 ];

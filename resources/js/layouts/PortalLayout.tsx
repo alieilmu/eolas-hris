@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { Home, KeyRound, LogOut, UserPen } from 'lucide-react';
+import { BrandLogo, brandLine, useBranding } from '@/components/BrandLogo';
 import { FlashToast } from '@/components/FlashToast';
 
 const NAV = [
@@ -13,16 +14,17 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
     const { auth } = usePage().props;
     const url = usePage().url.split('?')[0];
     const user = auth.user;
+    const branding = useBranding();
 
     return (
         <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50">
             <header className="sticky top-0 z-40 border-b-[3px] border-accent-400 bg-white">
                 <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-4">
                     <Link href="/portal" className="flex min-w-0 items-center gap-2 sm:gap-3">
-                        <img src="/images/riung-logo.webp" alt="Riung" className="h-7 w-auto shrink-0 sm:h-8" />
+                        <BrandLogo className="h-7 sm:h-8" />
                         <div className="min-w-0 border-l border-slate-200 pl-2 leading-tight sm:pl-3">
                             <p className="truncate text-sm font-black tracking-tight text-brand-700">Portal Karyawan</p>
-                            <p className="hidden truncate text-[10px] font-semibold text-riung-gray sm:block">HR Puspita · PT Riung Mitra Lestari</p>
+                            <p className="hidden truncate text-[10px] font-semibold text-slate-400 sm:block">{brandLine(branding)}</p>
                         </div>
                     </Link>
                     <nav className="ml-4 hidden items-center gap-1 sm:flex">
