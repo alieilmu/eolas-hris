@@ -5,14 +5,19 @@ namespace App\Http\Controllers\Comben;
 use App\Http\Controllers\Controller;
 use App\Models\CutiAturan;
 use App\Models\CutiLapangan;
+use App\Models\LokasiPenerimaan;
+use App\Models\LumpsumCuti;
 use App\Models\SubLocation;
+use App\Models\WorkLocation;
+use App\Support\Karyawan\MasterOptions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
-/** Master Data Comben → Aturan Cuti and Cuti Lapangan per lokasi / sub lokasi. */
+/** Master Data Comben → Aturan Cuti, Cuti Lapangan per lokasi / sub lokasi, and its lumpsum. */
 class CutiMasterController extends Controller
 {
     public function updateAturan(Request $request): RedirectResponse
@@ -53,6 +58,32 @@ class CutiMasterController extends Controller
     {
         $lapangan->delete();
         Inertia::flash('success', 'Cuti lapangan dihapus.');
+
+        return back();
+    }
+
+    /** The lumpsum of one site: per POH (lokasi penerimaan) and klasifikasi; empty = none. */
+    public function updateLumpsum(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'work_location_id' => ['required', 'integer', Rule::exists('work_locations', 'id')],
+            'nominal' => ['present', 'array'],
+            'nominal.*' => ['array'],
+            'nominal.*.*' => ['nullable', 'integer', 'min:0', 'max:999999999'],
+        ], [], ['nominal.*.*' => 'Nominal']);
+        $poh = LokasiPenerimaan::pluck('id')->all();
+        $klasifikasi = MasterOptions::values('klasifikasi');
+        DB::transaction(function () use ($data, $poh, $klasifikasi) {
+            LumpsumCuti::where('work_location_id', $data['work_location_id'])->delete();
+            foreach ($data['nominal'] as $pohId => $values) {
+                foreach ($values as $k => $nominal) {
+                    if ($nominal !== null && $nominal !== '' && in_array((int) $pohId, $poh, true) && in_array($k, $klasifikasi, true)) {
+                        LumpsumCuti::create(['work_location_id' => $data['work_location_id'], 'lokasi_penerimaan_id' => (int) $pohId, 'klasifikasi' => $k, 'nominal' => (int) $nominal]);
+                    }
+                }
+            }
+        });
+        Inertia::flash('success', 'Lumpsum cuti lapangan '.WorkLocation::whereKey($data['work_location_id'])->value('name').' disimpan; berlaku untuk pengajuan cuti lapangan berikutnya.');
 
         return back();
     }

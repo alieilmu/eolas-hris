@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\CutiAturan;
 use App\Models\CutiLapangan;
 use App\Models\Golongan;
+use App\Models\LokasiPenerimaan;
+use App\Models\LumpsumCuti;
 use App\Models\PlafonKacamata;
 use App\Models\PlafonPengobatan;
 use App\Models\SkalaUpah;
@@ -14,6 +16,7 @@ use App\Models\SkalaUpahNilai;
 use App\Models\SubGroup;
 use App\Models\SubLocation;
 use App\Models\WorkLocation;
+use App\Support\Karyawan\MasterOptions;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -81,6 +84,10 @@ class CombenMasterController extends Controller
                     'total' => $l->total(),
                 ]),
             'sub_locations' => SubLocation::orderBy('name')->get(['id', 'name', 'work_location_id']),
+            // Lumpsum Cuti Lapangan: site × POH × klasifikasi.
+            'lumpsum' => LumpsumCuti::get(['work_location_id', 'lokasi_penerimaan_id', 'klasifikasi', 'nominal']),
+            'poh' => LokasiPenerimaan::orderBy('kode')->get(['id', 'kode', 'nama']),
+            'klasifikasi' => MasterOptions::values('klasifikasi'),
         ]);
     }
 

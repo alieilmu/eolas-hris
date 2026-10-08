@@ -16,7 +16,8 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 #[Fillable([
     'karyawan_id', 'jenis', 'kategori_cuti', 'hari_cuti', 'potong_tahunan', 'potong_besar', 'cuti_besar_periode', 'tanggal_awal', 'tanggal_akhir', 'kota_asal', 'kota_tujuan', 'keterangan', 'status_uang', 'created_by',
     'tiket_pesawat', 'bandara_asal', 'bandara_tujuan', 'pesawat_pp', 'pulang_tanggal', 'pulang_bandara_asal', 'pulang_bandara_tujuan',
-    'tiket_kereta', 'uang_muka', 'uang_muka_nominal',
+    'tiket_kereta', 'uang_muka', 'uang_muka_nominal', 'lumpsum',
+    'tiket_pergi_dibeli_at', 'tiket_pergi_dibeli_by', 'tiket_pulang_dibeli_at', 'tiket_pulang_dibeli_by',
     'status', 'sumber', 'verified_by', 'verified_at', 'catatan_verifikasi',
 ])]
 class Trip extends Model
@@ -41,6 +42,9 @@ class Trip extends Model
             'potong_tahunan' => 'integer',
             'potong_besar' => 'integer',
             'cuti_besar_periode' => 'integer',
+            'lumpsum' => 'integer',
+            'tiket_pergi_dibeli_at' => 'datetime',
+            'tiket_pulang_dibeli_at' => 'datetime',
         ];
     }
 
@@ -62,6 +66,22 @@ class Trip extends Model
     public function lampirans(): MorphMany
     {
         return $this->morphMany(Lampiran::class, 'lampirable')->orderBy('id');
+    }
+
+    public function pembeliTiketPergi(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'tiket_pergi_dibeli_by');
+    }
+
+    public function pembeliTiketPulang(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'tiket_pulang_dibeli_by');
+    }
+
+    /** A ticket to buy going (flight or train), and coming back (the return flight of a PP). */
+    public function adaTiket(string $arah): bool
+    {
+        return $arah === 'pergi' ? $this->tiket_pesawat || $this->tiket_kereta : $this->tiket_pesawat && $this->pesawat_pp;
     }
 
     public function karyawan(): BelongsTo

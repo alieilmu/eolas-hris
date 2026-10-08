@@ -161,6 +161,22 @@ class Cuti
         foreach ($debts as [$key, $days]) {
             $alokasi[$key][] = ['jatah' => null, 'hari' => $days, 'hutang' => true];
         }
+        // The quotas still alive (oldest used first) and what is left of each.
+        $periode = [];
+        foreach ($years as $row) {
+            $sampai = $row['tahun'] + $a->masa_aktif_tahun - 1;
+            if ($row['jatah'] > 0 && $sampai >= $today->year) {
+                $sisa = $buckets[$row['tahun']] ?? 0;
+                $periode[] = [
+                    'tahun' => $row['tahun'],
+                    'mulai' => self::anniversary($masuk, $row['tahun'])->toDateString(),
+                    'berlaku_sampai' => "{$sampai}-12-31",
+                    'jatah' => $row['jatah'],
+                    'terpakai' => $row['jatah'] - $sisa,
+                    'sisa' => $sisa,
+                ];
+            }
+        }
         $now = end($years) ?: ['jatah' => 0, 'diambil' => 0, 'sisa' => 0, 'hutang' => 0];
         $next = self::anniversary($masuk, $today->year);
         if ($next->lte($today) || $today->year < $masuk->year + 1) {
@@ -179,6 +195,8 @@ class Cuti
             'diambil_total' => array_sum($diambil),
             'hangus_akhir_tahun' => $hangus,
             'hak_berikutnya' => $next->toDateString(),
+            'jatah_berikutnya' => $a->jatah_tahunan,
+            'periode' => $periode,
             'tahun' => $years,
             'alokasi' => $alokasi,
         ];
@@ -277,6 +295,7 @@ class Cuti
         return [
             'tahunan' => array_diff_key($s['tahunan'], ['tahun' => 1, 'alokasi' => 1]),
             'lapangan' => $l ? ['cuti' => $l->hari_cuti, 'berangkat' => $l->hari_berangkat, 'kembali' => $l->hari_kembali, 'total' => $l->total()] : null,
+            'lumpsum' => Lumpsum::for($k),
             'besar' => collect($s['besar']['periode'])->whereIn('status', ['diambil', 'belum_dipilih', 'menunggu'])->values(),
             'kategori' => self::KATEGORI,
         ];

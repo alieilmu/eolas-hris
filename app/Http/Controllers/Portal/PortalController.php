@@ -54,7 +54,7 @@ class PortalController extends Controller
             'hari_ini' => $today->toDateString(),
             'deklarasis' => Deklarasi::with(['karyawan.jabatan', 'items.anak', 'lampirans'])->where('karyawan_id', $k->id)->latest('tanggal')->latest('id')->limit(20)->get()
                 ->map(fn (Deklarasi $d) => DeklarasiController::row($d)),
-            'trips' => Trip::with(['karyawan.jabatan', 'karyawan.workLocation', 'lampirans'])->where('karyawan_id', $k->id)->latest('tanggal_awal')->limit(20)->get()
+            'trips' => Trip::with(TripController::WITH)->where('karyawan_id', $k->id)->latest('tanggal_awal')->limit(20)->get()
                 ->map(fn (Trip $t) => TripController::tripData($t, $today)),
             'cities' => Trip::query()->select('kota_asal as kota')->union(Trip::query()->select('kota_tujuan as kota'))->pluck('kota')->unique()->sort()->values(),
             'tempat_options' => Deklarasi::whereNotNull('tempat')->distinct()->orderBy('tempat')->pluck('tempat'),

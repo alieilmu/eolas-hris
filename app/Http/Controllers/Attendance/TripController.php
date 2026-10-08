@@ -13,12 +13,16 @@ use App\Support\Attendance\Bandara;
 use App\Support\Attendance\Onsite;
 use App\Support\Attendance\Period;
 use App\Support\Attendance\Roll;
+use App\Support\Attendance\TripImport;
 use App\Support\Attendance\TripWriter;
 use App\Support\Cuti\Cuti;
+use App\Support\Cuti\Lumpsum;
 use App\Support\Excel\TableExcel;
 use App\Support\Karyawan\MasterOptions;
+use App\Support\Karyawan\Nrp;
 use App\Support\Lampiran\Attachments;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -70,13 +74,14 @@ class TripController extends Controller
             'perjalanan' => ['nullable', Rule::in(['akan', 'berjalan', 'selesai'])],
             'status' => ['nullable', Rule::in(Trip::STATUS)],
             'uang' => ['nullable', 'string', 'max:100'],
+            'tiket' => ['nullable', Rule::in(['belum'])],
             'q' => ['nullable', 'string', 'max:100'],
         ]);
         $jenis = $filters['jenis'] ?? 'dinas';
         $today = CarbonImmutable::today();
         $d = $today->toDateString();
 
-        $trips = Trip::with(['karyawan.jabatan:id,name', 'karyawan.workLocation:id,name', 'lampirans'])
+        $trips = Trip::with(self::WITH)
             ->when($jenis !== 'semua', fn ($q) => $q->where('jenis', $jenis))
             ->when($filters['perjalanan'] ?? null, fn ($q, $p) => match ($p) {
                 'akan' => $q->whereDate('tanggal_awal', '>', $d),
@@ -85,10 +90,8 @@ class TripController extends Controller
             })
             ->when($filters['uang'] ?? null, fn ($q, $s) => $q->where('status_uang', $s))
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
-            ->when(trim($filters['q'] ?? ''), fn ($q, $s) => $q->where(fn ($w) => $w
-                ->whereHas('karyawan', fn ($k) => $k->where('name', 'like', "%{$s}%")->orWhere('nrp', 'like', "%{$s}%"))
-                ->orWhere('kota_tujuan', 'like', "%{$s}%")
-                ->orWhere('kota_asal', 'like', "%{$s}%")))
+            ->when($filters['tiket'] ?? null, fn ($q) => self::tiketBelum($q))
+            ->when(trim($filters['q'] ?? ''), fn ($q, $s) => self::search($q, $s))
             // Waiting for HR first.
             ->orderByRaw("case when status = 'diajukan' then 0 else 1 end")
             ->orderByDesc('tanggal_awal')
@@ -99,9 +102,14 @@ class TripController extends Controller
 
         return Inertia::render('Attendance/Pengajuan', [
             'trips' => $trips,
-            'filters' => ['jenis' => $jenis, 'perjalanan' => $filters['perjalanan'] ?? '', 'uang' => $filters['uang'] ?? '', 'status' => $filters['status'] ?? '', 'q' => $filters['q'] ?? ''],
+            'filters' => [
+                'jenis' => $jenis, 'perjalanan' => $filters['perjalanan'] ?? '', 'uang' => $filters['uang'] ?? '', 'status' => $filters['status'] ?? '',
+                'tiket' => $filters['tiket'] ?? '', 'q' => $filters['q'] ?? '',
+            ],
             // Pengajuan from the portal waiting for HR, per jenis.
             'menunggu' => Trip::where('status', 'diajukan')->selectRaw('jenis, count(*) as n')->groupBy('jenis')->pluck('n', 'jenis'),
+            // Approved trips whose tickets are still to buy.
+            'tiket_belum' => self::tiketBelum(Trip::where('status', 'disetujui'))->count(),
             'can_edit' => $request->user()->canEdit('pengajuan-dinas'),
             'status_uang' => MasterOptions::values(self::STATUS_UANG),
             'people' => self::people(),
@@ -124,6 +132,7 @@ class TripController extends Controller
             'perjalanan' => ['nullable', Rule::in(['akan', 'berjalan', 'selesai'])],
             'status' => ['nullable', Rule::in(Trip::STATUS)],
             'uang' => ['nullable', 'string', 'max:100'],
+            'tiket' => ['nullable', Rule::in(['belum'])],
             'q' => ['nullable', 'string', 'max:100'],
             'lokasi' => ['nullable', 'integer'],
             'sub' => ['nullable', 'string', 'max:10'],
@@ -136,7 +145,8 @@ class TripController extends Controller
         $jenis = $f['jenis'] ?? 'semua';
         $sub = Roll::subLocationFilter($f['sub'] ?? null);
 
-        $trips = Trip::with(['karyawan.jabatan:id,name', 'karyawan.workLocation:id,name', 'karyawan.subLocation:id,name', 'karyawan.departemen', 'karyawan.section.departemen'])
+        $trips = Trip::with(['karyawan.jabatan:id,name', 'karyawan.workLocation:id,name', 'karyawan.subLocation:id,name', 'karyawan.departemen', 'karyawan.section.departemen',
+            'karyawan.profile:id,karyawan_id,nik,klasifikasi'])
             ->when($months, fn ($q) => $q->whereDate('tanggal_awal', '<=', $to->toDateString())->whereDate('tanggal_akhir', '>=', $from->toDateString()))
             ->when($jenis !== 'semua', fn ($q) => $q->where('jenis', $jenis))
             ->when($f['perjalanan'] ?? null, fn ($q, $p) => match ($p) {
@@ -148,24 +158,26 @@ class TripController extends Controller
             ->when($f['status'] ?? null, fn ($q, $st) => $q->where('status', $st))
             ->when($f['lokasi'] ?? null, fn ($q, $l) => $q->whereHas('karyawan', fn ($k) => $k->where('work_location_id', $l)))
             ->when($sub !== null, fn ($q) => $q->whereHas('karyawan', fn ($k) => $sub === Roll::NO_SUB_LOCATION ? $k->whereNull('sub_location_id') : $k->where('sub_location_id', $sub)))
-            ->when(trim($f['q'] ?? ''), fn ($q, $s) => $q->where(fn ($w) => $w
-                ->whereHas('karyawan', fn ($k) => $k->where('name', 'like', "%{$s}%")->orWhere('nrp', 'like', "%{$s}%"))
-                ->orWhere('kota_tujuan', 'like', "%{$s}%")
-                ->orWhere('kota_asal', 'like', "%{$s}%")))
+            ->when($f['tiket'] ?? null, fn ($q) => self::tiketBelum($q))
+            ->when(trim($f['q'] ?? ''), fn ($q, $s) => self::search($q, $s))
             ->orderBy('tanggal_awal')
             ->orderBy('id')
             ->get();
 
         $route = fn (?string $a, ?string $b) => $a || $b ? ($a ?? '?').' → '.($b ?? '?') : null;
+        $tiket = fn (Trip $t, string $arah) => $t->adaTiket($arah) ? ($t->{"tiket_{$arah}_dibeli_at"} ? 'Sudah dibeli '.$t->{"tiket_{$arah}_dibeli_at"}->format('d.m.Y') : 'Belum') : null;
         $rows = $trips->values()->map(fn (Trip $t, int $i) => [
             $i + 1,
             Trip::JENIS[$t->jenis] ?? $t->jenis,
             $t->karyawan->nrp,
+            $t->karyawan->profile?->nik,
             $t->karyawan->name,
             $t->karyawan->jabatan?->name,
             $t->karyawan->placementDepartemen()?->name,
             $t->karyawan->workLocation?->name,
             $t->karyawan->subLocation?->name,
+            Nrp::derived($t->karyawan)['tempat_penerimaan'],
+            $t->karyawan->profile?->klasifikasi,
             $t->tanggal_awal->toDateString(),
             $t->tanggal_akhir->toDateString(),
             $t->lamaHari(),
@@ -175,10 +187,13 @@ class TripController extends Controller
             $t->hari_cuti,
             $t->potong_tahunan ?: null,
             $t->potong_besar ?: null,
+            $t->lumpsum,
             $t->tiket_pesawat ? $route($t->bandara_asal, $t->bandara_tujuan) : null,
             $t->tiket_pesawat && $t->pesawat_pp ? $t->pulang_tanggal?->toDateString() : null,
             $t->tiket_pesawat && $t->pesawat_pp ? $route($t->pulang_bandara_asal, $t->pulang_bandara_tujuan) : null,
             $t->tiket_kereta ? 'Ya' : null,
+            $tiket($t, 'pergi'),
+            $tiket($t, 'pulang'),
             $t->uang_muka ? $t->uang_muka_nominal : null,
             $t->status_uang,
             ['akan' => 'Akan berangkat', 'berjalan' => 'Berjalan', 'selesai' => 'Selesai'][$t->statusPerjalanan($today)],
@@ -204,16 +219,18 @@ class TripController extends Controller
                 ($f['perjalanan'] ?? null) ? 'Perjalanan '.$f['perjalanan'] : null,
                 ($f['status'] ?? null) ? 'Status '.$f['status'] : null,
                 ($f['uang'] ?? null) ? 'Status uang '.$f['uang'] : null,
+                ($f['tiket'] ?? null) ? 'Tiket belum dibeli' : null,
                 trim($f['q'] ?? '') !== '' ? 'Cari "'.trim($f['q']).'"' : null,
                 $trips->count().' data',
             ]),
             'freeze' => 4,
             'columns' => [
-                ['No', 5, 'int'], ['Jenis', 8], ['NRP', 12], ['Nama', 28], ['Jabatan', 26], ['Departemen', 22], ['Lokasi', 16], ['Sub Lokasi', 16],
-                ['Berangkat / Mulai', 12, 'date'], ['Kembali / Selesai', 12, 'date'], ['Lama (hari)', 8, 'int', 'sum' => true],
+                ['No', 5, 'int'], ['Jenis', 8], ['NRP', 12], ['NIK', 18], ['Nama', 28], ['Jabatan', 26], ['Departemen', 22], ['Lokasi', 16], ['Sub Lokasi', 16],
+                ['POH', 16], ['Klasifikasi', 11], ['Berangkat / Mulai', 12, 'date'], ['Kembali / Selesai', 12, 'date'], ['Lama (hari)', 8, 'int', 'sum' => true],
                 ['Kota Asal', 16], ['Kota Tujuan', 16], ['Kategori Cuti', 22], ['Hari Cuti', 7, 'int', 'sum' => true],
-                ['Potong Tahunan', 9, 'int', 'sum' => true], ['Potong Besar', 9, 'int', 'sum' => true],
+                ['Potong Tahunan', 9, 'int', 'sum' => true], ['Potong Besar', 9, 'int', 'sum' => true], ['Lumpsum', 14, 'rupiah', 'sum' => true],
                 ['Tiket Pesawat Pergi', 16], ['Tgl Pulang (PP)', 12, 'date'], ['Tiket Pesawat Pulang', 16], ['Tiket Kereta', 8],
+                ['Tiket Pergi', 20], ['Tiket Pulang', 20],
                 ['Uang Muka', 14, 'rupiah', 'sum' => true], ['Status Uang', 18], ['Perjalanan', 14], ['Status', 11], ['Sumber', 8],
                 ['Keterangan', 32], ['Catatan Verifikasi', 28],
             ],
@@ -315,6 +332,43 @@ class TripController extends Controller
         return back();
     }
 
+    public function template(): StreamedResponse
+    {
+        return TripImport::template();
+    }
+
+    /** Import Excel: first a check of every row (JSON), then with `simpan` the valid rows are saved. */
+    public function import(Request $request): JsonResponse|RedirectResponse
+    {
+        $data = $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls', 'max:5120'], 'simpan' => ['nullable', 'boolean']], [], ['file' => 'File Excel']);
+        $simpan = $request->boolean('simpan');
+        $result = TripImport::run($data['file']->getRealPath(), $request->user(), $simpan);
+        if (! $simpan) {
+            return response()->json($result);
+        }
+        if (! $result['ok']) {
+            throw ValidationException::withMessages(['file' => 'Tidak ada baris yang bisa diimport.']);
+        }
+        Inertia::flash('success', "{$result['ok']} pengajuan diimport dan Absensi ikut terisi".($result['gagal'] ? "; {$result['gagal']} baris dilewati." : '.'));
+
+        return back();
+    }
+
+    /** Marks the ticket going (pergi) or coming back (pulang) as bought, or not yet. */
+    public function tiket(Request $request, Trip $trip): RedirectResponse
+    {
+        $data = $request->validate(['arah' => ['required', Rule::in(['pergi', 'pulang'])], 'dibeli' => ['required', 'boolean']]);
+        $arah = $data['arah'];
+        if (! $trip->adaTiket($arah)) {
+            throw ValidationException::withMessages(['arah' => "Pengajuan ini tidak meminta tiket {$arah}."]);
+        }
+        $dibeli = (bool) $data['dibeli'];
+        $trip->update(["tiket_{$arah}_dibeli_at" => $dibeli ? now() : null, "tiket_{$arah}_dibeli_by" => $dibeli ? $request->user()->id : null]);
+        Inertia::flash('success', "Tiket {$arah} {$trip->karyawan->name}: ".($dibeli ? 'sudah dibeli.' : 'belum dibeli.'));
+
+        return back();
+    }
+
     /** The first money status: "Diajukan" when uang muka is asked (if that status exists), else the first one. */
     public static function statusUangAwal(bool $uangMuka): ?string
     {
@@ -324,7 +378,7 @@ class TripController extends Controller
     }
 
     /** A new trip is for an active employee; an existing one keeps its employee even after they left. */
-    public static function validateTrip(Request $request, ?Trip $current = null): array
+    public static function validateTrip(Request $request, ?Trip $current = null, bool $lampiran = true): array
     {
         $keepsEmployee = $current && (int) $request->input('karyawan_id') === $current->karyawan_id;
         $dinas = $request->input('jenis') === 'dinas';
@@ -380,7 +434,7 @@ class TripController extends Controller
         if (CarbonImmutable::parse($data['tanggal_awal'])->diffInDays(CarbonImmutable::parse($data['tanggal_akhir'])) > 366) {
             throw ValidationException::withMessages(['tanggal_akhir' => 'Satu entri paling lama 1 tahun.']);
         }
-        Attachments::require($request, $current, 'Lampirkan foto / PDF form '.(($data['jenis'] ?? '') === 'cuti' ? 'cuti' : 'dinas').' yang sudah disetujui.');
+        $lampiran && Attachments::require($request, $current, 'Lampirkan foto / PDF form '.(($data['jenis'] ?? '') === 'cuti' ? 'cuti' : 'dinas').' yang sudah disetujui.');
         $data['kota_asal'] = trim($data['kota_asal']);
         $data['kota_tujuan'] = trim($data['kota_tujuan']);
         // A flight ticket goes with its airports; a train ticket only for dinas.
@@ -403,8 +457,15 @@ class TripController extends Controller
         if ($data['jenis'] === 'cuti') {
             $karyawan = Karyawan::withoutGlobalScope('akses')->findOrFail($data['karyawan_id']);
             $data += ['hari_cuti' => $hari, ...Cuti::potongan($karyawan, $data['kategori_cuti'], $hari, $current?->id)];
+            $data['lumpsum'] = Lumpsum::nominal($karyawan, $data['kategori_cuti']);
         } else {
-            $data = [...$data, 'kategori_cuti' => null, 'hari_cuti' => null, 'potong_tahunan' => 0, 'potong_besar' => 0, 'cuti_besar_periode' => null];
+            $data = [...$data, 'kategori_cuti' => null, 'hari_cuti' => null, 'potong_tahunan' => 0, 'potong_besar' => 0, 'cuti_besar_periode' => null, 'lumpsum' => null];
+        }
+        if (! $pesawat && ! $data['tiket_kereta']) {
+            $data += ['tiket_pergi_dibeli_at' => null, 'tiket_pergi_dibeli_by' => null];
+        }
+        if (! $pp) {
+            $data += ['tiket_pulang_dibeli_at' => null, 'tiket_pulang_dibeli_by' => null];
         }
 
         return $data;
@@ -419,6 +480,9 @@ class TripController extends Controller
             'name' => $t->karyawan->name,
             'jabatan' => $t->karyawan->jabatan?->name,
             'work_location' => $t->karyawan->workLocation?->name,
+            'nik' => $t->karyawan->profile?->nik,
+            'poh' => Nrp::derived($t->karyawan)['tempat_penerimaan'],
+            'klasifikasi' => $t->karyawan->profile?->klasifikasi,
             'jenis' => $t->jenis,
             'tanggal_awal' => $t->tanggal_awal->toDateString(),
             'tanggal_akhir' => $t->tanggal_akhir->toDateString(),
@@ -443,6 +507,11 @@ class TripController extends Controller
             'tiket_kereta' => $t->tiket_kereta,
             'uang_muka' => $t->uang_muka,
             'uang_muka_nominal' => $t->uang_muka_nominal,
+            'lumpsum' => $t->lumpsum,
+            'tiket_dibeli' => [
+                'pergi' => $t->tiket_pergi_dibeli_at ? ['at' => $t->tiket_pergi_dibeli_at->toIso8601String(), 'by' => $t->pembeliTiketPergi?->name] : null,
+                'pulang' => $t->tiket_pulang_dibeli_at ? ['at' => $t->tiket_pulang_dibeli_at->toIso8601String(), 'by' => $t->pembeliTiketPulang?->name] : null,
+            ],
             'lampiran' => $t->lampirans->map(fn (Lampiran $l) => $l->toView())->values(),
             'lama' => $t->lamaHari(),
             'perjalanan' => $t->statusPerjalanan($today),
@@ -453,6 +522,28 @@ class TripController extends Controller
                 default => (int) $t->tanggal_akhir->diffInDays($today),
             },
         ];
+    }
+
+    /** What tripData() reads. */
+    public const WITH = ['karyawan.jabatan:id,name', 'karyawan.workLocation:id,name', 'karyawan.profile:id,karyawan_id,nik,klasifikasi', 'lampirans',
+        'pembeliTiketPergi:id,name', 'pembeliTiketPulang:id,name'];
+
+    /** Trips with a ticket asked and not bought yet, going or coming back. */
+    private static function tiketBelum($query)
+    {
+        return $query->where(fn ($q) => $q
+            ->where(fn ($w) => $w->where(fn ($t) => $t->where('tiket_pesawat', true)->orWhere('tiket_kereta', true))->whereNull('tiket_pergi_dibeli_at'))
+            ->orWhere(fn ($w) => $w->where('tiket_pesawat', true)->where('pesawat_pp', true)->whereNull('tiket_pulang_dibeli_at')));
+    }
+
+    /** Name, NRP, NIK or city. */
+    private static function search($query, string $s)
+    {
+        return $query->where(fn ($w) => $w
+            ->whereHas('karyawan', fn ($k) => $k->where('name', 'like', "%{$s}%")->orWhere('nrp', 'like', "%{$s}%")
+                ->orWhereHas('profile', fn ($p) => $p->where('nik', 'like', "%{$s}%")))
+            ->orWhere('kota_tujuan', 'like', "%{$s}%")
+            ->orWhere('kota_asal', 'like', "%{$s}%"));
     }
 
     /** Active employees, for looking up an NRP in the form. */

@@ -250,6 +250,9 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
             });
             Route::middleware('menu:pengajuan-dinas')->group(function () {
                 Route::put('/trip-leave/{trip}/status-uang', 'statusUang')->name('trip.status-uang');
+                Route::put('/trip-leave/{trip}/tiket', 'tiket')->name('trip.tiket');
+                Route::get('/pengajuan-dinas/template', 'template')->name('pengajuan.template');
+                Route::post('/pengajuan-dinas/import', 'import')->name('pengajuan.import');
                 Route::post('/trip-leave/{trip}/verifikasi', 'verify')->name('trip.verify');
                 Route::get('/pengajuan-dinas', 'list')->name('pengajuan');
             });
@@ -311,6 +314,7 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
             Route::post('/cuti-lapangan', [CutiMasterController::class, 'storeLapangan'])->name('cuti-lapangan.store');
             Route::put('/cuti-lapangan/{lapangan}', [CutiMasterController::class, 'updateLapangan'])->whereNumber('lapangan')->name('cuti-lapangan.update');
             Route::delete('/cuti-lapangan/{lapangan}', [CutiMasterController::class, 'destroyLapangan'])->whereNumber('lapangan')->name('cuti-lapangan.destroy');
+            Route::put('/lumpsum-cuti', [CutiMasterController::class, 'updateLumpsum'])->name('lumpsum-cuti.update');
         });
     });
 

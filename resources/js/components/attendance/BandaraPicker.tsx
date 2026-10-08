@@ -189,6 +189,7 @@ export function TiketBadges({
         uang_muka: boolean;
         uang_muka_nominal: number | null;
         kategori_cuti?: KategoriCuti | null;
+        lumpsum?: number | null;
         potong_tahunan?: number;
         potong_besar?: number;
     };
@@ -229,6 +230,12 @@ export function TiketBadges({
                 <span className={`${badge} bg-emerald-50 text-emerald-700 ring-emerald-100`} title="Uang muka dinas yang diajukan">
                     <Banknote size={11} />
                     Uang muka Rp {rupiah(trip.uang_muka_nominal)}
+                </span>
+            )}
+            {!!trip.lumpsum && (
+                <span className={`${badge} bg-emerald-50 text-emerald-700 ring-emerald-100`} title="Lumpsum cuti lapangan (site × POH × klasifikasi)">
+                    <Banknote size={11} />
+                    Lumpsum Rp {rupiah(trip.lumpsum)}
                 </span>
             )}
         </span>

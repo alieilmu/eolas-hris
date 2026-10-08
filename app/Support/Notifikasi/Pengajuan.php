@@ -69,9 +69,9 @@ class Pengajuan
         $to = User::whereIn('role', [User::ROLE_ADMIN, User::ROLE_HR])->where('is_active', true)->get()->filter(fn (User $u) => $u->canEdit('recruitment'))->values();
         $posisi = $a->jawaban('posisi') ?? $a->form?->posisi ?? $a->form?->title;
         if ($to->isNotEmpty()) {
-            Notification::send($to, new PengajuanMasuk('pelamar', "pelamar:{$a->id}", 'Pelamar Baru',
+            self::safely(fn () => Notification::send($to, new PengajuanMasuk('pelamar', "pelamar:{$a->id}", 'Pelamar Baru',
                 $a->nama().' melamar '.$posisi.($a->form && $a->form->title !== $posisi ? " ({$a->form->title})" : ''),
-                "/recruitment/pelamar?lihat={$a->id}", ['id' => null, 'nrp' => null, 'name' => $a->nama()]));
+                "/recruitment/pelamar?lihat={$a->id}", ['id' => null, 'nrp' => null, 'name' => $a->nama()])));
         }
     }
 
@@ -85,9 +85,9 @@ class Pengajuan
                 && (($ids = AccessScope::workLocationIds($u)) === null || in_array($locationId, $ids, true)))
             ->values();
         if ($to->isNotEmpty()) {
-            Notification::send($to, new PengajuanMasuk('mpp', "mpp:{$r->id}", 'Revisi Man Power Planning',
+            self::safely(fn () => Notification::send($to, new PengajuanMasuk('mpp', "mpp:{$r->id}", 'Revisi Man Power Planning',
                 "{$r->plan->workLocation->name} · {$r->plan->label()}: ".count($r->perubahan).' jabatan diubah oleh '.($r->pembuat?->name ?? '-'),
-                "/manpower/mpp?lokasi={$locationId}&periode={$r->plan->kode()}", ['id' => null, 'nrp' => null, 'name' => $r->pembuat?->name]));
+                "/manpower/mpp?lokasi={$locationId}&periode={$r->plan->kode()}", ['id' => null, 'nrp' => null, 'name' => $r->pembuat?->name])));
         }
     }
 
@@ -99,15 +99,15 @@ class Pengajuan
             return;
         }
         $setuju = $r->status === 'disetujui';
-        $r->pembuat->notify(new PengajuanMasuk('mpp-hasil', "mpp-hasil:{$r->id}", 'Revisi MPP '.($setuju ? 'disetujui' : 'ditolak'),
+        self::safely(fn () => $r->pembuat->notify(new PengajuanMasuk('mpp-hasil', "mpp-hasil:{$r->id}", 'Revisi MPP '.($setuju ? 'disetujui' : 'ditolak'),
             "{$r->plan->workLocation->name} · {$r->plan->label()} oleh ".($r->penyetuju?->name ?? '-').($r->catatan_verifikasi ? " — {$r->catatan_verifikasi}" : ''),
-            "/manpower/mpp?lokasi={$r->plan->work_location_id}&periode={$r->plan->kode()}", ['id' => null, 'nrp' => null, 'name' => $r->penyetuju?->name]));
+            "/manpower/mpp?lokasi={$r->plan->work_location_id}&periode={$r->plan->kode()}", ['id' => null, 'nrp' => null, 'name' => $r->penyetuju?->name])));
     }
 
     /** HR decided, or the employee withdrew it: nothing left to do for anyone. */
     public static function selesai(string $ref): void
     {
-        DatabaseNotification::where('ref', $ref)->whereNull('read_at')->update(['read_at' => now()]);
+        self::safely(fn () => DatabaseNotification::where('ref', $ref)->whereNull('read_at')->update(['read_at' => now()]));
     }
 
     /** Active admins with "ubah" on $menu whose locations include the employee's. */
@@ -129,7 +129,16 @@ class Pengajuan
         }
         $to = self::recipients($menu, $k);
         if ($to->isNotEmpty()) {
-            Notification::send($to, new PengajuanMasuk($jenis, $ref, $judul, "{$k->name} ({$k->nrp}) {$isi}", $url, ['id' => $k->id, 'nrp' => $k->nrp, 'name' => $k->name]));
+            self::safely(fn () => Notification::send($to, new PengajuanMasuk($jenis, $ref, $judul, "{$k->name} ({$k->nrp}) {$isi}", $url, ['id' => $k->id, 'nrp' => $k->nrp, 'name' => $k->name])));
         }
+    }
+
+    /**
+     * A notification is extra: when it cannot be written (e.g. the notifications table is not
+     * migrated yet on a server) the pengajuan / decision already saved must not fail with it.
+     */
+    private static function safely(callable $write): void
+    {
+        rescue($write, report: true);
     }
 }

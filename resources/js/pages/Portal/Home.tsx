@@ -327,18 +327,61 @@ function CutiCard({ cuti, aturan }: { cuti: CutiInfo; aturan: Props['cuti_aturan
                     <p className="mt-3 text-sm text-amber-700">{t.alasan} Hubungi HR.</p>
                 ) : (
                     <>
-                        <p className="mt-3 text-3xl font-black text-violet-700 tabular-nums">{(t.saldo ?? 0) - (t.hutang ?? 0)} hari</p>
-                        <p className="text-xs text-slate-400">sisa cuti aktif{t.menunggu ? ` · ${t.menunggu} hari menunggu persetujuan` : ''}</p>
+                        <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200">
+                            <table className="w-full text-left text-xs">
+                                <thead className="bg-slate-50 text-[10px] font-bold tracking-wide text-slate-500 uppercase">
+                                    <tr>
+                                        <th className="px-3 py-2">Periode aktif</th>
+                                        <th className="px-2 py-2 text-center">Jatah</th>
+                                        <th className="px-2 py-2 text-center">Terpakai</th>
+                                        <th className="px-3 py-2 text-center">Sisa</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {(t.periode ?? []).length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-3 py-3 text-center text-slate-400">
+                                                Belum ada periode cuti tahunan yang aktif.
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {(t.periode ?? []).map((p) => (
+                                        <tr key={p.tahun}>
+                                            <td className="px-3 py-2">
+                                                <b className="text-slate-700 tabular-nums">
+                                                    {fmtDate(p.mulai)} – {fmtDate(p.berlaku_sampai)}
+                                                </b>
+                                                <span className="block text-[10px] text-slate-400">jatah {p.tahun}</span>
+                                            </td>
+                                            <td className="px-2 py-2 text-center text-slate-600 tabular-nums">{p.jatah}</td>
+                                            <td className="px-2 py-2 text-center text-slate-600 tabular-nums">{p.terpakai}</td>
+                                            <td
+                                                className={`px-3 py-2 text-center font-bold tabular-nums ${p.sisa ? 'text-violet-700' : 'text-slate-400'}`}
+                                            >
+                                                {p.sisa}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot className="border-t border-slate-200 bg-slate-50">
+                                    <tr>
+                                        <td colSpan={3} className="px-3 py-2 font-bold text-slate-600">
+                                            Total sisa
+                                        </td>
+                                        <td className="px-3 py-2 text-center text-sm font-black text-violet-700 tabular-nums">
+                                            {(t.saldo ?? 0) - (t.hutang ?? 0)}
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
                         <div className="mt-3 space-y-0.5 text-xs text-slate-500">
-                            {!!t.hutang && <p className="font-bold text-rose-600">Hutang cuti {t.hutang} hari (dipotong dari jatah berikutnya)</p>}
-                            {!!t.hangus_akhir_tahun && <p className="text-amber-700">{t.hangus_akhir_tahun} hari hangus 31.12 bila tidak diambil</p>}
-                            <p>Jatah berikutnya masuk {fmtDate(t.hak_berikutnya)}</p>
-                            {cuti.lapangan && (
-                                <p>
-                                    Cuti lapangan {cuti.lapangan.cuti} hari + {cuti.lapangan.berangkat + cuti.lapangan.kembali} hari perjalanan;
-                                    lebihnya memotong cuti tahunan.
-                                </p>
-                            )}
+                            {!!t.menunggu && <p className="text-sky-700">{t.menunggu} hari sedang menunggu persetujuan HR.</p>}
+                            {!!t.hutang && <p className="font-bold text-rose-600">Hutang cuti {t.hutang} hari (dipotong dari jatah berikutnya).</p>}
+                            <p>
+                                Cuti tahunan berikutnya matang <b className="text-slate-700">{fmtDate(t.hak_berikutnya)}</b>
+                                {t.jatah_berikutnya ? ` (+${t.jatah_berikutnya} hari)` : ''}.
+                            </p>
                         </div>
                     </>
                 )}

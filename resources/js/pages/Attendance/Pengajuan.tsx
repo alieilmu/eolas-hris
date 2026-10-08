@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Download, Pencil, Search, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Download, FileUp, Pencil, PlaneLanding, PlaneTakeoff, Search, Ticket, Trash2 } from 'lucide-react';
 import { TripForm, type TripData, type TripPerson } from '@/components/attendance/TripForm';
+import { TripImportDialog } from '@/components/attendance/TripImportDialog';
 import { AttendanceHeader, JenisBadge, Modal, secondaryButton, smallInput } from '@/components/attendance/ui';
 import { fmtDate } from '@/lib/format';
 import { StatusBadge, VerifyButtons } from '@/components/Verification';
@@ -25,6 +26,7 @@ interface Filters {
     perjalanan: '' | 'akan' | 'berjalan' | 'selesai';
     uang: string;
     status: '' | 'diajukan' | 'disetujui' | 'ditolak';
+    tiket: '' | 'belum';
     q: string;
 }
 
@@ -36,6 +38,8 @@ interface Props {
     cities: string[];
     /** From the employee portal, waiting for HR, per jenis. */
     menunggu: Partial<Record<'dinas' | 'cuti', number>>;
+    /** Approved trips with a ticket still to buy. */
+    tiket_belum: number;
     can_edit: boolean;
     bandara: Bandara[];
     lampiran_limits: LampiranLimits;
@@ -65,10 +69,11 @@ function perjalananNote(t: TripData): string {
     return t.hari_ke <= 1 ? 'Kembali kemarin' : `Kembali ${t.hari_ke} hari lalu`;
 }
 
-export default function Pengajuan({ trips, filters, status_uang, people, cities, menunggu, can_edit, bandara, lampiran_limits }: Props) {
+export default function Pengajuan({ trips, filters, status_uang, people, cities, menunggu, tiket_belum, can_edit, bandara, lampiran_limits }: Props) {
     const waiting = (menunggu.dinas ?? 0) + (menunggu.cuti ?? 0);
     const [search, setSearch] = useState(filters.q);
     const [editing, setEditing] = useState<TripData | null>(null);
+    const [importing, setImporting] = useState(false);
     const first = useRef(true);
 
     const apply = (next: Partial<Filters>) => {
@@ -78,6 +83,7 @@ export default function Pengajuan({ trips, filters, status_uang, people, cities,
         if (merged.perjalanan) query.perjalanan = merged.perjalanan;
         if (merged.uang) query.uang = merged.uang;
         if (merged.status) query.status = merged.status;
+        if (merged.tiket) query.tiket = merged.tiket;
         if (merged.q.trim()) query.q = merged.q.trim();
         router.get('/attendance/pengajuan-dinas', query, { preserveState: true, preserveScroll: true, replace: true });
     };
@@ -129,6 +135,12 @@ export default function Pengajuan({ trips, filters, status_uang, people, cities,
                     <ArrowLeft size={15} />
                     Trip &amp; Leave
                 </Link>
+                {can_edit && (
+                    <button onClick={() => setImporting(true)} className={secondaryButton} title="Import banyak pengajuan dari Excel">
+                        <FileUp size={16} />
+                        Import Excel
+                    </button>
+                )}
                 <a href={exportUrl()} className={secondaryButton} title="Unduh daftar sesuai filter">
                     <Download size={16} />
                     Export Excel
@@ -163,6 +175,20 @@ export default function Pengajuan({ trips, filters, status_uang, people, cities,
                         >
                             Perlu persetujuan ({waiting})
                         </button>
+                        <button
+                            onClick={() => apply(filters.tiket ? { tiket: '' } : { tiket: 'belum', jenis: 'semua' })}
+                            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-bold ring-1 ring-inset ${
+                                filters.tiket
+                                    ? 'bg-sky-600 text-white ring-sky-600'
+                                    : tiket_belum
+                                      ? 'bg-sky-50 text-sky-700 ring-sky-200'
+                                      : 'text-slate-400 ring-slate-200'
+                            }`}
+                            title="Pengajuan yang tiket pergi / pulangnya belum dibelikan"
+                        >
+                            <Ticket size={14} />
+                            Tiket belum dibeli ({tiket_belum})
+                        </button>
                         <select
                             value={filters.perjalanan}
                             onChange={(e) => apply({ perjalanan: e.target.value as Filters['perjalanan'] })}
@@ -194,7 +220,7 @@ export default function Pengajuan({ trips, filters, status_uang, people, cities,
                             <input
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Cari nama / NRP / kota"
+                                placeholder="Cari nama / NRP / NIK / kota"
                                 className={`${smallInput} w-60 pl-8`}
                             />
                         </div>
@@ -211,6 +237,7 @@ export default function Pengajuan({ trips, filters, status_uang, people, cities,
                                     <th className={th}>Kembali</th>
                                     <th className={th}>Tujuan</th>
                                     <th className={`${th} text-center`}>Lama</th>
+                                    <th className={th}>Tiket</th>
                                     <th className={th}>Persetujuan</th>
                                     <th className={th}>Status Perjalanan</th>
                                     <th className={th}>Status Pengajuan Uang</th>
@@ -220,7 +247,7 @@ export default function Pengajuan({ trips, filters, status_uang, people, cities,
                             <tbody className="divide-y divide-slate-100">
                                 {trips.data.length === 0 && (
                                     <tr>
-                                        <td colSpan={11} className="px-5 py-12 text-center text-sm text-slate-400">
+                                        <td colSpan={12} className="px-5 py-12 text-center text-sm text-slate-400">
                                             Belum ada data. Input perjalanan dinas / cuti di halaman Trip &amp; Leave.
                                         </td>
                                     </tr>
@@ -234,6 +261,13 @@ export default function Pengajuan({ trips, filters, status_uang, people, cities,
                                                 <p className="font-bold text-slate-700">{t.name}</p>
                                                 <p className="text-[11px] text-slate-400">
                                                     {t.nrp} · {t.jabatan ?? 'Belum ditempatkan'}
+                                                </p>
+                                                <p className="text-[11px] text-slate-400">
+                                                    NIK <span className="text-slate-600 tabular-nums">{t.nik ?? '—'}</span>
+                                                </p>
+                                                <p className="text-[11px] text-slate-400">
+                                                    POH <span className="font-bold text-slate-600">{t.poh ?? '—'}</span>
+                                                    {t.klasifikasi && ` · ${t.klasifikasi}`}
                                                 </p>
                                             </td>
                                             {filters.jenis === 'semua' && (
@@ -261,6 +295,9 @@ export default function Pengajuan({ trips, filters, status_uang, people, cities,
                                                 )}
                                             </td>
                                             <td className="px-3 py-3 text-center whitespace-nowrap text-slate-600 tabular-nums">{t.lama} hari</td>
+                                            <td className="px-3 py-3">
+                                                <TiketStatus trip={t} canEdit={can_edit} />
+                                            </td>
                                             <td className="px-3 py-3">
                                                 <StatusBadge status={t.status} sumber={t.sumber} catatan={t.catatan_verifikasi} />
                                             </td>
@@ -343,6 +380,7 @@ export default function Pengajuan({ trips, filters, status_uang, people, cities,
                 </div>
             </div>
 
+            {importing && <TripImportDialog onClose={() => setImporting(false)} />}
             {editing && (
                 <Modal
                     title={`Ubah ${editing.jenis === 'dinas' ? 'Dinas' : 'Cuti'} — ${editing.name}`}
@@ -362,6 +400,41 @@ export default function Pengajuan({ trips, filters, status_uang, people, cities,
                 </Modal>
             )}
         </>
+    );
+}
+
+/** Whether the ticket going and the one coming back are bought; HR ticks it when they buy it. */
+function TiketStatus({ trip, canEdit }: { trip: TripData; canEdit: boolean }) {
+    const arah = [
+        { key: 'pergi' as const, label: 'Pergi', icon: PlaneTakeoff, ada: trip.tiket_pesawat || trip.tiket_kereta },
+        { key: 'pulang' as const, label: 'Pulang', icon: PlaneLanding, ada: trip.tiket_pesawat && trip.pesawat_pp },
+    ].filter((a) => a.ada);
+    if (arah.length === 0) return <span className="text-xs text-slate-300">—</span>;
+    const toggle = (key: 'pergi' | 'pulang', dibeli: boolean) =>
+        router.put(`/attendance/trip-leave/${trip.id}/tiket`, { arah: key, dibeli }, { preserveScroll: true, preserveState: true });
+    return (
+        <div className="flex flex-col gap-1">
+            {arah.map(({ key, label, icon: Icon }) => {
+                const d = trip.tiket_dibeli[key];
+                const title = d
+                    ? `Tiket ${key} dibeli ${new Date(d.at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}${d.by ? ` oleh ${d.by}` : ''}`
+                    : `Tiket ${key} belum dibeli`;
+                return (
+                    <button
+                        key={key}
+                        onClick={() => canEdit && toggle(key, !d)}
+                        disabled={!canEdit}
+                        title={canEdit ? `${title} — klik untuk ${d ? 'membatalkan' : 'menandai sudah dibeli'}` : title}
+                        className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold whitespace-nowrap ring-1 ring-inset ${
+                            d ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-amber-50 text-amber-700 ring-amber-200'
+                        } ${canEdit ? 'cursor-pointer hover:brightness-95' : 'cursor-default'}`}
+                    >
+                        <Icon size={11} />
+                        {label}: {d ? 'Sudah dibeli' : 'Belum'}
+                    </button>
+                );
+            })}
+        </div>
     );
 }
 

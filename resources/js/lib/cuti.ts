@@ -22,6 +22,9 @@ export interface Tahunan {
     diambil_total: number;
     hangus_akhir_tahun?: number;
     hak_berikutnya?: string;
+    jatah_berikutnya?: number;
+    /** The quotas still alive (used oldest first) and what is left of each. */
+    periode?: { tahun: number; mulai: string; berlaku_sampai: string; jatah: number; terpakai: number; sisa: number }[];
     tahun?: { tahun: number; jatah: number; diambil: number; sisa: number; hutang: number }[];
 }
 
@@ -72,6 +75,8 @@ export interface CutiItem {
 export interface CutiInfo {
     tahunan: Tahunan;
     lapangan: { cuti: number; berangkat: number; kembali: number; total: number } | null;
+    /** The lumpsum a Cuti Lapangan gets now (site × POH × klasifikasi), or why there is none. */
+    lumpsum: { nominal: number | null; poh: string | null; klasifikasi: string | null; alasan: string | null };
     besar: BesarPeriode[];
     kategori: Record<KategoriCuti, string>;
 }

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { router } from '@inertiajs/react';
 import { Loader2, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { ghostButton, primaryButton, smallInput } from '@/components/attendance/ui';
+import { MoneyInput } from '@/components/comben/MoneyInput';
+import { useDirtyForm, useGuard } from '@/components/masterdata/DirtyGuard';
 
 export interface CutiAturanData {
     jatah_tahunan: number;
@@ -256,6 +258,139 @@ export function CutiLapanganSection({
                     <Plus size={15} /> Tambah aturan lokasi / sub lokasi
                 </button>
             )}
+        </div>
+    );
+}
+
+export interface LumpsumRow {
+    work_location_id: number;
+    lokasi_penerimaan_id: number;
+    klasifikasi: string;
+    nominal: number;
+}
+
+type LumpsumValues = Record<string, Record<string, number | null>>;
+
+/** Lumpsum Cuti Lapangan of one site: per POH (lokasi penerimaan in the NRP) × klasifikasi. Empty = no lumpsum. */
+export function LumpsumSection({
+    rows,
+    poh,
+    klasifikasi,
+    workLocations,
+}: {
+    rows: LumpsumRow[];
+    poh: { id: number; kode: string; nama: string }[];
+    klasifikasi: string[];
+    workLocations: { id: number; name: string }[];
+}) {
+    const guard = useGuard();
+    const [site, setSite] = useState(workLocations[0]?.id ?? 0);
+    const initial = (id: number): LumpsumValues =>
+        Object.fromEntries(
+            poh.map((p) => [
+                p.id,
+                Object.fromEntries(
+                    klasifikasi.map((k) => [
+                        k,
+                        rows.find((r) => r.work_location_id === id && r.lokasi_penerimaan_id === p.id && r.klasifikasi === k)?.nominal ?? null,
+                    ]),
+                ),
+            ]),
+        );
+    const [values, setValues] = useState<LumpsumValues>(() => initial(site));
+    const [saving, setSaving] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const dirty = JSON.stringify(values) !== JSON.stringify(initial(site));
+    const siteName = workLocations.find((w) => w.id === site)?.name ?? '';
+
+    const save = () =>
+        new Promise<boolean>((resolve) =>
+            router.put(
+                '/comben/master-data/lumpsum-cuti',
+                { work_location_id: site, nominal: values },
+                {
+                    ...visit,
+                    onStart: () => setSaving(true),
+                    onFinish: () => setSaving(false),
+                    onError: (e) => {
+                        setErrors(e);
+                        resolve(false);
+                    },
+                    onSuccess: () => {
+                        setErrors({});
+                        resolve(true);
+                    },
+                },
+            ),
+        );
+    useDirtyForm('lumpsum-cuti', dirty, { label: `Lumpsum cuti lapangan ${siteName}`, save, discard: () => setValues(initial(site)) });
+    const pick = (id: number) =>
+        guard(() => {
+            setSite(id);
+            setValues(initial(id));
+            setErrors({});
+        });
+
+    return (
+        <div className="space-y-4">
+            <div className="flex w-fit flex-wrap gap-1 rounded-xl bg-slate-100 p-1">
+                {workLocations.map((w) => (
+                    <button
+                        key={w.id}
+                        onClick={() => w.id !== site && pick(w.id)}
+                        className={`rounded-lg px-3.5 py-1 text-sm font-bold transition-all ${
+                            w.id === site ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        {w.name}
+                    </button>
+                ))}
+            </div>
+            <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-[10px] font-bold tracking-wide text-slate-500 uppercase">
+                        <tr>
+                            <th className="px-3 py-2">POH (lokasi penerimaan)</th>
+                            {klasifikasi.map((k) => (
+                                <th key={k} className="px-3 py-2 text-right">
+                                    {k} (Rp)
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {poh.map((p) => (
+                            <tr key={p.id}>
+                                <td className="px-3 py-2">
+                                    <b className="text-slate-700">{p.nama}</b>
+                                    <span className="ml-1.5 text-xs text-slate-400">kode NRP {p.kode}</span>
+                                </td>
+                                {klasifikasi.map((k) => (
+                                    <td key={k} className="px-3 py-2">
+                                        <MoneyInput
+                                            value={values[p.id]?.[k] ?? null}
+                                            onChange={(v) => setValues((cur) => ({ ...cur, [p.id]: { ...cur[p.id], [k]: v } }))}
+                                            placeholder="tidak ada"
+                                            aria-label={`Lumpsum ${siteName} POH ${p.nama} ${k}`}
+                                            className={`${smallInput} ml-auto block w-36`}
+                                        />
+                                    </td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            {Object.values(errors)[0] && <p className="text-xs text-rose-600">{Object.values(errors)[0]}</p>}
+            <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-slate-500">
+                    Kosong = cuti lapangan karyawan itu tanpa lumpsum. Perubahan berlaku untuk pengajuan berikutnya; pengajuan lama tetap memakai
+                    nominal saat diajukan.
+                </p>
+                <button onClick={save} disabled={!dirty || saving} className={`${primaryButton} shrink-0 whitespace-nowrap`}>
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Simpan {siteName}
+                </button>
+            </div>
         </div>
     );
 }

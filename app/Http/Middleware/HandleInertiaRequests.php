@@ -58,7 +58,7 @@ class HandleInertiaRequests extends Middleware
                     'manageUsers' => (bool) $user?->isAdmin(),
                 ],
                 // Unread pengajuan notifications (the bell); employees have none.
-                'notifikasi' => $user && ! $user->isKaryawan() ? $user->unreadNotifications()->count() : 0,
+                'notifikasi' => $user && ! $user->isKaryawan() ? rescue(fn () => $user->unreadNotifications()->count(), 0) : 0,
                 // Menu => "view" | "edit", for the sidebar and the edit buttons.
                 'menus' => (object) ($user?->menus() ?? []),
             ],

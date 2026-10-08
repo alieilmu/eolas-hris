@@ -5,6 +5,7 @@ import { DateInput } from '@/components/DateInput';
 import { BandaraPicker, bandaraForCity, type Bandara } from '@/components/attendance/BandaraPicker';
 import { LampiranPicker } from '@/components/lampiran/LampiranPicker';
 import { MoneyInput } from '@/components/comben/MoneyInput';
+import { rupiah } from '@/lib/comben';
 import { daysBetween } from '@/lib/attendance';
 import { fmtDate } from '@/lib/format';
 import { draftPayload, emptyDraft, type LampiranFile, type LampiranLimits } from '@/lib/lampiran';
@@ -28,6 +29,10 @@ export interface TripData {
     name: string;
     jabatan: string | null;
     work_location: string | null;
+    nik: string | null;
+    /** Point of hire: the lokasi penerimaan in the NRP. */
+    poh: string | null;
+    klasifikasi: string | null;
     jenis: TripJenis;
     tanggal_awal: string;
     tanggal_akhir: string;
@@ -48,6 +53,9 @@ export interface TripData {
     tiket_kereta: boolean;
     uang_muka: boolean;
     uang_muka_nominal: number | null;
+    /** Lumpsum of a Cuti Lapangan (Master Data Comben: site × POH × klasifikasi). */
+    lumpsum: number | null;
+    tiket_dibeli: Record<'pergi' | 'pulang', { at: string; by: string | null } | null>;
     lampiran: LampiranFile[];
     kategori_cuti: KategoriCuti | null;
     hari_cuti: number | null;
@@ -390,6 +398,21 @@ export function TripForm({
                                 ) : (
                                     <span className="block text-rose-600">Cuti lapangan belum diatur untuk lokasi ini.</span>
                                 ))}
+                            {form.data.kategori_cuti === 'lapangan' && (
+                                <span className="block">
+                                    {cuti.lumpsum.nominal !== null ? (
+                                        <>
+                                            Lumpsum: <b className="text-emerald-700">Rp {rupiah(cuti.lumpsum.nominal)}</b>
+                                            <span className="text-slate-400">
+                                                {' '}
+                                                (POH {cuti.lumpsum.poh} · {cuti.lumpsum.klasifikasi})
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <span className="text-amber-700">Tanpa lumpsum: {cuti.lumpsum.alasan}</span>
+                                    )}
+                                </span>
+                            )}
                             {lama !== null && lama > 0 && potong && (
                                 <span className="block font-bold text-slate-700">
                                     {lama} hari → {potong.besar ? `${potong.besar} hari dari Cuti Besar, ` : ''}

@@ -14,6 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -76,6 +77,25 @@ class NotifikasiTest extends TestCase
             'kota_asal' => 'Tanjung', 'kota_tujuan' => 'Jakarta', 'tanggal_awal' => '2026-10-20', 'tanggal_akhir' => '2026-10-22',
             'lampiran' => [UploadedFile::fake()->create('form.pdf', 20, 'application/pdf')], ...$data,
         ])->assertSessionHasNoErrors();
+    }
+
+    public function test_a_pengajuan_is_saved_even_when_notifications_cannot_be_written(): void
+    {
+        // A server where the notifications table is not migrated yet.
+        [, $user] = $this->employee();
+        Schema::drop('notifications');
+
+        $this->actingAs($user)->post('/portal/deklarasi', [
+            'items' => [['jenis' => 'pengobatan', 'penerima' => 'karyawan', 'nominal' => 150000]],
+            'lampiran' => [UploadedFile::fake()->image('nota.jpg')],
+        ])->assertSessionHasNoErrors()->assertRedirect();
+        $d = Deklarasi::firstOrFail();
+        $this->assertSame('diajukan', $d->status);
+
+        // HR still opens its pages and decides.
+        $this->actingAs($this->admin())->get('/comben/deklarasi')->assertOk();
+        $this->post("/comben/deklarasi/{$d->id}/verifikasi", ['keputusan' => 'setujui'])->assertSessionHasNoErrors();
+        $this->assertSame('disetujui', $d->fresh()->status);
     }
 
     public function test_a_deklarasi_from_the_portal_reaches_the_admins_who_verify_it(): void

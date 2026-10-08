@@ -5,7 +5,14 @@ import { CrudTable } from '@/components/masterdata/CrudTable';
 import { DirtyGuardProvider, useGuard } from '@/components/masterdata/DirtyGuard';
 import { AttendanceHeader, Modal, ghostButton, primaryButton, smallInput } from '@/components/attendance/ui';
 import { MoneyInput } from '@/components/comben/MoneyInput';
-import { AturanCutiSection, CutiLapanganSection, type CutiAturanData, type CutiLapanganRow } from '@/components/comben/CutiMaster';
+import {
+    AturanCutiSection,
+    CutiLapanganSection,
+    LumpsumSection,
+    type CutiAturanData,
+    type CutiLapanganRow,
+    type LumpsumRow,
+} from '@/components/comben/CutiMaster';
 import { rupiah } from '@/lib/comben';
 
 interface GolonganRow {
@@ -56,6 +63,9 @@ interface Props {
     cuti_aturan: CutiAturanData;
     cuti_lapangan: CutiLapanganRow[];
     sub_locations: { id: number; name: string; work_location_id: number }[];
+    lumpsum: LumpsumRow[];
+    poh: { id: number; kode: string; nama: string }[];
+    klasifikasi: string[];
 }
 
 const BASE = '/comben/master-data';
@@ -107,6 +117,14 @@ function Page(props: Props) {
             label: 'Cuti Lapangan',
             hint: 'Hari cuti lapangan + hari perjalanan berangkat dan kembali per lokasi; bisa dibedakan per sub lokasi. Pengajuan Cuti Lapangan yang melebihi totalnya memotong cuti tahunan.',
             render: () => <CutiLapanganSection rows={props.cuti_lapangan} workLocations={props.work_locations} subLocations={props.sub_locations} />,
+        },
+        {
+            id: 'lumpsum-cuti',
+            label: 'Lumpsum Cuti Lapangan',
+            hint: 'Uang lumpsum tiap pengajuan Cuti Lapangan, per site, POH (lokasi penerimaan di NRP digit 2–3) dan klasifikasi karyawan (Staff / Non Staff, dari profil).',
+            render: () => (
+                <LumpsumSection rows={props.lumpsum} poh={props.poh} klasifikasi={props.klasifikasi} workLocations={props.work_locations} />
+            ),
         },
     ];
     const [activeId, setActiveId] = useState(() => new URLSearchParams(window.location.search).get('tab') ?? 'golongan');
