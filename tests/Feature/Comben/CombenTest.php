@@ -169,6 +169,27 @@ class CombenTest extends TestCase
         $this->deklarasi($k, [$this->item('pengobatan', 1)])->assertSessionHasNoErrors();
     }
 
+    public function test_hr_enters_any_period_while_the_portal_is_dated_today(): void
+    {
+        $k = $this->employee('Operator');
+
+        // HR, from the signed form: an earlier book month.
+        $this->deklarasi($k, [$this->item('pengobatan', 100000)], '2026-05-10')->assertSessionHasNoErrors();
+        $this->assertSame(['2026-05-10', '2026-06'], [Deklarasi::latest('id')->first()->tanggal->toDateString(), Deklarasi::latest('id')->first()->bulan_buku]);
+
+        // The employee: whatever date is sent, the deklarasi is dated the day it is sent.
+        $user = User::create([
+            'name' => $k->name, 'email' => uniqid('k').'@test.local', 'password' => 'rahasia-123', 'role' => User::ROLE_KARYAWAN,
+            'karyawan_id' => $k->id, 'is_active' => true, 'must_change_password' => false,
+        ]);
+        $this->actingAs($user)->get('/portal')->assertInertia(fn (Assert $page) => $page->where('hari_ini', '2026-10-03'));
+        $this->actingAs($user)->post('/portal/deklarasi', [
+            'tanggal' => '2026-05-10', 'items' => [$this->item('pengobatan', 50000)], 'lampiran' => [UploadedFile::fake()->image('nota.jpg')],
+        ])->assertSessionHasNoErrors();
+        $d = Deklarasi::latest('id')->first();
+        $this->assertSame(['2026-10-03', '2026-10', 'portal'], [$d->tanggal->toDateString(), $d->bulan_buku, $d->sumber]);
+    }
+
     public function test_kacamata_per_member_frame_every_two_years_lens_every_year(): void
     {
         $k = $this->employee('Officer HO/ Group Leader', kawin: false, anak: 1, golongan: '4A');

@@ -51,6 +51,7 @@ class PortalController extends Controller
             'karyawan' => DeklarasiController::identity($k),
             'plafon' => Usage::summary($k, BukuBulan::tahun($bulan)),
             'bulan_buku' => ['value' => $bulan, 'label' => BukuBulan::label($bulan), 'span' => BukuBulan::span($bulan)],
+            'hari_ini' => $today->toDateString(),
             'deklarasis' => Deklarasi::with(['karyawan.jabatan', 'items.anak', 'lampirans'])->where('karyawan_id', $k->id)->latest('tanggal')->latest('id')->limit(20)->get()
                 ->map(fn (Deklarasi $d) => DeklarasiController::row($d)),
             'trips' => Trip::with(['karyawan.jabatan', 'karyawan.workLocation', 'lampirans'])->where('karyawan_id', $k->id)->latest('tanggal_awal')->limit(20)->get()
@@ -106,7 +107,8 @@ class PortalController extends Controller
 
     public function storeDeklarasi(Request $request): RedirectResponse
     {
-        $request->merge(['karyawan_id' => $request->user()->karyawan_id]);
+        // An employee declares on the day they send it; only HR enters a deklarasi of another date.
+        $request->merge(['karyawan_id' => $request->user()->karyawan_id, 'tanggal' => CarbonImmutable::today()->toDateString()]);
         [, $data, $items] = DeklarasiController::validateClaim($request);
         $deklarasi = DB::transaction(function () use ($data, $items, $request) {
             $deklarasi = Deklarasi::create([

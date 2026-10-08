@@ -15,6 +15,8 @@ interface Props {
     karyawan: PlafonInfo['karyawan'];
     plafon: Omit<PlafonInfo, 'karyawan' | 'bulan_buku'>;
     bulan_buku: { value: string; label: string; span: string };
+    /** The server's date: a deklarasi from the portal is always dated today. */
+    hari_ini: string;
     deklarasis: (DeklarasiRow & { status: Status; catatan_verifikasi: string | null })[];
     trips: (TripData & { status: Status; catatan_verifikasi: string | null })[];
     cities: string[];
@@ -40,6 +42,7 @@ export default function PortalHome({
     karyawan,
     plafon,
     bulan_buku,
+    hari_ini,
     deklarasis,
     trips,
     cities,
@@ -214,7 +217,7 @@ export default function PortalHome({
                 <DeklarasiForm
                     people={[person]}
                     tempatOptions={tempat_options}
-                    self={{ person, infoUrl: '/portal/plafon', submitUrl: '/portal/deklarasi' }}
+                    self={{ person, infoUrl: '/portal/plafon', submitUrl: '/portal/deklarasi', tanggal: hari_ini }}
                     limits={lampiran_limits}
                     onClose={() => setForm(null)}
                 />

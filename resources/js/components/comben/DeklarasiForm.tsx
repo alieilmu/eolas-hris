@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { AlertTriangle, Glasses, Loader2, Plus, Save, Stethoscope, X } from 'lucide-react';
+import { AlertTriangle, Glasses, Loader2, Lock, Plus, Save, Stethoscope, X } from 'lucide-react';
 import { BrandLogo, useBranding } from '@/components/BrandLogo';
 import { DateInput } from '@/components/DateInput';
 import { MoneyInput } from '@/components/comben/MoneyInput';
 import { Modal, ghostButton, primaryButton } from '@/components/attendance/ui';
 import { LampiranPicker } from '@/components/lampiran/LampiranPicker';
 import { JENIS_ROWS, rupiah, type DeklarasiRow, type JenisItem, type PlafonInfo } from '@/lib/comben';
+import { fmtDate } from '@/lib/format';
 import { draftPayload, emptyDraft, notaCount, type LampiranLimits } from '@/lib/lampiran';
+import { todayIso } from '@/lib/pkwtDates';
 
 export interface DeklarasiPerson {
     id: number;
@@ -22,7 +24,6 @@ type Column = { uid: number } & ({ penerima: 'karyawan' } | { penerima: 'pasanga
 const cell = 'border border-slate-300 px-2 py-1.5';
 const input =
     'w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-slate-100';
-const today = () => new Date().toISOString().slice(0, 10);
 
 function columnsFor(deklarasi?: DeklarasiRow): Column[] {
     const anak = [...new Set((deklarasi?.items ?? []).filter((i) => i.penerima === 'anak').map((i) => i.karyawan_anak_id))];
@@ -51,15 +52,15 @@ export function DeklarasiForm({
     people: DeklarasiPerson[];
     tempatOptions: string[];
     deklarasi?: DeklarasiRow;
-    /** The employee portal: the employee's own deklarasi, sent to HR for verification. */
-    self?: { person: DeklarasiPerson; infoUrl: string; submitUrl: string };
+    /** The employee portal: the employee's own deklarasi, sent to HR for verification, dated today (`tanggal`) and not changeable. */
+    self?: { person: DeklarasiPerson; infoUrl: string; submitUrl: string; tanggal: string };
     /** Upload limits of the server, for the nota photos / PDFs. */
     limits: LampiranLimits;
     onClose: () => void;
 }) {
     const branding = useBranding();
     const [nrp, setNrp] = useState(self?.person.nrp ?? deklarasi?.nrp ?? '');
-    const [tanggal, setTanggal] = useState(deklarasi?.tanggal ?? today());
+    const [tanggal, setTanggal] = useState(self?.tanggal ?? deklarasi?.tanggal ?? todayIso());
     const [tempat, setTempat] = useState(deklarasi?.tempat ?? '');
     // The nota: each photo and each PDF page counts as one kwitansi.
     const [lampiran, setLampiran] = useState(() => emptyDraft(deklarasi?.lampiran ?? []));
@@ -400,7 +401,20 @@ export function DeklarasiForm({
                                     <option key={t} value={t} />
                                 ))}
                             </datalist>
-                            <DateInput value={tanggal} onChange={setTanggal} className={input} aria-label="Tanggal deklarasi" />
+                            {self ? (
+                                <p
+                                    className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-sm font-bold text-slate-700 tabular-nums"
+                                    aria-label="Tanggal deklarasi"
+                                    title="Tanggal deklarasi mengikuti tanggal hari ini"
+                                >
+                                    {fmtDate(tanggal)}
+                                    <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-400">
+                                        <Lock size={11} /> hari ini
+                                    </span>
+                                </p>
+                            ) : (
+                                <DateInput value={tanggal} onChange={setTanggal} className={input} aria-label="Tanggal deklarasi" />
+                            )}
                             {info && (
                                 <p className="text-[11px] text-slate-500">
                                     Bulan buku <b className="text-slate-700">{info.bulan_buku.label}</b>
