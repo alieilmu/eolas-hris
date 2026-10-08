@@ -9,6 +9,7 @@ use App\Support\Karyawan\DataUpdate;
 use App\Support\Karyawan\MasterOptions;
 use App\Support\Karyawan\ProfileSections;
 use App\Support\Lampiran\Attachments;
+use App\Support\Notifikasi\Pengajuan as NotifikasiPengajuan;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -54,7 +55,7 @@ class DataController extends Controller
         [$perubahan, $anak] = DataUpdate::diff($request, $k);
         $request->validate(Attachments::rules(), Attachments::messages());
 
-        DB::transaction(function () use ($k, $perubahan, $anak, $request) {
+        $p = DB::transaction(function () use ($k, $perubahan, $anak, $request) {
             $p = PengajuanUpdateData::create([
                 'karyawan_id' => $k->id,
                 'perubahan' => $perubahan,
@@ -64,7 +65,10 @@ class DataController extends Controller
                 'created_by' => $request->user()->id,
             ]);
             Attachments::sync($request, $p, 'update-data');
+
+            return $p;
         });
+        NotifikasiPengajuan::updateData($p);
         Inertia::flash('success', 'Pengajuan update data terkirim ('.(count($perubahan) + count($anak)).' perubahan). Data berubah setelah disetujui HR.');
 
         return back();

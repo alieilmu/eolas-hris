@@ -35,7 +35,7 @@ export const APP_MODULES: NavModule[] = [
             { id: 'tracking', label: 'Recruitment Tracking', icon: LayoutGrid, href: '/recruitment/tracking', menu: 'recruitment' },
             { id: 'applicants', label: 'Pelamar', icon: UserCheck, href: '/recruitment/pelamar', menu: 'recruitment' },
             { id: 'forms', label: 'Pengaturan Form', icon: FileText, href: '/recruitment/form', menu: 'recruitment' },
-            { id: 'reports', label: 'Laporan', icon: BarChart3, disabled: true, menu: 'recruitment' },
+            { id: 'reports', label: 'Laporan', icon: BarChart3, href: '/recruitment/laporan', menu: 'recruitment' },
         ],
     },
     {

@@ -57,6 +57,8 @@ class HandleInertiaRequests extends Middleware
                     'viewSensitiveData' => (bool) $user?->canAccessSensitiveData(),
                     'manageUsers' => (bool) $user?->isAdmin(),
                 ],
+                // Unread pengajuan notifications (the bell); employees have none.
+                'notifikasi' => $user && ! $user->isKaryawan() ? $user->unreadNotifications()->count() : 0,
                 // Menu => "view" | "edit", for the sidebar and the edit buttons.
                 'menus' => (object) ($user?->menus() ?? []),
             ],

@@ -3,7 +3,10 @@
 namespace App\Providers;
 
 use App\Models\User;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Inertia\ExceptionResponse;
 use Inertia\Inertia;
@@ -41,6 +44,10 @@ class AppServiceProvider extends ServiceProvider
 
         // The employee portal: an employee's own account.
         Gate::define('portal', fn (User $user) => $user->isKaryawan() && $user->karyawan_id !== null);
+
+        // Public application forms (Lowongan): a few applications per visitor per hour.
+        RateLimiter::for('lamaran', fn (Request $request) => Limit::perHour(10)->by($request->ip())->response(
+            fn () => back()->withErrors(['form' => 'Terlalu banyak lamaran dari jaringan ini; coba lagi dalam satu jam.'])));
 
         Inertia::handleExceptionsUsing(function (ExceptionResponse $response) {
             $status = $response->statusCode();

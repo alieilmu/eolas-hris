@@ -91,7 +91,7 @@ class AuthenticationTest extends TestCase
             ->get('/recruitment/tracking')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('ComingSoon')
+                ->component('Recruitment/Tracking')
                 ->where('auth.user.role', 'HR')
                 ->where('auth.user.role_label', 'Admin')
                 ->where('auth.menus', ['recruitment' => 'view'])

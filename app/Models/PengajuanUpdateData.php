@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Access\AccessScope;
+use App\Support\Notifikasi\Pengajuan as NotifikasiPengajuan;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -30,6 +31,9 @@ class PengajuanUpdateData extends Model
 
     protected static function booted(): void
     {
+        // Its notifications for the admins are done once it is decided or withdrawn.
+        static::updated(fn (self $m) => $m->wasChanged('status') && $m->status !== 'diajukan' && NotifikasiPengajuan::selesai("update-data:{$m->id}"));
+        static::deleted(fn (self $m) => NotifikasiPengajuan::selesai("update-data:{$m->id}"));
         // Only those of employees the account may see (Settings → Akun & Akses).
         static::addGlobalScope('akses', function (Builder $query) {
             if (AccessScope::restrictedUser()) {

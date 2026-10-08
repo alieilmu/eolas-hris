@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { ChevronDown, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
+import { NotifikasiBell } from '@/components/NotifikasiBell';
 import type { NavItem, NavModule } from '@/types';
 
 interface SidebarProps {
@@ -138,6 +139,7 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
                 </nav>
                 {user && (
                     <div className="flex shrink-0 flex-col items-center gap-1 border-t border-white/10 py-3">
+                        <NotifikasiBell panelLeft={72} dark />
                         <div
                             title={`${user.name} (${user.role_label})`}
                             className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-400 font-bold text-brand-950 uppercase"
@@ -162,12 +164,14 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
 
     return (
         <aside className="flex h-full w-72 shrink-0 flex-col bg-brand-900 text-white">
-            <div className="flex h-16 shrink-0 items-center gap-3 border-b-[3px] border-accent-400 bg-white pr-2 pl-5">
-                <BrandLogo className="h-8" />
-                <div className="min-w-0 flex-1 border-l border-slate-200 pl-3 leading-tight">
+            <div className="flex h-16 shrink-0 items-center gap-2.5 border-b-[3px] border-accent-400 bg-white pr-2 pl-4">
+                {/* A wide logo is scaled down so the app name keeps its room next to the bell. */}
+                <BrandLogo className="h-8 max-w-24" />
+                <div className="min-w-0 flex-1 border-l border-slate-200 pl-2.5 leading-tight">
                     <h1 className="truncate text-sm font-black tracking-tight text-brand-700">{branding.app_name}</h1>
                     {branding.company_name && <p className="truncate text-[10px] font-semibold text-slate-400">{branding.company_name}</p>}
                 </div>
+                <NotifikasiBell panelLeft={296} />
                 <button
                     onClick={() => toggle(true)}
                     title="Tutup sidebar"

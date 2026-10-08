@@ -12,6 +12,7 @@ use App\Http\Controllers\Comben\DeklarasiController;
 use App\Http\Controllers\Comben\MonitoringController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LampiranController;
+use App\Http\Controllers\LowonganController;
 use App\Http\Controllers\Manpower\KaryawanAnakController;
 use App\Http\Controllers\Manpower\KaryawanController;
 use App\Http\Controllers\Manpower\KaryawanExcelController;
@@ -35,14 +36,26 @@ use App\Http\Controllers\Manpower\MasterData\WorkLocationController;
 use App\Http\Controllers\Manpower\OrgPlanController;
 use App\Http\Controllers\Manpower\OrgStructureController;
 use App\Http\Controllers\Manpower\PengajuanUpdateDataController;
+use App\Http\Controllers\NotifikasiController;
 use App\Http\Controllers\Portal\DataController as PortalDataController;
 use App\Http\Controllers\Portal\PortalController;
+use App\Http\Controllers\Recruitment\ApplicantController;
+use App\Http\Controllers\Recruitment\FormController;
+use App\Http\Controllers\Recruitment\LaporanController;
+use App\Http\Controllers\Recruitment\TrackingController;
 use App\Http\Controllers\Settings\BrandingController;
 use App\Http\Controllers\Settings\UserController;
 use Illuminate\Support\Facades\Route;
 
 // White label logos and favicon: also on the login page, so without signing in.
 Route::get('/branding/{jenis}', [BrandingController::class, 'file'])->whereIn('jenis', ['logo', 'logo-full', 'favicon'])->name('branding.file');
+
+// Lowongan: the open vacancies and their application forms, for anyone (no sign-in).
+Route::controller(LowonganController::class)->prefix('lowongan')->name('lowongan')->group(function () {
+    Route::get('/', 'index');
+    Route::get('/{form}', 'show')->whereNumber('form')->name('.show');
+    Route::post('/{form}', 'submit')->whereNumber('form')->middleware('throttle:lamaran')->name('.submit');
+});
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -64,11 +77,45 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
     Route::get('/akun/password', [PasswordController::class, 'edit'])->name('account.password');
     Route::put('/akun/password', [PasswordController::class, 'update'])->name('account.password.update');
 
-    // Placeholders until each module is rebuilt in its own stage.
+    // Modul Recruitment: Tracking (stages and candidates), Pelamar, Pengaturan Form and Laporan.
     Route::middleware('menu:recruitment')->prefix('recruitment')->name('recruitment.')->group(function () {
-        Route::inertia('/tracking', 'ComingSoon', ['title' => 'Recruitment Tracking'])->name('tracking');
-        Route::inertia('/pelamar', 'ComingSoon', ['title' => 'Pelamar'])->name('pelamar');
-        Route::inertia('/form', 'ComingSoon', ['title' => 'Pengaturan Form'])->name('form');
+        Route::controller(TrackingController::class)->group(function () {
+            Route::get('/tracking', 'index')->name('tracking');
+            Route::post('/tahap', 'storeStage')->name('tahap.store');
+            Route::put('/tahap/{stage}', 'updateStage')->whereNumber('stage')->name('tahap.update');
+            Route::post('/tahap/{stage}/geser', 'moveStage')->whereNumber('stage')->name('tahap.move');
+            Route::delete('/tahap/{stage}', 'destroyStage')->whereNumber('stage')->name('tahap.destroy');
+            Route::post('/kandidat/pindah', 'move')->name('kandidat.move');
+            Route::post('/kandidat', 'store')->name('kandidat.store');
+            Route::get('/kandidat/{candidate}', 'show')->whereNumber('candidate')->name('kandidat.show');
+            // Multipart (a CV): POST with _method=put.
+            Route::put('/kandidat/{candidate}', 'update')->whereNumber('candidate')->name('kandidat.update');
+            Route::delete('/kandidat/{candidate}', 'destroy')->whereNumber('candidate')->name('kandidat.destroy');
+            Route::get('/kandidat/{candidate}/cv', 'cv')->whereNumber('candidate')->name('kandidat.cv');
+            Route::post('/kandidat/{candidate}/catatan', 'storeNote')->whereNumber('candidate')->name('kandidat.note.store');
+            Route::delete('/catatan/{note}', 'destroyNote')->whereNumber('note')->name('kandidat.note.destroy');
+            Route::post('/kandidat/{candidate}/tolak', 'reject')->whereNumber('candidate')->name('kandidat.reject');
+            Route::post('/kandidat/{candidate}/karyawan', 'convert')->whereNumber('candidate')->name('kandidat.convert');
+        });
+        Route::controller(ApplicantController::class)->prefix('pelamar')->name('pelamar')->group(function () {
+            Route::get('/', 'index');
+            Route::get('/{applicant}', 'show')->whereNumber('applicant')->name('.show');
+            Route::get('/{applicant}/file/{field}', 'file')->whereNumber('applicant')->name('.file');
+            Route::post('/{applicant}/tracking', 'moveToTracking')->whereNumber('applicant')->name('.tracking');
+            Route::post('/{applicant}/tolak', 'reject')->whereNumber('applicant')->name('.reject');
+            Route::delete('/{applicant}', 'destroy')->whereNumber('applicant')->name('.destroy');
+        });
+        Route::controller(FormController::class)->prefix('form')->name('form')->group(function () {
+            Route::get('/', 'index');
+            Route::post('/', 'store')->name('.store');
+            Route::get('/{form}', 'edit')->whereNumber('form')->name('.edit');
+            Route::put('/{form}', 'update')->whereNumber('form')->name('.update');
+            Route::post('/{form}/buka-tutup', 'toggle')->whereNumber('form')->name('.toggle');
+            Route::post('/{form}/salin', 'duplicate')->whereNumber('form')->name('.duplicate');
+            Route::delete('/{form}', 'destroy')->whereNumber('form')->name('.destroy');
+        });
+        Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan');
+        Route::get('/laporan/export', [LaporanController::class, 'export'])->name('laporan.export');
     });
 
     Route::prefix('manpower')->name('manpower.')->group(function () {
@@ -268,6 +315,14 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
     Route::middleware('can:manage-users')->prefix('settings')->name('settings.')->controller(BrandingController::class)->group(function () {
         Route::get('/white-label', 'edit')->name('branding');
         Route::post('/white-label', 'update')->name('branding.update');
+    });
+
+    // The bell: pengajuan from the portal waiting for this account.
+    Route::controller(NotifikasiController::class)->prefix('notifikasi')->name('notifikasi')->group(function () {
+        Route::get('/', 'index');
+        Route::get('/jumlah', 'count')->name('.count');
+        Route::post('/baca-semua', 'readAll')->name('.read-all');
+        Route::post('/{id}/baca', 'read')->whereUuid('id')->name('.read');
     });
 
     // A nota / signed form, for whoever may see its deklarasi or cuti / dinas.

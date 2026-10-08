@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { router, useForm, usePage } from '@inertiajs/react';
 import { BadgeCheck, Loader2, Save, Wand2, X } from 'lucide-react';
+import { DateInput } from '@/components/DateInput';
 import { PenempatanFields } from '@/components/penempatan/PenempatanFields';
 import { decodeNrp, statusAsal, type NrpCodes } from '@/lib/nrp';
 import { emptyPlacement, type PenempatanOptions, type Placement } from '@/lib/penempatan';
@@ -22,14 +23,33 @@ const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 p
 /**
  * New employee with the essentials: NRP, name, and the placement the position
  * is composed from (Work Location → SubGroup → unit). Everything else is
- * filled in on the profile page.
+ * filled in on the profile page. Recruitment uses it to hire a candidate
+ * (its own submit URL, the candidate's name and email, and a start date).
  */
-export function AddKaryawanDialog({ onClose, fixedJabatan }: { onClose: () => void; fixedJabatan?: FixedJabatan }) {
+export function AddKaryawanDialog({
+    onClose,
+    fixedJabatan,
+    submitUrl = '/manpower/karyawan',
+    initial,
+    title = 'Tambah Karyawan',
+    tanggalMasuk = false,
+    onSaved,
+}: {
+    onClose: () => void;
+    fixedJabatan?: FixedJabatan;
+    submitUrl?: string;
+    initial?: { name?: string; email?: string | null };
+    title?: string;
+    /** Ask the start date (written to the profile). */
+    tanggalMasuk?: boolean;
+    onSaved?: () => void;
+}) {
     const { penempatan_options: options, nrp_codes: codes } = usePage<DialogProps>().props;
     const form = useForm({
         nrp: '',
-        name: '',
-        email: '',
+        name: initial?.name ?? '',
+        email: initial?.email ?? '',
+        tanggal_masuk: new Date().toISOString().slice(0, 10),
         jabatan_id: fixedJabatan ? String(fixedJabatan.id) : '',
         ...emptyPlacement(),
         work_location_id: fixedJabatan?.work_location_id ? String(fixedJabatan.work_location_id) : '',
@@ -71,7 +91,14 @@ export function AddKaryawanDialog({ onClose, fixedJabatan }: { onClose: () => vo
         bidang: form.data.bidang,
     };
 
-    const submit = () => form.post('/manpower/karyawan', { preserveScroll: true, onSuccess: onClose });
+    const submit = () =>
+        form.post(submitUrl, {
+            preserveScroll: true,
+            onSuccess: () => {
+                onSaved?.();
+                onClose();
+            },
+        });
 
     const fieldError = (key: 'nrp' | 'name' | 'email') => form.errors[key] && <p className="mt-1 text-[11px] text-rose-600">{form.errors[key]}</p>;
     const placementError = (form.errors as Record<string, string>).penempatan ?? form.errors.work_location_id ?? form.errors.sub_group_id;
@@ -83,7 +110,7 @@ export function AddKaryawanDialog({ onClose, fixedJabatan }: { onClose: () => vo
             <div className="flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
                 <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-5">
                     <div>
-                        <h3 className="font-bold text-slate-800">Tambah Karyawan</h3>
+                        <h3 className="font-bold text-slate-800">{title}</h3>
                         <p className="mt-0.5 text-xs text-slate-400">Data lainnya dilengkapi lewat ikon profil di baris karyawan.</p>
                     </div>
                     <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
@@ -180,6 +207,19 @@ export function AddKaryawanDialog({ onClose, fixedJabatan }: { onClose: () => vo
                                 {decoded.error ?? `${decoded.jenis?.nama} • diterima di ${decoded.lokasi?.nama} • masuk ${decoded.tahun}`}
                             </p>
                         ) : null}
+                        {tanggalMasuk && (
+                            <div>
+                                <label className="mb-1.5 block text-xs font-bold text-slate-500">Tanggal Masuk *</label>
+                                <DateInput
+                                    value={form.data.tanggal_masuk}
+                                    onChange={(v) => form.setData('tanggal_masuk', v)}
+                                    className={inputClass}
+                                />
+                                {(form.errors as Record<string, string>).tanggal_masuk && (
+                                    <p className="mt-1 text-[11px] text-rose-600">{(form.errors as Record<string, string>).tanggal_masuk}</p>
+                                )}
+                            </div>
+                        )}
                         <div>
                             <label className="mb-1.5 block text-xs font-bold text-slate-500">Email Kantor</label>
                             <input

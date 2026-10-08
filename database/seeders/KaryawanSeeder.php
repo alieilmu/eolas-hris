@@ -45,13 +45,13 @@ class KaryawanSeeder extends Seeder
     private const LOKASI_WORK = ['01' => 'Head Office', '11' => 'Head Office', '03' => 'Site Rantau', '15' => 'Site Murung Raya'];
 
     /** @var array<string, int> last nomor urut per J LL YY prefix */
-    private array $urut = [];
+    protected array $urut = [];
 
     /** @var array<string, int> work location name => id */
-    private array $workLocations = [];
+    protected array $workLocations = [];
 
     /** @var array<int, string> jabatan id => demo key from OrgStructureSeeder::JABATANS */
-    private array $keyOf = [];
+    protected array $keyOf = [];
 
     private function workLocationOf(Jabatan $jabatan): string
     {
@@ -100,14 +100,20 @@ class KaryawanSeeder extends Seeder
         $this->workLocations = WorkLocation::pluck('id', 'name')->all();
 
         foreach ($this->employees($today) as $i => $e) {
-            $this->createEmployee($i, $e, $jabatans[$e['jabatan']], $today);
+            $this->createEmployee($this->firstIndex() + $i, $e, $jabatans[$e['jabatan']], $today);
         }
+    }
+
+    /** Index of the first employee here (names, addresses and identity numbers follow it). */
+    protected function firstIndex(): int
+    {
+        return 0;
     }
 
     /**
      * @return list<array<string, mixed>>
      */
-    private function employees(CarbonImmutable $t): array
+    protected function employees(CarbonImmutable $t): array
     {
         return [
             [ // Permanent, retires in 5 months, married with 2 children
@@ -221,7 +227,7 @@ class KaryawanSeeder extends Seeder
      * @param  list<int>  $monthsEach
      * @return list<array{0: CarbonImmutable, 1: CarbonImmutable}>
      */
-    private function periodsEndingOn(CarbonImmutable $end, array $monthsEach): array
+    protected function periodsEndingOn(CarbonImmutable $end, array $monthsEach): array
     {
         $periods = [];
         foreach (array_reverse($monthsEach) as $months) {
@@ -233,7 +239,7 @@ class KaryawanSeeder extends Seeder
         return $periods;
     }
 
-    private function createEmployee(int $i, array $e, Jabatan $jabatan, CarbonImmutable $today): void
+    protected function createEmployee(int $i, array $e, Jabatan $jabatan, CarbonImmutable $today): void
     {
         $keluar = $e['keluar'] ?? null;
         $pkwt = array_map(
@@ -305,8 +311,8 @@ class KaryawanSeeder extends Seeder
             .sprintf('%04d', $i + 1);
 
         $noHp = sprintf('0812%08d', 54120300 + $i * 1117);
-        $ayah = self::AYAH[$i];
-        $ibu = self::IBU[$i];
+        $ayah = self::AYAH[$i % count(self::AYAH)];
+        $ibu = self::IBU[$i % count(self::IBU)];
         $isStaff = $level <= 4 || str_starts_with($this->keyOf[$jabatan->id], 'STF');
         $isMekanik = in_array($this->keyOf[$jabatan->id], ['KDP-MTC', 'SPV-MTC', 'MKN-MTC'], true);
         $baju = $female ? ['S', 'M', 'L'][$i % 3] : ['M', 'L', 'XL'][$i % 3];
@@ -371,7 +377,7 @@ class KaryawanSeeder extends Seeder
             'tahun_lulus' => $e['pendidikan'][3],
 
             // 12. Alamat Tinggal
-            'alamat_tinggal' => self::STREETS[$i].' No. '.($i * 7 % 90 + 3),
+            'alamat_tinggal' => self::STREETS[$i % count(self::STREETS)].' No. '.($i * 7 % 90 + 3),
             'alamat_tinggal_rt' => sprintf('%03d', $i % 9 + 1),
             'alamat_tinggal_rw' => sprintf('%03d', $i % 5 + 2),
             'alamat_tinggal_kab_kota' => $tinggal[1],
@@ -415,9 +421,9 @@ class KaryawanSeeder extends Seeder
             'ortu_hp' => sprintf('0821%08d', 33410200 + $i * 773),
 
             // 19. Data Mertua (married employees only)
-            'nama_ayah_mertua' => $nikah ? self::AYAH[(14 - $i)] : null,
+            'nama_ayah_mertua' => $nikah ? self::AYAH[14 - $i % 15] : null,
             'tanggal_lahir_ayah_mertua' => $nikah ? $lahir->subYears(27)->subDays(19 * ($i + 1)) : null,
-            'nama_ibu_mertua' => $nikah ? self::IBU[(14 - $i)] : null,
+            'nama_ibu_mertua' => $nikah ? self::IBU[14 - $i % 15] : null,
             'tanggal_lahir_ibu_mertua' => $nikah ? $lahir->subYears(24)->subDays(29 * ($i + 1)) : null,
             'mertua_alamat_rt' => $nikah ? sprintf('%03d', ($i + 6) % 9 + 1) : null,
             'mertua_alamat_rw' => $nikah ? sprintf('%03d', ($i + 4) % 5 + 1) : null,

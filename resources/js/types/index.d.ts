@@ -35,6 +35,8 @@ export interface Auth {
     };
     /** Menu key => level, for the sidebar and the edit buttons. */
     menus: Record<string, MenuLevel>;
+    /** Unread notifications (pengajuan from the portal); 0 for employees. */
+    notifikasi: number;
 }
 
 export interface NavItem {
@@ -67,6 +69,8 @@ declare module '@inertiajs/core' {
             success?: string;
             error?: string;
             warnings?: string[];
+            /** Lowongan: the applicant's name after an application was sent. */
+            terkirim?: string;
         };
     }
 }

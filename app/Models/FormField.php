@@ -6,7 +6,8 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['application_form_id', 'label', 'type', 'required', 'options', 'placeholder', 'order'])]
+/** A question of an application form; $kunci says which answer is the name, email, CV, ... */
+#[Fillable(['application_form_id', 'label', 'type', 'kunci', 'required', 'options', 'placeholder', 'order'])]
 class FormField extends Model
 {
     protected function casts(): array

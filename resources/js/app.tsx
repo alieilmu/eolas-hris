@@ -16,10 +16,10 @@ createInertiaApp({
         const pages = import.meta.glob('./pages/**/*.tsx', { eager: true });
         return pages[`./pages/${name}.tsx`] as never;
     },
-    // Auth pages, and error pages seen while signed out, stand alone; everything else sits in the sidebar shell.
+    // Auth pages, the public vacancies, and error pages seen while signed out, stand alone; everything else sits in the sidebar shell.
     layout: (name, page) => {
         const user = (page.props as { auth?: Auth }).auth?.user;
-        if (name.startsWith('Auth/') || (name === 'Error' && !user)) return undefined;
+        if (name.startsWith('Auth/') || name.startsWith('Lowongan/') || (name === 'Error' && !user)) return undefined;
         // Employees: the portal, without the admin sidebar.
         return name.startsWith('Portal/') || user?.role === 'Karyawan' ? PortalLayout : AppLayout;
     },

@@ -41,6 +41,17 @@ export async function postJson<T>(url: string, body: unknown): Promise<T> {
     return (await res.json()) as T;
 }
 
+/** DELETE on a JSON endpoint. Throws with the server's message on failure. */
+export async function deleteJson<T>(url: string): Promise<T> {
+    const res = await fetch(url, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-XSRF-TOKEN': xsrfToken() },
+    });
+    if (!res.ok) return failed(res);
+    return (await res.json()) as T;
+}
+
 /** POST JSON to an endpoint that answers with a file, and save that file. */
 export async function downloadPost(url: string, body: unknown, filename: string): Promise<void> {
     const res = await post(url, JSON.stringify(body), { 'Content-Type': 'application/json' });

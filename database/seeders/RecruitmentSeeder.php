@@ -2,11 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Http\Controllers\Recruitment\FormController;
 use App\Models\ApplicationForm;
 use App\Models\RecruitmentStage;
 use Illuminate\Database\Seeder;
 
-/** Default Kanban stages and two application forms — no candidates or applicants. */
+/** Default Kanban stages and three vacancy forms — no candidates or applicants. */
 class RecruitmentSeeder extends Seeder
 {
     private const STAGES = [
@@ -33,29 +34,32 @@ class RecruitmentSeeder extends Seeder
                 'order' => $order,
             ]);
         }
+        self::forms();
+    }
 
-        $tech = ApplicationForm::create([
-            'title' => 'Lamaran Technical Roles',
-            'description' => 'Backend, Frontend, and Fullstack positions',
-            'is_open' => true,
-        ]);
-        $tech->fields()->createMany([
-            ['label' => 'Nama Lengkap', 'type' => 'text', 'required' => true, 'order' => 0],
-            ['label' => 'Email', 'type' => 'email', 'required' => true, 'order' => 1],
-            ['label' => 'Posisi', 'type' => 'select', 'required' => true, 'order' => 2, 'options' => ['Frontend', 'Backend', 'Fullstack']],
-            ['label' => 'Portofolio', 'type' => 'url', 'required' => false, 'order' => 3],
-            ['label' => 'CV (PDF)', 'type' => 'file', 'required' => true, 'order' => 4],
-        ]);
-
-        $creative = ApplicationForm::create([
-            'title' => 'Lamaran Creative Roles',
-            'description' => 'UI/UX, Graphic Design, and Content Creator',
-            'is_open' => false,
-        ]);
-        $creative->fields()->createMany([
-            ['label' => 'Nama Lengkap', 'type' => 'text', 'required' => true, 'order' => 0],
-            ['label' => 'Email', 'type' => 'email', 'required' => true, 'order' => 1],
-            ['label' => 'Portfolio Link', 'type' => 'url', 'required' => true, 'order' => 2],
-        ]);
+    /** Vacancies of a mining contractor: the standard questions, plus what each role asks. */
+    public static function forms(): void
+    {
+        $common = FormController::defaultFields();
+        foreach ([
+            ['Operator Alat Berat', 'Operator Dump Truck / Excavator', 'Site Murung Raya', true,
+                'Dibutuhkan operator berpengalaman untuk unit HD785, PC2000 dan PC1250. Penempatan di site, roster 10:2.',
+                [['label' => 'Unit yang Dikuasai', 'type' => 'select', 'required' => true, 'options' => ['Dump Truck (HD785 / HD465)', 'Excavator (PC2000 / PC1250)', 'Bulldozer (D375 / D155)', 'Grader']],
+                    ['label' => 'Pengalaman Mengoperasikan (tahun)', 'type' => 'number', 'required' => true],
+                    ['label' => 'SIMPER / SIO', 'type' => 'file', 'required' => false]]],
+            ['Mekanik Alat Berat', 'Mekanik Heavy Equipment', 'Site Rantau', true,
+                'Perawatan dan perbaikan unit Komatsu & CAT di workshop site. Diutamakan lulusan SMK/D3 Teknik Alat Berat.',
+                [['label' => 'Spesialisasi', 'type' => 'select', 'required' => true, 'options' => ['Engine', 'Powertrain', 'Hydraulic', 'Electrical']],
+                    ['label' => 'Pengalaman Kerja Terakhir', 'type' => 'textarea', 'required' => false]]],
+            ['Staff HRGA', 'Staff HRGA', 'Head Office', false,
+                'Administrasi personalia, payroll dan general affair di kantor pusat Jakarta.',
+                [['label' => 'Portofolio / LinkedIn', 'type' => 'url', 'kunci' => 'portofolio', 'required' => false]]],
+        ] as [$title, $posisi, $lokasi, $open, $description, $extra]) {
+            $form = ApplicationForm::create(['title' => $title, 'description' => $description, 'posisi' => $posisi, 'lokasi' => $lokasi, 'is_open' => $open]);
+            $cv = array_pop($common);
+            $fields = [...$common, ...array_map(fn ($f) => $f + ['kunci' => null], $extra), $cv];
+            $common[] = $cv;
+            $form->fields()->createMany(array_map(fn (array $f, int $i) => [...$f, 'order' => $i], $fields, array_keys($fields)));
+        }
     }
 }

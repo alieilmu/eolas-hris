@@ -17,6 +17,7 @@ use App\Support\Comben\BukuBulan;
 use App\Support\Comben\Usage;
 use App\Support\Cuti\Cuti;
 use App\Support\Lampiran\Attachments;
+use App\Support\Notifikasi\Pengajuan as NotifikasiPengajuan;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -82,7 +83,8 @@ class PortalController extends Controller
         if (! $periode || $periode['status'] !== 'belum_dipilih') {
             throw ValidationException::withMessages(['keputusan' => 'Cuti Besar ini tidak bisa dipilih lagi (sudah dipilih, menunggu HR, atau lewat batas).']);
         }
-        CutiBesar::create([...$data, 'karyawan_id' => $k->id, 'status' => 'diajukan', 'sumber' => 'portal']);
+        $besar = CutiBesar::create([...$data, 'karyawan_id' => $k->id, 'status' => 'diajukan', 'sumber' => 'portal']);
+        NotifikasiPengajuan::cutiBesar($besar);
         Inertia::flash('success', 'Pilihan Cuti Besar ('.CutiBesar::KEPUTUSAN[$data['keputusan']].') terkirim ke HR.');
 
         return back();
@@ -119,6 +121,7 @@ class PortalController extends Controller
 
             return $deklarasi;
         });
+        NotifikasiPengajuan::deklarasi($deklarasi);
         Inertia::flash('success', "Deklarasi {$deklarasi->nomor} terkirim dan menunggu verifikasi HR. Nominalnya sudah ditahan dari sisa plafon.");
 
         return back();
@@ -142,6 +145,7 @@ class PortalController extends Controller
 
             return $trip;
         });
+        NotifikasiPengajuan::trip($trip);
         Inertia::flash('success', 'Pengajuan '.Trip::JENIS[$trip->jenis]." ke {$trip->kota_tujuan} terkirim dan menunggu persetujuan HR.");
 
         return back();

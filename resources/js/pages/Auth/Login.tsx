@@ -1,5 +1,5 @@
 import { Form, Head } from '@inertiajs/react';
-import { Loader2, LogIn } from 'lucide-react';
+import { Briefcase, Loader2, LogIn } from 'lucide-react';
 import { LoginMark, useBranding } from '@/components/BrandLogo';
 
 const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500';
@@ -90,6 +90,12 @@ export default function Login() {
                         </>
                     )}
                 </Form>
+                <a
+                    href="/lowongan"
+                    className="mt-4 flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-brand-700 hover:bg-white/70"
+                >
+                    <Briefcase size={16} /> Melamar kerja? Lihat lowongan
+                </a>
             </div>
         </div>
     );
