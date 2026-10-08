@@ -45,7 +45,7 @@ export const APP_MODULES: NavModule[] = [
         items: [
             // Mode Organisasi and Mode MPP, on one page.
             { id: 'org-structure', label: 'Struktur Organisasi', icon: Network, href: '/manpower/org-structure', menu: 'org-structure' },
-            { id: 'manpower-planning', label: 'Man Power Planning', icon: ClipboardList, disabled: true, menu: 'org-structure' },
+            { id: 'manpower-planning', label: 'Man Power Planning', icon: ClipboardList, href: '/manpower/mpp', menu: 'mpp' },
             { id: 'manpower-master', label: 'Man Power', icon: UserCog, href: '/manpower/karyawan', menu: 'karyawan' },
             { id: 'pengajuan-data', label: 'Pengajuan Update Data', icon: UserPen, href: '/manpower/pengajuan-data', menu: 'update-data' },
             { id: 'master-data', label: 'Master Data Personalia', icon: Database, href: '/manpower/master-data', menu: 'master-personalia' },

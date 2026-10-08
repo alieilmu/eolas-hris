@@ -1,9 +1,10 @@
 import { Fragment, useState, type ReactNode } from 'react';
 import { Head, router } from '@inertiajs/react';
-import { Building2, Hash, ListChecks, LogOut, Plus, Trash2 } from 'lucide-react';
+import { Building2, ClipboardList, Hash, ListChecks, LogOut, Plus, Trash2 } from 'lucide-react';
 import { CrudTable, type Option } from '@/components/masterdata/CrudTable';
 import { DirtyGuardProvider, useGuard } from '@/components/masterdata/DirtyGuard';
 import { JabatanImport } from '@/components/masterdata/JabatanImport';
+import { MppSettings, type MppSettingsData } from '@/components/masterdata/MppSettings';
 import { OptionList, type OptionCategory } from '@/components/masterdata/OptionList';
 import { decodeNrp, type LokasiCode } from '@/lib/nrp';
 import type { UnitOption } from '@/lib/orgTree';
@@ -103,6 +104,7 @@ interface Props {
     penempatan_options: PenempatanOptions;
     jabatans: Jabatan[];
     options: OptionCategory[];
+    mpp: MppSettingsData;
 }
 
 const BASE = '/manpower/master-data';
@@ -310,6 +312,7 @@ function MasterDataPage(props: Props) {
         sub_locations: subLocations,
         jabatans,
         options,
+        mpp,
     } = props;
     const guard = useGuard();
 
@@ -716,6 +719,18 @@ function MasterDataPage(props: Props) {
                     hint: 'Mengganti nama sebuah pilihan ikut memperbarui data karyawan yang memakainya. Pilihan yang masih dipakai tidak bisa dihapus.',
                     render: () => <OptionList category={c} />,
                 })),
+        },
+        {
+            title: 'Man Power Planning',
+            icon: ClipboardList,
+            sections: [
+                {
+                    id: 'mpp',
+                    label: 'Periode & Biaya MPP',
+                    hint: 'Plan Man Power Planning disimpan per periode; perubahan dari akun tanpa hak Persetujuan Revisi MPP menunggu persetujuan.',
+                    render: () => <MppSettings mpp={mpp} subGroups={subGroups} />,
+                },
+            ],
         },
         {
             title: 'Karyawan Keluar',

@@ -403,6 +403,7 @@ export function CandidateDetailModal({
                         title={`Jadikan Karyawan — ${c.name}`}
                         submitUrl={`/recruitment/kandidat/${c.id}/karyawan`}
                         initial={{ name: c.name }}
+                        fixedJabatan={c.jabatan ?? undefined}
                         tanggalMasuk
                         onClose={() => setDialog(null)}
                         onSaved={refresh}

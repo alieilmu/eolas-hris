@@ -26,6 +26,7 @@ class KaryawanProfile extends Model
         'tanggal_lahir', 'tanggal_masuk', 'tanggal_perkawinan', 'tanggal_sk',
         'npwp_tanggal_daftar', 'bpjs_tk_tanggal_daftar', 'tanggal_lahir_pasangan',
         'tanggal_lahir_ayah', 'tanggal_lahir_ibu', 'tanggal_lahir_ayah_mertua', 'tanggal_lahir_ibu_mertua',
+        'sakit_mulai', 'sakit_selesai',
     ];
 
     protected function casts(): array

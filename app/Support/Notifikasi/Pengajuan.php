@@ -7,10 +7,12 @@ use App\Models\CutiBesar;
 use App\Models\Deklarasi;
 use App\Models\DeklarasiItem;
 use App\Models\Karyawan;
+use App\Models\MppRevisi;
 use App\Models\PengajuanUpdateData;
 use App\Models\Trip;
 use App\Models\User;
 use App\Notifications\PengajuanMasuk;
+use App\Support\Access\AccessScope;
 use App\Support\Cuti\Cuti;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Collection;
@@ -71,6 +73,35 @@ class Pengajuan
                 $a->nama().' melamar '.$posisi.($a->form && $a->form->title !== $posisi ? " ({$a->form->title})" : ''),
                 "/recruitment/pelamar?lihat={$a->id}", ['id' => null, 'nrp' => null, 'name' => $a->nama()]));
         }
+    }
+
+    /** A plan revision from an account without approval: for the approvers of that location. */
+    public static function mppRevisi(MppRevisi $r): void
+    {
+        $r->loadMissing(['plan.workLocation', 'pembuat']);
+        $locationId = $r->plan->work_location_id;
+        $to = User::whereIn('role', [User::ROLE_ADMIN, User::ROLE_HR])->where('is_active', true)->get()
+            ->filter(fn (User $u) => $u->id !== $r->created_by && $u->canEdit('mpp-approve')
+                && (($ids = AccessScope::workLocationIds($u)) === null || in_array($locationId, $ids, true)))
+            ->values();
+        if ($to->isNotEmpty()) {
+            Notification::send($to, new PengajuanMasuk('mpp', "mpp:{$r->id}", 'Revisi Man Power Planning',
+                "{$r->plan->workLocation->name} · {$r->plan->label()}: ".count($r->perubahan).' jabatan diubah oleh '.($r->pembuat?->name ?? '-'),
+                "/manpower/mpp?lokasi={$locationId}&periode={$r->plan->kode()}", ['id' => null, 'nrp' => null, 'name' => $r->pembuat?->name]));
+        }
+    }
+
+    /** The decision, for whoever sent the revision. */
+    public static function mppHasil(MppRevisi $r): void
+    {
+        $r->loadMissing(['plan.workLocation', 'penyetuju', 'pembuat']);
+        if (! $r->pembuat || $r->pembuat->id === $r->verified_by) {
+            return;
+        }
+        $setuju = $r->status === 'disetujui';
+        $r->pembuat->notify(new PengajuanMasuk('mpp-hasil', "mpp-hasil:{$r->id}", 'Revisi MPP '.($setuju ? 'disetujui' : 'ditolak'),
+            "{$r->plan->workLocation->name} · {$r->plan->label()} oleh ".($r->penyetuju?->name ?? '-').($r->catatan_verifikasi ? " — {$r->catatan_verifikasi}" : ''),
+            "/manpower/mpp?lokasi={$r->plan->work_location_id}&periode={$r->plan->kode()}", ['id' => null, 'nrp' => null, 'name' => $r->penyetuju?->name]));
     }
 
     /** HR decided, or the employee withdrew it: nothing left to do for anyone. */

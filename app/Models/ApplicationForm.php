@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** A vacancy's application form, published at /lowongan/{id} while it is open. */
-#[Fillable(['title', 'description', 'posisi', 'lokasi', 'batas_lamaran', 'is_open'])]
+#[Fillable(['title', 'description', 'posisi', 'lokasi', 'jabatan_id', 'batas_lamaran', 'is_open'])]
 class ApplicationForm extends Model
 {
     protected function casts(): array
@@ -21,6 +22,12 @@ class ApplicationForm extends Model
     public function fields(): HasMany
     {
         return $this->hasMany(FormField::class)->orderBy('order');
+    }
+
+    /** The position it recruits for, when opened from Man Power Planning. */
+    public function jabatan(): BelongsTo
+    {
+        return $this->belongsTo(Jabatan::class);
     }
 
     public function applicants(): HasMany

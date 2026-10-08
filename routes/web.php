@@ -33,6 +33,7 @@ use App\Http\Controllers\Manpower\MasterData\SectionController;
 use App\Http\Controllers\Manpower\MasterData\SubGroupController;
 use App\Http\Controllers\Manpower\MasterData\SubLocationController;
 use App\Http\Controllers\Manpower\MasterData\WorkLocationController;
+use App\Http\Controllers\Manpower\MppController;
 use App\Http\Controllers\Manpower\OrgPlanController;
 use App\Http\Controllers\Manpower\OrgStructureController;
 use App\Http\Controllers\Manpower\PengajuanUpdateDataController;
@@ -162,6 +163,20 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
             Route::delete('/{option}', [MasterOptionController::class, 'destroy'])->whereNumber('option')->name('destroy');
             Route::post('/{option}/geser', [MasterOptionController::class, 'move'])->whereNumber('option')->name('move');
         });
+
+        // Man Power Planning: the plan per work location and period, its revisions, Excel and vacancies.
+        Route::controller(MppController::class)->prefix('mpp')->name('mpp')->group(function () {
+            Route::middleware('menu:mpp')->group(function () {
+                Route::get('/', 'index');
+                Route::put('/{plan}', 'save')->whereNumber('plan')->name('.save');
+                Route::get('/{plan}/export', 'export')->whereNumber('plan')->name('.export');
+                Route::post('/{plan}/import', 'import')->whereNumber('plan')->name('.import');
+                Route::post('/{plan}/lowongan/{jabatan}', 'lowongan')->whereNumber(['plan', 'jabatan'])->name('.lowongan');
+                Route::post('/revisi/{revisi}/batal', 'cancel')->whereNumber('revisi')->name('.revisi.cancel');
+            });
+            Route::post('/revisi/{revisi}/verifikasi', 'verify')->whereNumber('revisi')->middleware('menu:mpp-approve')->name('.revisi.verify');
+        });
+        Route::put('/master-data/mpp', [MppController::class, 'settings'])->middleware('menu:master-personalia')->name('master.mpp');
 
         // Pengajuan Update Data from the employee portal, approved or rejected by HR.
         Route::middleware('menu:update-data')->prefix('pengajuan-data')->name('pengajuan-data')->controller(PengajuanUpdateDataController::class)->group(function () {

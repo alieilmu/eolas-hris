@@ -44,6 +44,8 @@ export interface CandidateDetail {
     ditolak: { tanggal: string; alasan: string | null } | null;
     karyawan: { id: number; nrp: string } | null;
     form: string | null;
+    /** The position of a vacancy opened from Man Power Planning. */
+    jabatan: { id: number; name: string; work_location_id: number | null } | null;
     jawaban: Jawaban[];
     notes: { id: number; author: string; content: string; waktu: string }[];
     history: { from: string; to: string; by: string; waktu: string }[];

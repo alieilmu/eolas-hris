@@ -72,6 +72,7 @@ class DemoSeeder extends Seeder
         $this->deklarasi();
         $this->updateData();
         $this->call(DemoRecruitmentSeeder::class);
+        $this->call(DemoMppSeeder::class);
     }
 
     /** Portal accounts for every active employee, ready to use (no forced password change in the demo). */

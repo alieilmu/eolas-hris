@@ -173,6 +173,12 @@ class ProfileSections
                 self::f('mertua_alamat_kode_pos', 'Kode Pos'),
                 self::f('mertua_hp', 'HP'),
             ]),
+            // Man Power Planning counts them as expected to be away (still Actual).
+            self::section('kesehatan', '20. Sakit Berkepanjangan', [
+                self::f('sakit_mulai', 'Sakit Berkepanjangan Sejak', 'date', hint: 'Kosongkan bila tidak sedang sakit berkepanjangan'),
+                self::f('sakit_selesai', 'Perkiraan Kembali Bekerja', 'date'),
+                self::f('sakit_keterangan', 'Keterangan'),
+            ]),
         ];
     }
 

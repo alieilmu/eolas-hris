@@ -201,7 +201,7 @@ class TrackingController extends Controller
     /** Everything about one candidate for the detail window. */
     public function show(Candidate $candidate): JsonResponse
     {
-        $candidate->load(['notes', 'statusHistories', 'karyawan:id,nrp,name,candidate_id', 'applicant.form:id,title', 'stage:id,title,color']);
+        $candidate->load(['notes', 'statusHistories', 'karyawan:id,nrp,name,candidate_id', 'applicant.form:id,title,jabatan_id', 'applicant.form.jabatan:id,name,work_location_id', 'stage:id,title,color']);
         $last = RecruitmentStage::orderByDesc('order')->value('id');
 
         return response()->json([
@@ -218,6 +218,8 @@ class TrackingController extends Controller
             'ditolak' => $candidate->ditolak_at ? ['tanggal' => $candidate->ditolak_at->toDateString(), 'alasan' => $candidate->alasan_ditolak] : null,
             'karyawan' => $candidate->karyawan ? ['id' => $candidate->karyawan->id, 'nrp' => $candidate->karyawan->nrp] : null,
             'form' => $candidate->applicant?->form?->title,
+            // A vacancy opened from Man Power Planning: hired into that position.
+            'jabatan' => ($j = $candidate->applicant?->form?->jabatan) ? ['id' => $j->id, 'name' => $j->name, 'work_location_id' => $j->work_location_id] : null,
             'jawaban' => $candidate->applicant ? Lamaran::view($candidate->applicant) : [],
             'notes' => $candidate->notes->map(fn (CandidateNote $n) => ['id' => $n->id, 'author' => $n->author, 'content' => $n->content, 'waktu' => $n->created_at->toIso8601String()]),
             'history' => $candidate->statusHistories->map(fn (StatusHistory $h) => ['from' => $h->from, 'to' => $h->to, 'by' => $h->changed_by, 'waktu' => $h->created_at->toIso8601String()]),

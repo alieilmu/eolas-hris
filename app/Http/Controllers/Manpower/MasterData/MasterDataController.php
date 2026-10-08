@@ -6,17 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Models\Bod;
 use App\Models\Departemen;
 use App\Models\Divisi;
+use App\Models\Golongan;
 use App\Models\Jabatan;
 use App\Models\JenisKaryawan;
 use App\Models\Karyawan;
 use App\Models\LokasiPenerimaan;
 use App\Models\MasterOption;
+use App\Models\MppAturan;
 use App\Models\Section;
 use App\Models\SubGroup;
 use App\Models\SubLocation;
 use App\Models\WorkLocation;
 use App\Support\Karyawan\KaryawanFormOptions;
 use App\Support\Karyawan\MasterOptions;
+use App\Support\Mpp\Mpp;
 use App\Support\Org\OrgChart;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -112,6 +115,14 @@ class MasterDataController extends Controller
             'unit_options' => OrgChart::unitOptions(),
             // For "Tambah Jabatan": the same placement picker as for employees.
             'penempatan_options' => KaryawanFormOptions::penempatanOptions(),
+            // Man Power Planning: the period of a plan, and the golongan its costs are estimated with.
+            'mpp' => [
+                'periode' => MppAturan::current()->periode,
+                'periode_options' => MppAturan::PERIODE,
+                'golongan_sub_group' => (object) (MppAturan::current()->golongan_sub_group ?? []),
+                'golongan_default' => (object) Mpp::golonganDefaults(),
+                'golongans' => Golongan::orderBy('urutan')->orderBy('id')->get(['id', 'kode']),
+            ],
             'options' => collect(MasterOptions::CATEGORIES)->map(fn (array $config, string $kategori) => [
                 'kategori' => $kategori,
                 'label' => $config['label'],

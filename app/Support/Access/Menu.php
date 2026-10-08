@@ -19,6 +19,9 @@ class Menu
         ],
         'Manpower' => [
             'org-structure' => 'Struktur Organisasi',
+            'mpp' => 'Man Power Planning',
+            // "Ubah" = may approve the plan revisions of its locations (and change the plan straight away).
+            'mpp-approve' => 'Persetujuan Revisi MPP',
             'karyawan' => 'Man Power (data karyawan)',
             'update-data' => 'Pengajuan Update Data',
             'master-personalia' => 'Master Data Personalia',
@@ -42,6 +45,8 @@ class Menu
     public const HOME = [
         'recruitment' => '/recruitment/tracking',
         'org-structure' => '/manpower/org-structure',
+        'mpp' => '/manpower/mpp',
+        'mpp-approve' => '/manpower/mpp',
         'karyawan' => '/manpower/karyawan',
         'update-data' => '/manpower/pengajuan-data',
         'master-personalia' => '/manpower/master-data',
@@ -57,7 +62,7 @@ class Menu
     ];
 
     /** Menus whose pages list employees: they only show the account's locations. */
-    public const SCOPED = ['org-structure', 'karyawan', 'update-data', 'roster', 'absensi', 'trip-leave', 'pengajuan-dinas', 'deklarasi', 'monitoring-plafon', 'cuti'];
+    public const SCOPED = ['org-structure', 'mpp', 'karyawan', 'update-data', 'roster', 'absensi', 'trip-leave', 'pengajuan-dinas', 'deklarasi', 'monitoring-plafon', 'cuti'];
 
     /** @return list<string> */
     public static function keys(): array

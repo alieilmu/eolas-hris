@@ -3,6 +3,8 @@ import { router, usePage } from '@inertiajs/react';
 import {
     Bell,
     BellRing,
+    ClipboardCheck,
+    ClipboardList,
     CalendarHeart,
     CheckCheck,
     Loader2,
@@ -18,7 +20,7 @@ import { postJson } from '@/lib/http';
 
 interface Item {
     id: string;
-    jenis: 'update-data' | 'deklarasi' | 'dinas' | 'cuti' | 'cuti-besar' | 'pelamar' | null;
+    jenis: 'update-data' | 'deklarasi' | 'dinas' | 'cuti' | 'cuti-besar' | 'pelamar' | 'mpp' | 'mpp-hasil' | null;
     judul: string;
     isi: string;
     url: string | null;
@@ -35,6 +37,8 @@ const ICON: Record<NonNullable<Item['jenis']>, { icon: LucideIcon; tone: string 
     cuti: { icon: Palmtree, tone: 'bg-emerald-50 text-emerald-600' },
     'cuti-besar': { icon: CalendarHeart, tone: 'bg-violet-50 text-violet-600' },
     pelamar: { icon: UserRoundPlus, tone: 'bg-amber-50 text-amber-600' },
+    mpp: { icon: ClipboardList, tone: 'bg-indigo-50 text-indigo-600' },
+    'mpp-hasil': { icon: ClipboardCheck, tone: 'bg-indigo-50 text-indigo-600' },
 };
 
 /** "baru saja", "5 mnt lalu", "3 jam lalu", "2 hari lalu", else the date. */

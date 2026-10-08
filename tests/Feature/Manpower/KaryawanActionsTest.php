@@ -168,7 +168,7 @@ class KaryawanActionsTest extends TestCase
                 ->component('Manpower/Karyawan/Profile')
                 ->where('karyawan.nrp', $rudi->nrp)
                 ->where('karyawan.jabatan', 'MECHANIC')
-                ->has('sections', 19)
+                ->has('sections', 20)
                 ->where('profile.tanggal_lahir', '1988-03-30')
                 ->where('profile.status_pegawai_tetap', false)
                 ->where('computed.usia', $rudi->profile->usia)
