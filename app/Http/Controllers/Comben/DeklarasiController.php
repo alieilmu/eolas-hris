@@ -349,7 +349,8 @@ class DeklarasiController extends Controller
     public static function nextNomor(string $bulan): string
     {
         $prefix = 'DKL/'.str_replace('-', '/', $bulan).'/';
-        $last = Deklarasi::where('nomor', 'like', "{$prefix}%")->orderByDesc('nomor')->value('nomor');
+        // Across every employee: a portal user only sees their own deklarasi.
+        $last = Deklarasi::withoutGlobalScope('akses')->where('nomor', 'like', "{$prefix}%")->orderByDesc('nomor')->value('nomor');
 
         return $prefix.sprintf('%04d', $last ? ((int) substr($last, -4)) + 1 : 1);
     }
