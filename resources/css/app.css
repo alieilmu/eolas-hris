@@ -7,29 +7,29 @@
     --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 
-    /* Built-in scales (brand-600 #586c9a, accent-400 #fcd100). Settings → White Label overrides them per installation
+    /* Built-in scales: Eloas green (brand-600 #15803d, accent-400 #86efac). Settings → White Label overrides them per installation
        with scales drawn from its two colours (App\Support\Branding\Palette, in the page head). */
-    --color-brand-50: #f2f4f9;
-    --color-brand-100: #e4e8f1;
-    --color-brand-200: #c9d1e3;
-    --color-brand-300: #a3b0cd;
-    --color-brand-400: #7d8db4;
-    --color-brand-500: #6a7ca6;
-    --color-brand-600: #586c9a;
-    --color-brand-700: #475782;
-    --color-brand-800: #3a4769;
-    --color-brand-900: #2c3651;
-    --color-brand-950: #1e2438;
+    --color-brand-50: #eff6f1;
+    --color-brand-100: #dcece2;
+    --color-brand-200: #b9d9c5;
+    --color-brand-300: #8ac09e;
+    --color-brand-400: #57a473;
+    --color-brand-500: #339156;
+    --color-brand-600: #15803d;
+    --color-brand-700: #116932;
+    --color-brand-800: #0e5428;
+    --color-brand-900: #0a401e;
+    --color-brand-950: #072c15;
 
-    --color-accent-50: #fffbe6;
-    --color-accent-100: #fff4bf;
-    --color-accent-200: #ffe980;
-    --color-accent-300: #fede4d;
-    --color-accent-400: #fcd100;
-    --color-accent-500: #e6be00;
-    --color-accent-600: #c29f00;
-    --color-accent-700: #8f7500;
-    --color-accent-800: #6b5800;
+    --color-accent-50: #f3fdf7;
+    --color-accent-100: #e1fbea;
+    --color-accent-200: #c2f7d6;
+    --color-accent-300: #aaf4c5;
+    --color-accent-400: #86efac;
+    --color-accent-500: #7ad99d;
+    --color-accent-600: #67b884;
+    --color-accent-700: #4c8862;
+    --color-accent-800: #3a674a;
 
     --radius-xl: 1rem;
     --radius-2xl: 1.5rem;

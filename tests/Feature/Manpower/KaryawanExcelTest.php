@@ -417,7 +417,7 @@ class KaryawanExcelTest extends TestCase
 
     public function test_viewers_cannot_use_any_excel_endpoint(): void
     {
-        $this->actingAs(User::where('email', 'viewer@hrpuspita.local')->firstOrFail());
+        $this->actingAs(User::where('email', 'viewer@eloas.local')->firstOrFail());
 
         $this->get(self::BASE.'/template')->assertForbidden();
         $this->get(self::BASE.'/export')->assertForbidden();

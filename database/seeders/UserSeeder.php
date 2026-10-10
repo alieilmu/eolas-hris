@@ -15,9 +15,9 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         $users = [
-            ['name' => 'Administrator', 'email' => 'admin@hrpuspita.local', 'role' => User::ROLE_ADMIN, 'env' => 'SEED_ADMIN_PASSWORD', 'default' => 'admin123'],
-            ['name' => 'Staff HR', 'email' => 'hr@hrpuspita.local', 'role' => User::ROLE_HR, 'permissions' => Menu::all(), 'env' => 'SEED_HR_PASSWORD', 'default' => 'hr123'],
-            ['name' => 'Viewer', 'email' => 'viewer@hrpuspita.local', 'role' => User::ROLE_HR, 'permissions' => ['org-structure' => 'view'], 'env' => 'SEED_VIEWER_PASSWORD', 'default' => 'viewer123'],
+            ['name' => 'Administrator', 'email' => 'admin@eloas.local', 'role' => User::ROLE_ADMIN, 'env' => 'SEED_ADMIN_PASSWORD', 'default' => 'admin123'],
+            ['name' => 'Staff HR', 'email' => 'hr@eloas.local', 'role' => User::ROLE_HR, 'permissions' => Menu::all(), 'env' => 'SEED_HR_PASSWORD', 'default' => 'hr123'],
+            ['name' => 'Viewer', 'email' => 'viewer@eloas.local', 'role' => User::ROLE_HR, 'permissions' => ['org-structure' => 'view'], 'env' => 'SEED_VIEWER_PASSWORD', 'default' => 'viewer123'],
         ];
 
         foreach ($users as $u) {

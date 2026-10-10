@@ -34,7 +34,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class MppController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
         $today = CarbonImmutable::today();
         $locations = AccessScope::locations();
@@ -68,6 +68,12 @@ class MppController extends Controller
         $location = $locations->firstWhere('id', (int) $param)
             ?? $locations->firstWhere('name', 'Head Office')
             ?? $locations->first();
+        if (! $location && WorkLocation::doesntExist()) {
+            // A new (empty) installation: the plan is made per work location, so those come first.
+            Inertia::flash('error', 'Belum ada lokasi kerja. Buat lokasi kerja dulu di Master Data Personalia, lalu susun MPP-nya.');
+
+            return redirect('/manpower/master-data');
+        }
         abort_unless($location, 403);
         $location = WorkLocation::find($location->id);
         $plan = Mpp::plan($location, $periode);

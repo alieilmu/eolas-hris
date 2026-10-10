@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { ChevronDown, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ChevronDown, FlaskConical, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { NotifikasiBell } from '@/components/NotifikasiBell';
 import type { NavItem, NavModule } from '@/types';
@@ -16,8 +16,10 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
     const user = props.auth.user;
     const branding = props.branding;
     // Settings → Akun & Akses: only the menus this account may open.
+    const workspace = props.workspace;
     const allowed = (item: NavItem) =>
-        !item.menu || (item.menu === 'settings' ? props.auth.can.manageUsers : props.auth.menus?.[item.menu] !== undefined);
+        !(item.centralOnly && workspace) &&
+        (!item.menu || (item.menu === 'settings' ? props.auth.can.manageUsers : props.auth.menus?.[item.menu] !== undefined));
     const modules = allModules
         .map((m) => ({ ...m, items: m.items.filter(allowed).map((i) => (i.children ? { ...i, children: i.children.filter(allowed) } : i)) }))
         .filter((m) => m.items.length > 0);
@@ -206,6 +208,22 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
                     );
                 })}
             </nav>
+
+            {workspace && (
+                <Link
+                    href="/dashboard#workspace"
+                    className="mx-3 mb-2 flex items-center gap-2.5 rounded-xl border border-accent-400/30 bg-white/5 px-3 py-2.5 text-xs text-brand-100 hover:bg-white/10"
+                >
+                    <FlaskConical size={16} className="shrink-0 text-accent-400" />
+                    <span className="min-w-0 flex-1 leading-tight">
+                        <span className="block font-bold text-white">Workspace demo</span>
+                        <span className="block truncate text-brand-200">
+                            {workspace.sumber_label}
+                            {workspace.days_left !== null && ` · ${workspace.days_left} hari lagi`}
+                        </span>
+                    </span>
+                </Link>
+            )}
 
             {user && (
                 <div className="shrink-0 border-t border-white/10 p-3">

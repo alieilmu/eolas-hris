@@ -125,7 +125,7 @@ class AttendanceTest extends TestCase
             ->component('Attendance/MasterData')
             ->where('status_uang.values.0.nilai', 'Belum diajukan'));
 
-        $this->actingAs(User::where('email', 'viewer@hrpuspita.local')->firstOrFail());
+        $this->actingAs(User::where('email', 'viewer@eloas.local')->firstOrFail());
         $this->get('/attendance/roster')->assertForbidden();
         $this->post('/attendance/trip-leave', [])->assertForbidden();
     }

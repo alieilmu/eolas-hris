@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\DemoAccount;
 use App\Models\Karyawan;
 use App\Models\User;
+use App\Support\Tenancy\Tenant;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +19,9 @@ class LoginRequest extends FormRequest
     /** Failed attempts allowed per email + IP before a lockout. */
     private const MAX_ATTEMPTS = 5;
 
+    /** The demo workspace signed in to, or null for the main application. */
+    public ?string $tenant = null;
+
     /**
      * @return array<string, array<int, string>>
      */
@@ -26,6 +31,8 @@ class LoginRequest extends FormRequest
             // An email (admins) or an NRP (employees).
             'email' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
+            // Kode workspace demo: needed for an NRP or a seeded account inside a workspace.
+            'workspace' => ['nullable', 'string', 'max:16'],
         ];
     }
 
@@ -48,6 +55,7 @@ class LoginRequest extends FormRequest
         $this->ensureIsNotRateLimited();
 
         $login = trim($this->string('email'));
+        $this->openWorkspace($login);
         // Admins sign in with their email, employees with their NRP.
         $user = str_contains($login, '@')
             ? User::where('email', $login)->first()
@@ -69,6 +77,34 @@ class LoginRequest extends FormRequest
         RateLimiter::clear($this->throttleKey());
         Auth::login($user, $this->boolean('remember'));
         $user->forceFill(['last_login_at' => now()])->save();
+    }
+
+    /**
+     * The workspace to look the account up in: the one whose code was given, or the demo
+     * account owning this email; otherwise the main application.
+     *
+     * @throws ValidationException
+     */
+    private function openWorkspace(string $login): void
+    {
+        $kode = Str::lower(trim((string) $this->string('workspace')));
+        $account = match (true) {
+            $kode !== '' => DemoAccount::where('kode', $kode)->first()
+                ?? throw ValidationException::withMessages(['email' => 'Kode workspace tidak ditemukan.']),
+            str_contains($login, '@') => DemoAccount::where('email', $login)->first(),
+            default => null,
+        };
+        if (! $account) {
+            Tenant::central();
+
+            return;
+        }
+        if ($reason = $account->blockedReason()) {
+            RateLimiter::hit($this->throttleKey());
+            throw ValidationException::withMessages(['email' => $reason]);
+        }
+        Tenant::use($account->database);
+        $this->tenant = $account->database;
     }
 
     /**

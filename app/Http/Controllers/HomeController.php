@@ -8,14 +8,23 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** Where "/" leads: the employee portal, or the first menu the account may open. */
+/**
+ * Where "/" leads: visitors see the Eloas landing page; employees go to the portal,
+ * admins to the dashboard (or, failing that, the first menu the account may open).
+ */
 class HomeController extends Controller
 {
     public function __invoke(Request $request): RedirectResponse|Response
     {
         $user = $request->user();
+        if (! $user) {
+            return Inertia::render('Landing', ['demo_days' => config('eloas.demo_days')]);
+        }
         if ($user->isKaryawan()) {
             return redirect()->route('portal');
+        }
+        if (! $user->must_change_password) {
+            return redirect()->route('dashboard');
         }
         foreach (Menu::HOME as $menu => $url) {
             if ($user->canView($menu)) {

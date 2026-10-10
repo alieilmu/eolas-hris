@@ -357,7 +357,7 @@ class MasterDataTest extends TestCase
 
     public function test_viewers_cannot_open_or_change_master_data(): void
     {
-        $this->actingAs(User::where('email', 'viewer@hrpuspita.local')->firstOrFail());
+        $this->actingAs(User::where('email', 'viewer@eloas.local')->firstOrFail());
 
         $this->get(self::BASE)->assertForbidden();
         $this->post(self::BASE.'/jenis-karyawan', ['kode' => '5', 'nama' => 'x'])->assertForbidden();

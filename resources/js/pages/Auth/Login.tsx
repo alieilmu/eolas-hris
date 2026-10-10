@@ -1,11 +1,13 @@
-import { Form, Head } from '@inertiajs/react';
-import { Briefcase, Loader2, LogIn } from 'lucide-react';
+import { useState } from 'react';
+import { Form, Head, Link } from '@inertiajs/react';
+import { ArrowLeft, Briefcase, FlaskConical, Loader2, LogIn } from 'lucide-react';
 import { LoginMark, useBranding } from '@/components/BrandLogo';
 
 const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500';
 
-export default function Login() {
+export default function Login({ workspace }: { workspace: string | null }) {
     const branding = useBranding();
+    const [showWorkspace, setShowWorkspace] = useState(!!workspace);
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-slate-50 to-accent-50 p-6">
@@ -36,6 +38,11 @@ export default function Login() {
                             <div>
                                 <h1 className="text-lg font-bold text-slate-800">Masuk</h1>
                                 <p className="mt-1 text-xs text-slate-400">Admin: email. Karyawan: NRP (password awal tanggal lahir ddmmyyyy).</p>
+                                {workspace && (
+                                    <p className="mt-2 rounded-lg bg-brand-50 px-2.5 py-1.5 text-xs font-semibold text-brand-700">
+                                        Masuk ke workspace demo <span className="font-mono">{workspace}</span>
+                                    </p>
+                                )}
                             </div>
 
                             {(errors.email || errors.password) && (
@@ -74,6 +81,28 @@ export default function Login() {
                                 />
                             </div>
 
+                            {showWorkspace ? (
+                                <div>
+                                    <label htmlFor="workspace" className="mb-1.5 block text-xs font-bold text-slate-500">
+                                        Kode workspace demo
+                                    </label>
+                                    <input
+                                        id="workspace"
+                                        name="workspace"
+                                        type="text"
+                                        defaultValue={workspace ?? ''}
+                                        maxLength={16}
+                                        placeholder="mis. ab12cd"
+                                        className={`${inputClass} font-mono`}
+                                    />
+                                    <p className="mt-1 text-[11px] text-slate-400">Wajib untuk login karyawan (NRP) di workspace demo.</p>
+                                </div>
+                            ) : (
+                                <button type="button" onClick={() => setShowWorkspace(true)} className="text-xs font-bold text-brand-600 hover:underline">
+                                    Login karyawan di workspace demo? Isi kode workspace
+                                </button>
+                            )}
+
                             <label className="flex items-center gap-2 text-xs font-medium text-slate-500">
                                 <input type="checkbox" name="remember" value="1" className="rounded border-slate-300 text-brand-600" />
                                 Ingat saya
@@ -90,12 +119,21 @@ export default function Login() {
                         </>
                     )}
                 </Form>
+                <Link
+                    href="/demo"
+                    className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-brand-200 bg-white px-4 py-3 text-sm font-bold text-brand-700 shadow-sm hover:bg-brand-50"
+                >
+                    <FlaskConical size={16} /> Belum punya akun? Ajukan akun demo
+                </Link>
                 <a
                     href="/lowongan"
                     className="mt-4 flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-brand-700 hover:bg-white/70"
                 >
                     <Briefcase size={16} /> Melamar kerja? Lihat lowongan
                 </a>
+                <Link href="/" className="flex items-center justify-center gap-2 px-4 py-1 text-xs font-bold text-slate-400 hover:text-brand-700">
+                    <ArrowLeft size={14} /> Kembali ke beranda
+                </Link>
             </div>
         </div>
     );

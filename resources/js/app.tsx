@@ -19,7 +19,8 @@ createInertiaApp({
     // Auth pages, the public vacancies, and error pages seen while signed out, stand alone; everything else sits in the sidebar shell.
     layout: (name, page) => {
         const user = (page.props as { auth?: Auth }).auth?.user;
-        if (name.startsWith('Auth/') || name.startsWith('Lowongan/') || (name === 'Error' && !user)) return undefined;
+        if (name.startsWith('Auth/') || name.startsWith('Lowongan/') || name === 'Landing' || name.startsWith('Demo/') || (name === 'Error' && !user))
+            return undefined;
         // Employees: the portal, without the admin sidebar.
         return name.startsWith('Portal/') || user?.role === 'Karyawan' ? PortalLayout : AppLayout;
     },
@@ -27,6 +28,6 @@ createInertiaApp({
         createRoot(el).render(<App {...props} />);
     },
     progress: {
-        color: accent || '#f2b705',
+        color: accent || '#86efac',
     },
 });

@@ -13,9 +13,9 @@ use Illuminate\Database\QueryException;
 #[Fillable(['app_name', 'company_name', 'tagline', 'brand_color', 'accent_color', 'logo_path', 'logo_full_path', 'favicon_path'])]
 class Branding extends Model
 {
-    public const DEFAULT_BRAND = '#3f5f8f';
+    public const DEFAULT_BRAND = '#15803d';
 
-    public const DEFAULT_ACCENT = '#f2b705';
+    public const DEFAULT_ACCENT = '#86efac';
 
     /** jenis in the URL => column. */
     public const FILES = ['logo' => 'logo_path', 'logo-full' => 'logo_full_path', 'favicon' => 'favicon_path'];

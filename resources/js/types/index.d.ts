@@ -39,6 +39,16 @@ export interface Auth {
     notifikasi: number;
 }
 
+/** Eloas: the demo workspace the account works in (null in the main application). */
+export interface Workspace {
+    kode: string;
+    perusahaan: string;
+    sumber_data: 'demo' | 'kosong';
+    sumber_label: string;
+    expires_at: string | null;
+    days_left: number | null;
+}
+
 export interface NavItem {
     id: string;
     label: string;
@@ -49,6 +59,8 @@ export interface NavItem {
     menu?: string;
     /** Sub-modules, shown indented under this item. */
     children?: NavItem[];
+    /** Only in the main application, never inside a demo workspace. */
+    centralOnly?: boolean;
 }
 
 export interface NavModule {
@@ -63,6 +75,7 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             auth: Auth;
             branding: Branding;
+            workspace: Workspace | null;
         };
         /** One-off messages set with Inertia::flash() before a redirect. */
         flashDataType: {

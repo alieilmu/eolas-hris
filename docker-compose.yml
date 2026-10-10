@@ -1,0 +1,86 @@
+# ---------------------------------------------------------------------------
+# HRIS Eloas — duplikasi dari HR Puspita (hcpuspita), lingkungan terpisah.
+#
+# Domain: https://eloas.zamaludinilmu.com (lewat Traefik, container n8n-traefik-1).
+# Image, container, volume & database berdiri sendiri. Akses lokal: 127.0.0.1:8097.
+# Data MySQL ada di volume `hris_eloas_db-data`, upload di `hris_eloas_app-storage`.
+# ---------------------------------------------------------------------------
+name: hris_eloas
+
+services:
+  app:
+    build: .
+    image: hris_eloas-app:latest
+    container_name: hris_eloas-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+    ports:
+      - "127.0.0.1:8097:80"
+    volumes:
+      - app-storage:/var/www/html/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal, n8n_default]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=n8n_default
+      - traefik.http.routers.hris_eloas.rule=Host(`eloas.zamaludinilmu.com`)
+      - traefik.http.routers.hris_eloas.entrypoints=websecure
+      - traefik.http.routers.hris_eloas.tls=true
+      - traefik.http.routers.hris_eloas.tls.certresolver=mytlschallenge
+      - traefik.http.services.hris_eloas.loadbalancer.server.port=80
+
+  queue:
+    image: hris_eloas-app:latest
+    container_name: hris_eloas-queue
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      RUN_MIGRATIONS: "false"
+    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    user: www-data
+    entrypoint: []
+    healthcheck:
+      disable: true
+    volumes:
+      - app-storage:/var/www/html/storage
+    depends_on:
+      app:
+        condition: service_healthy
+    networks: [internal]
+
+  db:
+    image: mysql:8.4
+    container_name: hris_eloas-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      TZ: Asia/Jakarta
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [internal]
+
+volumes:
+  db-data:
+  app-storage:
+
+networks:
+  internal:
+  n8n_default:
+    external: true

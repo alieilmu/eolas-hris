@@ -322,7 +322,7 @@ class KaryawanActionsTest extends TestCase
     {
         $rudi = $this->named('Rudi Hartono');
         $period = $rudi->profile->pkwtPeriods->first();
-        $this->actingAs(User::where('email', 'viewer@hrpuspita.local')->firstOrFail());
+        $this->actingAs(User::where('email', 'viewer@eloas.local')->firstOrFail());
 
         $this->get(self::BASE."/{$rudi->id}/profil")->assertForbidden();
         $this->put(self::BASE."/{$rudi->id}/profil", ['golongan' => 'X'])->assertForbidden();

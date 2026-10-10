@@ -48,7 +48,7 @@ class AuthenticationTest extends TestCase
             ->assertRedirect('/login')
             ->assertSessionHasErrors(['email' => 'Email / NRP atau password salah.']);
 
-        $this->post('/login', ['email' => 'tidak-ada@hrpuspita.local', 'password' => 'salah'])
+        $this->post('/login', ['email' => 'tidak-ada@eloas.local', 'password' => 'salah'])
             ->assertSessionHasErrors(['email' => 'Email / NRP atau password salah.']);
 
         $this->assertGuest();

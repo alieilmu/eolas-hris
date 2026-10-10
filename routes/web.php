@@ -10,6 +10,10 @@ use App\Http\Controllers\Comben\CutiController;
 use App\Http\Controllers\Comben\CutiMasterController;
 use App\Http\Controllers\Comben\DeklarasiController;
 use App\Http\Controllers\Comben\MonitoringController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Demo\DemoAccountController;
+use App\Http\Controllers\Demo\DemoRequestController;
+use App\Http\Controllers\Demo\WorkspaceController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LampiranController;
 use App\Http\Controllers\LowonganController;
@@ -58,6 +62,15 @@ Route::controller(LowonganController::class)->prefix('lowongan')->name('lowongan
     Route::post('/{form}', 'submit')->whereNumber('form')->middleware('throttle:lamaran')->name('.submit');
 });
 
+// Eloas: the landing page for visitors ("/" leads signed-in accounts on, see HomeController),
+// and Pengajuan Akun Demo with the page that follows its workspace being prepared.
+Route::get('/', HomeController::class)->name('home');
+Route::controller(DemoRequestController::class)->prefix('demo')->name('demo')->group(function () {
+    Route::get('/', 'create');
+    Route::post('/', 'store')->middleware('throttle:demo')->name('.store');
+    Route::get('/status/{kode}', 'status')->where('kode', '[a-z0-9]{6}')->name('.status');
+});
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
     Route::post('/login', [LoginController::class, 'store']);
@@ -71,8 +84,11 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth', 'account.ready'])->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
-    // The first page an account may open.
-    Route::get('/', HomeController::class)->name('home');
+    // Dashboard: an overview of every module for the account's locations.
+    Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+    // Inside a demo workspace: switch its data (demo data again, or empty for one's own).
+    Route::post('/workspace/data', [WorkspaceController::class, 'data'])->middleware('can:manage-users')->name('workspace.data');
 
     // Own password; a first-time password must be changed before anything else.
     Route::get('/akun/password', [PasswordController::class, 'edit'])->name('account.password');
@@ -329,6 +345,15 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
         Route::post('/akun-karyawan/{user}/reset', 'resetKaryawan')->whereNumber('user')->name('karyawan-accounts.reset');
         Route::post('/akun-karyawan/{user}/status', 'toggleKaryawan')->whereNumber('user')->name('karyawan-accounts.toggle');
         Route::delete('/akun-karyawan/{user}', 'destroyKaryawan')->whereNumber('user')->name('karyawan-accounts.destroy');
+    });
+    // Settings → Akun Demo: the demo requests and their workspaces (main application, Super Admin).
+    Route::middleware(['can:manage-users', 'central'])->prefix('settings/akun-demo')->name('settings.demo')->controller(DemoAccountController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::post('/{account}/setujui', 'approve')->whereNumber('account')->name('.approve');
+        Route::post('/{account}/perpanjang', 'extend')->whereNumber('account')->name('.extend');
+        Route::post('/{account}/status', 'toggle')->whereNumber('account')->name('.toggle');
+        Route::post('/{account}/reset', 'reset')->whereNumber('account')->name('.reset');
+        Route::delete('/{account}', 'destroy')->whereNumber('account')->name('.destroy');
     });
     // Settings → White Label: Super Admin only.
     Route::middleware('can:manage-users')->prefix('settings')->name('settings.')->controller(BrandingController::class)->group(function () {

@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Middleware\CentralOnly;
 use App\Http\Middleware\EnableAccessScope;
 use App\Http\Middleware\EnsureAccountReady;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\MenuAccess;
+use App\Http\Middleware\UseTenant;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
+            UseTenant::class,
             HandleInertiaRequests::class,
         ]);
         $middleware->alias([
@@ -25,7 +28,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'menu' => MenuAccess::class,
             'account.ready' => EnsureAccountReady::class,
             'scoped' => EnableAccessScope::class,
+            'central' => CentralOnly::class,
         ]);
+        // The demo workspace is opened right after the session starts, before anyone is authenticated.
+        $middleware->prependToPriorityList(before: \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class, prepend: UseTenant::class);
         // Access is settled before route-model binding, so a {karyawan} outside the account's locations is not found.
         $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: MenuAccess::class);
         $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: EnableAccessScope::class);

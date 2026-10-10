@@ -7,6 +7,8 @@ import {
     ClipboardList,
     Database,
     FileText,
+    FlaskConical,
+    LayoutDashboard,
     Gauge,
     HandCoins,
     LayoutGrid,
@@ -27,6 +29,12 @@ import {
 import type { NavModule } from '@/types';
 
 export const APP_MODULES: NavModule[] = [
+    {
+        id: 'overview',
+        label: 'Ringkasan',
+        icon: LayoutDashboard,
+        items: [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' }],
+    },
     {
         id: 'recruitment',
         label: 'Modul Recruitment',
@@ -81,6 +89,7 @@ export const APP_MODULES: NavModule[] = [
         items: [
             { id: 'users', label: 'Akun & Akses', icon: ShieldCheck, href: '/settings/akun', menu: 'settings' },
             { id: 'white-label', label: 'White Label', icon: Palette, href: '/settings/white-label', menu: 'settings' },
+            { id: 'akun-demo', label: 'Akun Demo', icon: FlaskConical, href: '/settings/akun-demo', menu: 'settings', centralOnly: true },
         ],
     },
 ];

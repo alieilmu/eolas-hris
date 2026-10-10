@@ -36,7 +36,7 @@ class LampiranTest extends TestCase
 
     private function hr(): User
     {
-        return User::where('email', 'hr@hrpuspita.local')->firstOrFail();
+        return User::where('email', 'hr@eloas.local')->firstOrFail();
     }
 
     private function employee(): Karyawan
@@ -113,7 +113,7 @@ class LampiranTest extends TestCase
         $other = Karyawan::where('status', Karyawan::STATUS_AKTIF)->where('id', '!=', $k->id)->firstOrFail();
         $this->actingAs($this->portalUser($other))->get("/lampiran/{$lampiran->id}")->assertNotFound();
         // An admin without Deklarasi / Monitoring.
-        $viewer = User::where('email', 'viewer@hrpuspita.local')->firstOrFail();
+        $viewer = User::where('email', 'viewer@eloas.local')->firstOrFail();
         $this->actingAs($viewer)->get("/lampiran/{$lampiran->id}")->assertForbidden();
     }
 

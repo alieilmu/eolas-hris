@@ -44,7 +44,7 @@ class MppTest extends TestCase
 
     private function hr(): User
     {
-        return User::where('email', 'hr@hrpuspita.local')->firstOrFail();
+        return User::where('email', 'hr@eloas.local')->firstOrFail();
     }
 
     private function location(string $name): WorkLocation

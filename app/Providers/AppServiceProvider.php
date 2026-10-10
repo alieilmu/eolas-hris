@@ -24,7 +24,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // "central": the main database, kept when a request switches "mysql" to a demo workspace
+        // (App\Support\Tenancy\Tenant); sessions, the queue and the demo accounts live there.
+        config(['database.connections.central' => config('database.connections.mysql')]);
     }
 
     /**
@@ -48,6 +50,10 @@ class AppServiceProvider extends ServiceProvider
         // Public application forms (Lowongan): a few applications per visitor per hour.
         RateLimiter::for('lamaran', fn (Request $request) => Limit::perHour(10)->by($request->ip())->response(
             fn () => back()->withErrors(['form' => 'Terlalu banyak lamaran dari jaringan ini; coba lagi dalam satu jam.'])));
+
+        // Pengajuan Akun Demo: a few requests per visitor per hour.
+        RateLimiter::for('demo', fn (Request $request) => Limit::perHour(5)->by($request->ip())->response(
+            fn () => back()->withErrors(['email' => 'Terlalu banyak pengajuan dari jaringan ini; coba lagi dalam satu jam.'])));
 
         Inertia::handleExceptionsUsing(function (ExceptionResponse $response) {
             $status = $response->statusCode();

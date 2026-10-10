@@ -46,7 +46,7 @@ class CutiTest extends TestCase
 
     private function hr(): User
     {
-        return User::where('email', 'hr@hrpuspita.local')->firstOrFail();
+        return User::where('email', 'hr@eloas.local')->firstOrFail();
     }
 
     private function employee(string $masuk): Karyawan
@@ -169,7 +169,7 @@ class CutiTest extends TestCase
         $this->post('/comben/master-data/cuti-lapangan', ['work_location_id' => $sub->work_location_id, 'sub_location_id' => $sub->id, 'hari_cuti' => 10, 'hari_berangkat' => 1, 'hari_kembali' => 1])->assertSessionHasNoErrors();
         $this->post('/comben/master-data/cuti-lapangan', ['work_location_id' => $sub->work_location_id, 'sub_location_id' => $sub->id, 'hari_cuti' => 10, 'hari_berangkat' => 1, 'hari_kembali' => 1])->assertSessionHasErrors('work_location_id');
 
-        $viewer = User::where('email', 'viewer@hrpuspita.local')->firstOrFail();
+        $viewer = User::where('email', 'viewer@eloas.local')->firstOrFail();
         $this->actingAs($viewer)->get('/comben/cuti')->assertForbidden();
     }
 }

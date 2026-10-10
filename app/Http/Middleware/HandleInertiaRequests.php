@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Branding;
 use App\Models\User;
+use App\Support\Tenancy\Tenant;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -43,6 +44,8 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             // White label: names, logos and colours (Settings → White Label).
             'branding' => fn () => Branding::current()->toShare(),
+            // Eloas: the demo workspace this account works in (null in the main application).
+            'workspace' => fn () => ($a = Tenant::account()) ? collect($a->toShare())->only(['kode', 'perusahaan', 'sumber_data', 'sumber_label', 'expires_at', 'days_left'])->all() : null,
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,
