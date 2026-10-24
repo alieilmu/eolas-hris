@@ -15,7 +15,7 @@ export interface Option {
 export interface Field {
     key: string;
     label: string;
-    type?: 'text' | 'select' | 'date';
+    type?: 'text' | 'select' | 'date' | 'time';
     options?: Option[];
     placeholder?: string;
     /** Tailwind width class for the input, e.g. "w-20". */
@@ -119,6 +119,7 @@ export function CrudTable<T extends { id: number }>({
             );
         }
         if (field.type === 'date') return <DateInput value={form[field.key] ?? ''} onChange={set} className={inputClass} />;
+        if (field.type === 'time') return <input type="time" value={form[field.key] ?? ''} onChange={(e) => set(e.target.value)} className={inputClass} />;
         return <input value={form[field.key] ?? ''} onChange={(e) => set(e.target.value)} placeholder={field.placeholder} className={inputClass} />;
     };
 

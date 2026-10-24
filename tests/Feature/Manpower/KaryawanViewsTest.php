@@ -29,7 +29,7 @@ class KaryawanViewsTest extends TestCase
 
     public function test_viewers_get_the_access_denied_page_on_every_view(): void
     {
-        $viewer = User::where('email', 'viewer@eloas.local')->firstOrFail();
+        $viewer = User::where('email', 'viewer@eolas.local')->firstOrFail();
 
         foreach (['/manpower/karyawan', '/manpower/karyawan/data-lengkap', '/manpower/karyawan/keluar'] as $url) {
             $this->actingAs($viewer)->get($url)

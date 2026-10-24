@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Account\PasswordController;
 use App\Http\Controllers\Attendance\AttendanceMasterController;
+use App\Http\Controllers\Attendance\KehadiranController;
 use App\Http\Controllers\Attendance\SheetController;
 use App\Http\Controllers\Attendance\TripController;
 use App\Http\Controllers\Auth\LoginController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\Comben\CombenMasterController;
 use App\Http\Controllers\Comben\CutiController;
 use App\Http\Controllers\Comben\CutiMasterController;
 use App\Http\Controllers\Comben\DeklarasiController;
+use App\Http\Controllers\Comben\GajiController;
 use App\Http\Controllers\Comben\MonitoringController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Demo\DemoAccountController;
@@ -62,7 +64,7 @@ Route::controller(LowonganController::class)->prefix('lowongan')->name('lowongan
     Route::post('/{form}', 'submit')->whereNumber('form')->middleware('throttle:lamaran')->name('.submit');
 });
 
-// Eloas: the landing page for visitors ("/" leads signed-in accounts on, see HomeController),
+// Eolas: the landing page for visitors ("/" leads signed-in accounts on, see HomeController),
 // and Pengajuan Akun Demo with the page that follows its workspace being prepared.
 Route::get('/', HomeController::class)->name('home');
 Route::controller(DemoRequestController::class)->prefix('demo')->name('demo')->group(function () {
@@ -274,6 +276,21 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
             });
         });
 
+        // Kehadiran: CI/CO from the attendance machines, its resume, overtime and the machines themselves.
+        Route::controller(KehadiranController::class)->prefix('kehadiran')->name('kehadiran')->group(function () {
+            Route::get('/', 'index')->middleware('menu:kehadiran,lembur-approve');
+            Route::middleware('menu:kehadiran')->group(function () {
+                Route::post('/proses', 'proses')->name('.proses');
+                Route::post('/log', 'storeLog')->name('.log.store');
+                Route::delete('/log/{log}', 'destroyLog')->whereNumber('log')->name('.log.destroy');
+                Route::post('/import', 'import')->name('.import');
+                Route::post('/mesin', 'storeMesin')->name('.mesin.store');
+                Route::put('/mesin/{mesin}', 'updateMesin')->whereNumber('mesin')->name('.mesin.update');
+                Route::delete('/mesin/{mesin}', 'destroyMesin')->whereNumber('mesin')->name('.mesin.destroy');
+            });
+            Route::post('/lembur/verifikasi', 'verifyLembur')->middleware('menu:lembur-approve')->name('.lembur.verify');
+        });
+
         Route::controller(AttendanceMasterController::class)->middleware('menu:master-attendance')->prefix('master-data')->name('master.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/kode-shift', 'storeCode')->name('kode-shift.store');
@@ -285,6 +302,9 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
             Route::post('/hari-libur', 'storeHoliday')->name('hari-libur.store');
             Route::put('/hari-libur/{holiday}', 'updateHoliday')->name('hari-libur.update');
             Route::delete('/hari-libur/{holiday}', 'destroyHoliday')->name('hari-libur.destroy');
+            Route::put('/waktu-kerja/{workLocation}', 'updateWaktuKerja')->whereNumber('workLocation')->name('waktu-kerja.update');
+            Route::put('/lembur-aturan', 'updateLemburAturan')->name('lembur-aturan.update');
+            Route::put('/hak-lembur', 'updateHakLembur')->name('hak-lembur.update');
         });
     });
 
@@ -313,6 +333,13 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
             Route::post('/besar/{cutiBesar}/verifikasi', 'verifyBesar')->whereNumber('cutiBesar')->name('.besar.verify');
         });
 
+        // Data Gaji: golongan & step in the Struktur Skala Upah, Tunjangan Jabatan, PTKP.
+        Route::controller(GajiController::class)->middleware('menu:data-gaji')->prefix('data-gaji')->name('gaji')->group(function () {
+            Route::get('/', 'index');
+            Route::post('/{karyawan}', 'store')->whereNumber('karyawan')->name('.store');
+            Route::delete('/riwayat/{gaji}', 'destroy')->whereNumber('gaji')->name('.destroy');
+        });
+
         Route::controller(CombenMasterController::class)->middleware('menu:master-comben')->prefix('master-data')->name('master.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/golongan', 'storeGolongan')->name('golongan.store');
@@ -331,6 +358,7 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
             Route::put('/cuti-lapangan/{lapangan}', [CutiMasterController::class, 'updateLapangan'])->whereNumber('lapangan')->name('cuti-lapangan.update');
             Route::delete('/cuti-lapangan/{lapangan}', [CutiMasterController::class, 'destroyLapangan'])->whereNumber('lapangan')->name('cuti-lapangan.destroy');
             Route::put('/lumpsum-cuti', [CutiMasterController::class, 'updateLumpsum'])->name('lumpsum-cuti.update');
+            Route::put('/tunjangan-jabatan', 'updateTunjangan')->name('tunjangan-jabatan.update');
         });
     });
 
@@ -351,6 +379,7 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
         Route::get('/', 'index');
         Route::post('/{account}/setujui', 'approve')->whereNumber('account')->name('.approve');
         Route::post('/{account}/perpanjang', 'extend')->whereNumber('account')->name('.extend');
+        Route::put('/{account}/berakhir', 'setExpiry')->whereNumber('account')->name('.expiry');
         Route::post('/{account}/status', 'toggle')->whereNumber('account')->name('.toggle');
         Route::post('/{account}/reset', 'reset')->whereNumber('account')->name('.reset');
         Route::delete('/{account}', 'destroy')->whereNumber('account')->name('.destroy');

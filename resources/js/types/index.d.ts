@@ -39,7 +39,7 @@ export interface Auth {
     notifikasi: number;
 }
 
-/** Eloas: the demo workspace the account works in (null in the main application). */
+/** Eolas: the demo workspace the account works in (null in the main application). */
 export interface Workspace {
     kode: string;
     perusahaan: string;

@@ -65,11 +65,11 @@ class DemoAccount extends Model
     public function blockedReason(): ?string
     {
         return match (true) {
-            $this->status === 'menunggu' => 'Akun demo Anda masih menunggu persetujuan admin Eloas.',
+            $this->status === 'menunggu' => 'Akun demo Anda masih menunggu persetujuan admin Eolas.',
             $this->status === 'menyiapkan' => 'Workspace demo Anda sedang disiapkan. Coba lagi dalam beberapa saat.',
-            $this->status === 'gagal' => 'Workspace demo gagal disiapkan. Hubungi admin Eloas.',
+            $this->status === 'gagal' => 'Workspace demo gagal disiapkan. Hubungi admin Eolas.',
             $this->status === 'nonaktif' => 'Akun demo ini sudah dinonaktifkan.',
-            $this->expired() => 'Masa demo akun ini sudah berakhir. Hubungi admin Eloas untuk memperpanjang.',
+            $this->expired() => 'Masa demo akun ini sudah berakhir. Hubungi admin Eolas untuk memperpanjang.',
             default => null,
         };
     }

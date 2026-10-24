@@ -6,10 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Middleware\UseTenant;
 use App\Models\DemoAccount;
 use App\Http\Requests\Auth\LoginRequest;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,7 +21,7 @@ class LoginController extends Controller
         return Inertia::render('Auth/Login', ['workspace' => $request->string('ws')->limit(16, '')->toString() ?: null]);
     }
 
-    public function store(LoginRequest $request): RedirectResponse
+    public function store(LoginRequest $request): HttpResponse
     {
         $request->authenticate();
 
@@ -35,10 +35,11 @@ class LoginController extends Controller
             }
         }
 
-        return redirect()->intended('/');
+        // A full page load: the theme, logo and favicon in the page head are the account's (main app or workspace).
+        return Inertia::location(redirect()->intended('/')->getTargetUrl());
     }
 
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(Request $request): HttpResponse
     {
         Auth::guard('web')->logout();
 
@@ -46,6 +47,6 @@ class LoginController extends Controller
         $request->session()->regenerateToken();
         Cookie::queue(Cookie::forget(UseTenant::COOKIE));
 
-        return redirect()->route('login');
+        return Inertia::location(route('login'));
     }
 }

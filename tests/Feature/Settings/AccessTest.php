@@ -52,11 +52,11 @@ class AccessTest extends TestCase
     private function admin(array $permissions, array $locations = []): User
     {
         $this->actingAs($this->superAdmin())->post('/settings/akun', [
-            'name' => 'Admin Site', 'email' => 'site@eloas.local', 'password' => 'rahasia123', 'role' => User::ROLE_HR,
+            'name' => 'Admin Site', 'email' => 'site@eolas.local', 'password' => 'rahasia123', 'role' => User::ROLE_HR,
             'permissions' => $permissions, 'work_location_ids' => $locations,
         ])->assertSessionHasNoErrors();
 
-        return tap(User::where('email', 'site@eloas.local')->firstOrFail())->update(['must_change_password' => false]);
+        return tap(User::where('email', 'site@eolas.local')->firstOrFail())->update(['must_change_password' => false]);
     }
 
     // --- admin accounts ------------------------------------------------------------------------
@@ -79,8 +79,8 @@ class AccessTest extends TestCase
             ->assertInertiaFlash('error');
         $this->get('/comben/deklarasi')->assertOk()->assertInertia(fn (Assert $page) => $page->where('can_edit', true));
 
-        // "/" opens the first menu it may see.
-        $this->get('/')->assertRedirect('/attendance/roster');
+        // "/" opens the dashboard (an overview of what the account may see).
+        $this->get('/')->assertRedirect('/dashboard');
     }
 
     public function test_location_scope_narrows_employees_everywhere(): void
@@ -112,14 +112,14 @@ class AccessTest extends TestCase
     public function test_new_accounts_change_their_password_first_and_the_last_super_admin_stays(): void
     {
         $this->actingAs($this->superAdmin())->post('/settings/akun', [
-            'name' => 'Admin Baru', 'email' => 'baru@eloas.local', 'password' => 'awal12345', 'role' => User::ROLE_HR, 'permissions' => [],
+            'name' => 'Admin Baru', 'email' => 'baru@eolas.local', 'password' => 'awal12345', 'role' => User::ROLE_HR, 'permissions' => [],
         ])->assertSessionHasErrors(['permissions' => 'Centang minimal satu menu yang bisa diakses.']);
         $this->post('/settings/akun', [
-            'name' => 'Admin Baru', 'email' => 'baru@eloas.local', 'password' => 'awal12345', 'role' => User::ROLE_HR, 'permissions' => ['absensi' => 'edit'],
+            'name' => 'Admin Baru', 'email' => 'baru@eolas.local', 'password' => 'awal12345', 'role' => User::ROLE_HR, 'permissions' => ['absensi' => 'edit'],
         ])->assertSessionHasNoErrors();
         auth()->logout();
 
-        $this->post('/login', ['email' => 'baru@eloas.local', 'password' => 'awal12345'])->assertRedirect('/');
+        $this->post('/login', ['email' => 'baru@eolas.local', 'password' => 'awal12345'])->assertRedirect('/');
         $this->get('/attendance/absensi')->assertRedirect('/akun/password');
         $this->put('/akun/password', ['current_password' => 'awal12345', 'password' => 'baru-saja-1', 'password_confirmation' => 'baru-saja-1'])->assertRedirect('/');
         $this->get('/attendance/absensi')->assertOk();
@@ -209,7 +209,7 @@ class AccessTest extends TestCase
         $this->assertSame(0, Absensi::count());
 
         // HR decides.
-        $hr = User::where('email', 'hr@eloas.local')->firstOrFail();
+        $hr = User::where('email', 'hr@eolas.local')->firstOrFail();
         $this->actingAs($hr)->get('/comben/deklarasi?status=diajukan')->assertInertia(fn (Assert $page) => $page->where('menunggu', 1)->has('deklarasis.data', 1));
         $this->post("/comben/deklarasi/{$d->id}/verifikasi", ['keputusan' => 'tolak'])->assertSessionHasErrors('catatan');
         $this->post("/comben/deklarasi/{$d->id}/verifikasi", ['keputusan' => 'setujui'])->assertSessionHasNoErrors();

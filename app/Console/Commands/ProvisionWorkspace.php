@@ -6,8 +6,8 @@ use App\Models\Branding;
 use App\Models\DemoAccount;
 use App\Models\User;
 use App\Support\Tenancy\Tenant;
-use Database\Seeders\EloasDemoSeeder;
-use Database\Seeders\EloasKosongSeeder;
+use Database\Seeders\EolasDemoSeeder;
+use Database\Seeders\EolasKosongSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,7 +21,7 @@ use Throwable;
  */
 class ProvisionWorkspace extends Command
 {
-    protected $signature = 'eloas:workspace {account : id akun demo}';
+    protected $signature = 'eolas:workspace {account : id akun demo}';
 
     protected $description = 'Menyiapkan / menyiapkan ulang workspace akun demo (database & data)';
 
@@ -37,7 +37,7 @@ class ProvisionWorkspace extends Command
             Tenant::use($database);
 
             $this->call('migrate', ['--force' => true]);
-            $this->call('db:seed', ['--class' => $account->sumber_data === 'kosong' ? EloasKosongSeeder::class : EloasDemoSeeder::class, '--force' => true]);
+            $this->call('db:seed', ['--class' => $account->sumber_data === 'kosong' ? EolasKosongSeeder::class : EolasDemoSeeder::class, '--force' => true]);
             $this->accounts($account);
             Branding::query()->first()?->update(['company_name' => $account->perusahaan]);
         } catch (Throwable $e) {
@@ -54,7 +54,7 @@ class ProvisionWorkspace extends Command
             'status' => 'aktif',
             'database' => $database,
             'provisioned_at' => now(),
-            'expires_at' => $account->expires_at ?? now()->addDays((int) config('eloas.demo_days', 14))->endOfDay(),
+            'expires_at' => $account->expires_at ?? now()->addDays((int) config('eolas.demo_days', 14))->endOfDay(),
         ]);
         $this->info("Workspace {$database} siap ({$account->sumber_data}).");
 

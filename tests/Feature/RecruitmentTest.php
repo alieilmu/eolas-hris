@@ -36,7 +36,7 @@ class RecruitmentTest extends TestCase
 
     private function hr(): User
     {
-        return User::where('email', 'hr@eloas.local')->firstOrFail();
+        return User::where('email', 'hr@eolas.local')->firstOrFail();
     }
 
     private function operatorForm(): ApplicationForm

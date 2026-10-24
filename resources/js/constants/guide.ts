@@ -17,7 +17,7 @@ export interface GuideFeature {
     menu?: string;
 }
 
-/** A module of Eloas HRIS as the landing page and the dashboard explain it. */
+/** A module of Eolas HRIS as the landing page and the dashboard explain it. */
 export interface GuideModule {
     id: string;
     name: string;
@@ -85,6 +85,9 @@ export const GUIDE_MODULES: GuideModule[] = [
             { name: 'Absensi', desc: 'Kehadiran aktual (hadir, sakit, izin, mangkir) dengan rekap statistik dan ekspor.', href: '/attendance/absensi', menu: 'absensi' },
             { name: 'Trip & Leave', desc: 'Dinas dan cuti dengan kota, tiket pesawat atau kereta, dan uang muka. Cuti lapangan memotong kuota secara otomatis.', href: '/attendance/trip-leave', menu: 'trip-leave' },
             { name: 'Pengajuan Dinas', desc: 'Verifikasi pengajuan dari portal, status uang, pembelian tiket, dan import massal.', href: '/attendance/pengajuan-dinas', menu: 'pengajuan-dinas' },
+            { name: 'Kehadiran (CI/CO)', desc: 'Clock in / clock out dari mesin absen dibandingkan dengan roster: lengkap, tanpa CI/CO, tidak hadir, tidak sesuai roster, terlambat. Otomatis mengisi Absensi.', href: '/attendance/kehadiran', menu: 'kehadiran' },
+            { name: 'Mesin Absen', desc: 'Tambah atau keluarkan mesin absen (ZKTeco/Solution/Fingerspot ADMS) sendiri; data CI/CO masuk real-time, atau import file dari mesin.', href: '/attendance/kehadiran?tab=mesin', menu: 'kehadiran' },
+            { name: 'Lembur', desc: 'Dihitung dari CI/CO sesuai PP 35/2021 & skema ESDM, jam istirahat tidak dihitung; disetujui atasan/HR sebelum dibayar.', href: '/attendance/kehadiran?tab=lembur', menu: 'lembur-approve' },
         ],
     },
     {
@@ -98,7 +101,8 @@ export const GUIDE_MODULES: GuideModule[] = [
             { name: 'Deklarasi', desc: 'Klaim pengobatan (per keluarga) dan kacamata (per anggota keluarga), dicek otomatis terhadap plafon, dengan lampiran nota.', href: '/comben/deklarasi', menu: 'deklarasi' },
             { name: 'Monitoring Plafon', desc: 'Pemakaian dan sisa plafon setiap karyawan dalam satu tabel, bisa diekspor.', href: '/comben/monitoring', menu: 'monitoring-plafon' },
             { name: 'Cuti Tahunan & Besar', desc: 'Kuota tahunan FIFO dengan masa berlaku 2 tahun dan hutang cuti. Setiap 5 tahun ada pilihan Cuti Besar: diambil atau diuangkan.', href: '/comben/cuti', menu: 'cuti' },
-            { name: 'Master Comben', desc: 'Golongan, skala upah, plafon per SubGroup, aturan cuti lapangan, dan lumpsum.', href: '/comben/master-data', menu: 'master-comben' },
+            { name: 'Data Gaji', desc: 'Gaji pokok dari Struktur Skala Upah (golongan & step per karyawan, ada riwayat), tunjangan jabatan per SubGroup, dan status PTKP otomatis.', href: '/comben/data-gaji', menu: 'data-gaji' },
+            { name: 'Master Comben', desc: 'Golongan, skala upah, tunjangan jabatan, plafon per SubGroup, aturan cuti lapangan, dan lumpsum.', href: '/comben/master-data', menu: 'master-comben' },
         ],
     },
     {

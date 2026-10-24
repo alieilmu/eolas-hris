@@ -66,6 +66,7 @@ interface Props {
     lumpsum: LumpsumRow[];
     poh: { id: number; kode: string; nama: string }[];
     klasifikasi: string[];
+    tunjangan_jabatan: Record<string, number>;
 }
 
 const BASE = '/comben/master-data';
@@ -105,6 +106,12 @@ function Page(props: Props) {
             label: 'Plafon Kacamata',
             hint: 'Untuk tiap anggota keluarga terdaftar (karyawan, istri/suami, tiap anak). Bingkai 2 tahun sekali, lensa 1 tahun sekali; Lengkap = bingkai + lensa.',
             render: () => <PlafonSection jenis="kacamata" rows={props.plafon_kacamata} {...props} />,
+        },
+        {
+            id: 'tunjangan-jabatan',
+            label: 'Tunjangan Jabatan',
+            hint: 'Tunjangan tetap bulanan per SubGroup. Bersama Gaji Pokok (Struktur Skala Upah) menjadi upah tetap: dasar BPJS, THR, dan upah lembur per jam (1/173). Lihat per karyawan di Comben → Data Gaji.',
+            render: () => <TunjanganSection subGroups={props.sub_groups} nominal={props.tunjangan_jabatan} />,
         },
         {
             id: 'aturan-cuti',
@@ -848,6 +855,59 @@ function Labeled({ label, children }: { label: string; children: ReactNode }) {
         <div>
             <label className="mb-1 block text-[11px] font-bold text-slate-500">{label}</label>
             {children}
+        </div>
+    );
+}
+
+// --- Tunjangan Jabatan ------------------------------------------------------------------------
+
+function TunjanganSection({ subGroups, nominal }: { subGroups: { id: number; nama: string; layer: number }[]; nominal: Record<string, number> }) {
+    const initial = useMemo(() => Object.fromEntries(subGroups.map((g) => [g.id, nominal[g.id] ?? 0])), [subGroups, nominal]);
+    const [values, setValues] = useState<Record<string, number>>(initial);
+    const [busy, setBusy] = useState(false);
+    const dirty = subGroups.some((g) => (values[g.id] ?? 0) !== (initial[g.id] ?? 0));
+
+    return (
+        <div className="space-y-3">
+            <table className="w-full max-w-2xl text-sm">
+                <thead>
+                    <tr className="text-left text-[10px] font-bold tracking-wide text-slate-500 uppercase">
+                        <th className="py-2">SubGroup</th>
+                        <th className="py-2">Layer</th>
+                        <th className="py-2 text-right">Tunjangan Jabatan / bulan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {subGroups.map((g) => (
+                        <tr key={g.id} className="border-t border-slate-100">
+                            <td className="py-2 font-semibold text-slate-700">{g.nama}</td>
+                            <td className="py-2 text-xs text-slate-400">{g.layer}</td>
+                            <td className="py-2 text-right">
+                                <MoneyInput
+                                    value={values[g.id] ?? 0}
+                                    onChange={(v) => setValues((prev) => ({ ...prev, [g.id]: v ?? 0 }))}
+                                    className={`${smallInput} w-44 text-right`}
+                                    aria-label={`Tunjangan ${g.nama}`}
+                                />
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            <button
+                onClick={() =>
+                    router.put('/comben/master-data/tunjangan-jabatan', { nominal: values } as never, {
+                        preserveScroll: true,
+                        preserveState: true,
+                        onStart: () => setBusy(true),
+                        onFinish: () => setBusy(false),
+                    })
+                }
+                disabled={!dirty || busy}
+                className={primaryButton}
+            >
+                {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Simpan tunjangan
+            </button>
         </div>
     );
 }

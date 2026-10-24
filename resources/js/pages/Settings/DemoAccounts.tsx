@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
-import { CalendarPlus, Check, ChevronDown, Database, FlaskConical, Loader2, Power, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { CalendarPlus, Check, ChevronDown, Database, FlaskConical, Loader2, Pencil, Power, RefreshCw, Search, Trash2, X } from 'lucide-react';
 
 interface Account {
     id: number;
@@ -146,14 +146,7 @@ export default function DemoAccounts({ accounts, auto_approve, demo_days, stats 
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-xs text-slate-500">
-                                                {a.expires_at ? (
-                                                    <>
-                                                        {dt(a.expires_at)}
-                                                        {a.days_left !== null && <span className="block text-slate-400">{a.days_left} hari lagi</span>}
-                                                    </>
-                                                ) : (
-                                                    '–'
-                                                )}
+                                                <ExpiryCell account={a} />
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex flex-wrap justify-end gap-1.5">
@@ -269,5 +262,92 @@ export default function DemoAccounts({ accounts, auto_approve, demo_days, stats 
                 </div>
             </div>
         </>
+    );
+}
+
+/** The end of the demo: shown with the days left, changed by hand with a date picker. */
+function ExpiryCell({ account }: { account: Account }) {
+    const current = account.expires_at?.slice(0, 10) ?? '';
+    const [editing, setEditing] = useState(false);
+    const [tanggal, setTanggal] = useState(current);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const save = () =>
+        router.put(
+            `/settings/akun-demo/${account.id}/berakhir`,
+            { tanggal },
+            {
+                preserveScroll: true,
+                onStart: () => setBusy(true),
+                onFinish: () => setBusy(false),
+                onSuccess: () => {
+                    setEditing(false);
+                    setError(null);
+                },
+                onError: (e) => setError(e.tanggal ?? 'Tanggal tidak valid.'),
+            },
+        );
+
+    if (editing) {
+        return (
+            <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1">
+                    <input
+                        type="date"
+                        value={tanggal}
+                        onChange={(e) => setTanggal(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && tanggal) save();
+                            if (e.key === 'Escape') setEditing(false);
+                        }}
+                        autoFocus
+                        className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 outline-none focus:ring-2 focus:ring-brand-200"
+                    />
+                    <button
+                        onClick={save}
+                        disabled={!tanggal || busy}
+                        title="Simpan"
+                        className="rounded-lg bg-brand-600 p-1.5 text-white hover:bg-brand-700 disabled:opacity-40"
+                    >
+                        {busy ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                    </button>
+                    <button
+                        onClick={() => {
+                            setEditing(false);
+                            setTanggal(current);
+                            setError(null);
+                        }}
+                        title="Batal"
+                        className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50"
+                    >
+                        <X size={13} />
+                    </button>
+                </div>
+                <span className="text-[11px] text-slate-400">Berakhir di akhir hari (23.59)</span>
+                {error && <span className="text-[11px] font-semibold text-rose-600">{error}</span>}
+            </div>
+        );
+    }
+
+    return (
+        <button
+            onClick={() => {
+                setTanggal(current || new Date().toISOString().slice(0, 10));
+                setEditing(true);
+            }}
+            title="Ubah tanggal berakhir"
+            className="group flex items-start gap-1.5 rounded-lg text-left hover:text-brand-700"
+        >
+            <span>
+                {account.expires_at ? dt(account.expires_at) : 'Belum diatur'}
+                {account.days_left !== null && (
+                    <span className={`block ${account.days_left === 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+                        {account.days_left === 0 ? 'Sudah berakhir' : `${account.days_left} hari lagi`}
+                    </span>
+                )}
+            </span>
+            <Pencil size={12} className="mt-0.5 shrink-0 text-slate-300 group-hover:text-brand-600" />
+        </button>
     );
 }

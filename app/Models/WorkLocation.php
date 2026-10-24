@@ -6,10 +6,22 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'kode', 'type', 'order'])]
+#[Fillable(['name', 'kode', 'type', 'order', 'skema_kerja', 'jam_kerja_harian'])]
 class WorkLocation extends Model
 {
     public const TYPE_HEAD_OFFICE = 'Head Office';
+
+    /** Working-time schemes: the basis of normal hours and overtime (Attendance → Lembur). */
+    public const SKEMA_KERJA = [
+        '5_hari' => '5 hari kerja · 8 jam/hari (PP 35/2021)',
+        '6_hari' => '6 hari kerja · 7 jam/hari (PP 35/2021)',
+        'esdm' => 'Waktu kerja tertentu ESDM · roster (Kepmenakertrans 234/2003)',
+    ];
+
+    protected function casts(): array
+    {
+        return ['jam_kerja_harian' => 'float'];
+    }
 
     public function karyawans(): HasMany
     {

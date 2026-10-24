@@ -1,7 +1,7 @@
 import type { FormEvent, ReactNode } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, CheckCircle2, Database, FlaskConical, Loader2, Rocket } from 'lucide-react';
-import { EloasMark } from '@/components/EloasMark';
+import { EolasMark } from '@/components/EolasMark';
 
 interface Props {
     sumber: Record<'demo' | 'kosong', string>;
@@ -65,7 +65,7 @@ export default function DemoRequest({ jumlah_karyawan, auto_approve, demo_days }
             <Head title="Ajukan Akun Demo" />
             <header className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
                 <Link href="/">
-                    <EloasMark />
+                    <EolasMark />
                 </Link>
                 <Link href="/" className="flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-brand-700">
                     <ArrowLeft size={16} /> Beranda
@@ -77,13 +77,13 @@ export default function DemoRequest({ jumlah_karyawan, auto_approve, demo_days }
                     <span className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-3 py-1 text-xs font-bold text-white">
                         <Rocket size={14} /> Gratis {demo_days} hari
                     </span>
-                    <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Ajukan akun demo Eloas HRIS</h1>
+                    <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Ajukan akun demo Eolas HRIS</h1>
                     <p className="mt-3 text-slate-500">
                         Anda mendapat workspace sendiri yang terpisah dari pengguna lain, dengan akses Super Admin ke semua modul.
                     </p>
                     <ul className="mt-6 space-y-3 text-sm text-slate-600">
                         {[
-                            auto_approve ? 'Workspace aktif otomatis dalam hitungan detik' : 'Pengajuan ditinjau admin Eloas sebelum workspace dibuat',
+                            auto_approve ? 'Workspace aktif otomatis dalam hitungan detik' : 'Pengajuan ditinjau admin Eolas sebelum workspace dibuat',
                             'Masuk dengan email dan password yang Anda buat di form ini',
                             'Pilih data demo sistem atau mulai dengan data Anda sendiri',
                             'Sumber data bisa diganti kapan saja dari dashboard',

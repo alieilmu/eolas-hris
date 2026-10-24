@@ -7,6 +7,7 @@ import {
     ClipboardList,
     Database,
     FileText,
+    Fingerprint,
     FlaskConical,
     LayoutDashboard,
     Gauge,
@@ -21,10 +22,12 @@ import {
     ShieldCheck,
     SlidersHorizontal,
     Stethoscope,
+    Timer,
     UserCheck,
     UserCog,
     UserPen,
     Users,
+    Wallet,
 } from 'lucide-react';
 import type { NavModule } from '@/types';
 
@@ -68,6 +71,8 @@ export const APP_MODULES: NavModule[] = [
             { id: 'absensi', label: 'Absensi', icon: CalendarCheck, href: '/attendance/absensi', menu: 'absensi' },
             { id: 'trip-leave', label: 'Trip & Leave', icon: Plane, href: '/attendance/trip-leave', menu: 'trip-leave' },
             { id: 'pengajuan-dinas', label: 'Pengajuan Dinas', icon: Receipt, href: '/attendance/pengajuan-dinas', menu: 'pengajuan-dinas' },
+            { id: 'kehadiran', label: 'Kehadiran (CI/CO)', icon: Fingerprint, href: '/attendance/kehadiran', menu: 'kehadiran' },
+            { id: 'lembur', label: 'Persetujuan Lembur', icon: Timer, href: '/attendance/kehadiran?tab=lembur', menu: 'lembur-approve' },
             { id: 'attendance-master', label: 'Master Data Attendance', icon: Settings2, href: '/attendance/master-data', menu: 'master-attendance' },
         ],
     },
@@ -79,6 +84,7 @@ export const APP_MODULES: NavModule[] = [
             { id: 'deklarasi', label: 'Deklarasi', icon: Stethoscope, href: '/comben/deklarasi', menu: 'deklarasi' },
             { id: 'monitoring-plafon', label: 'Monitoring Plafon', icon: Gauge, href: '/comben/monitoring', menu: 'monitoring-plafon' },
             { id: 'cuti', label: 'Cuti Tahunan & Besar', icon: Palmtree, href: '/comben/cuti', menu: 'cuti' },
+            { id: 'data-gaji', label: 'Data Gaji', icon: Wallet, href: '/comben/data-gaji', menu: 'data-gaji' },
             { id: 'comben-master', label: 'Master Data Comben', icon: Database, href: '/comben/master-data', menu: 'master-comben' },
         ],
     },

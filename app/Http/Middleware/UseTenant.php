@@ -8,6 +8,9 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\MessageBag;
+use Illuminate\Support\ViewErrorBag;
+use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -36,7 +39,12 @@ class UseTenant
             $request->session()->regenerateToken();
             Cookie::queue(Cookie::forget(self::COOKIE));
 
-            return redirect()->route('login')->withErrors(['email' => $account?->blockedReason() ?? 'Workspace demo tidak ditemukan.']);
+            $request->session()->flash('errors', (new ViewErrorBag)->put('default', new MessageBag([
+                'email' => $account?->blockedReason() ?? 'Workspace demo tidak ditemukan.',
+            ])));
+
+            // A full page load, so nothing of the workspace's theme stays on screen.
+            return Inertia::location(route('login'));
         }
 
         $request->session()->put(self::SESSION, $database);

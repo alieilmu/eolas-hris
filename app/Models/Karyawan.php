@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable([
-    'nrp', 'name', 'email', 'status', 'jabatan_id', 'work_location_id', 'candidate_id',
+    'nrp', 'pin_absen', 'name', 'email', 'status', 'jabatan_id', 'work_location_id', 'candidate_id',
     'sub_location_id', 'sub_group_id', 'bod_id', 'divisi_id', 'departemen_id', 'section_id', 'bidang',
     'tanggal_keluar', 'alasan_keluar', 'keterangan_keluar',
 ])]
@@ -104,6 +104,17 @@ class Karyawan extends Model
     public function candidate(): BelongsTo
     {
         return $this->belongsTo(Candidate::class);
+    }
+
+    /** The employee's number in the attendance machines: the PIN set, else the NRP. */
+    public function pin(): string
+    {
+        return $this->pin_absen ?: $this->nrp;
+    }
+
+    public function gajis(): HasMany
+    {
+        return $this->hasMany(KaryawanGaji::class)->orderByDesc('berlaku_mulai')->orderByDesc('id');
     }
 
     public function profile(): HasOne

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, CheckCircle2, Clock, Hourglass, Loader2, LogIn } from 'lucide-react';
-import { EloasMark } from '@/components/EloasMark';
+import { EolasMark } from '@/components/EolasMark';
 
 interface Account {
     kode: string;
@@ -33,7 +33,7 @@ export default function DemoStatus({ account }: { account: Account }) {
         <div className="flex min-h-screen flex-col items-center bg-gradient-to-br from-brand-50 via-white to-accent-50 px-4 py-10">
             <Head title="Status Akun Demo" />
             <Link href="/" className="mb-10">
-                <EloasMark size="lg" />
+                <EolasMark size="lg" />
             </Link>
 
             <motion.div
@@ -109,7 +109,7 @@ export default function DemoStatus({ account }: { account: Account }) {
                         </span>
                         <h1 className="mt-5 text-xl font-black text-slate-900">Pengajuan diterima</h1>
                         <p className="mt-2 text-sm text-slate-500">
-                            Terima kasih {account.nama}. Pengajuan untuk <b>{account.perusahaan}</b> sedang ditinjau admin Eloas. Setelah disetujui, Anda
+                            Terima kasih {account.nama}. Pengajuan untuk <b>{account.perusahaan}</b> sedang ditinjau admin Eolas. Setelah disetujui, Anda
                             bisa masuk dengan email <b>{account.email}</b> dan password yang Anda buat.
                         </p>
                         <p className="mt-4 text-xs text-slate-400">
@@ -124,7 +124,7 @@ export default function DemoStatus({ account }: { account: Account }) {
                             {account.status === 'berakhir' ? <Clock size={30} /> : <AlertTriangle size={30} />}
                         </span>
                         <h1 className="mt-5 text-xl font-black text-slate-900">{account.status_label}</h1>
-                        <p className="mt-2 text-sm text-slate-500">Silakan hubungi admin Eloas untuk bantuan.</p>
+                        <p className="mt-2 text-sm text-slate-500">Silakan hubungi admin Eolas untuk bantuan.</p>
                     </>
                 )}
             </motion.div>

@@ -100,7 +100,7 @@ class BrandingController extends Controller
     {
         $b = Branding::current();
         $path = $b->{Branding::FILES[$jenis]};
-        $headers = ['Cache-Control' => 'public, max-age=604800', 'X-Content-Type-Options' => 'nosniff'];
+        $headers = ['Cache-Control' => 'private, max-age=604800', 'X-Content-Type-Options' => 'nosniff'];
 
         if ($path && Storage::disk('local')->exists($path)) {
             return Storage::disk('local')->response($path, null, $headers + [

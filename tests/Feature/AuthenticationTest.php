@@ -15,7 +15,8 @@ class AuthenticationTest extends TestCase
     public function test_guests_are_redirected_to_login(): void
     {
         $this->get('/manpower/karyawan')->assertRedirect('/login');
-        $this->get('/')->assertRedirect('/login');
+        // "/" is the public landing page for visitors.
+        $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Landing'));
     }
 
     public function test_login_page_renders(): void
@@ -48,7 +49,7 @@ class AuthenticationTest extends TestCase
             ->assertRedirect('/login')
             ->assertSessionHasErrors(['email' => 'Email / NRP atau password salah.']);
 
-        $this->post('/login', ['email' => 'tidak-ada@eloas.local', 'password' => 'salah'])
+        $this->post('/login', ['email' => 'tidak-ada@eolas.local', 'password' => 'salah'])
             ->assertSessionHasErrors(['email' => 'Email / NRP atau password salah.']);
 
         $this->assertGuest();

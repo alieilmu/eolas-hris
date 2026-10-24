@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -26,7 +27,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // "central": the main database, kept when a request switches "mysql" to a demo workspace
         // (App\Support\Tenancy\Tenant); sessions, the queue and the demo accounts live there.
-        config(['database.connections.central' => config('database.connections.mysql')]);
+        config(['database.connections.central' => config('database.connections.'.config('database.default'))]);
     }
 
     /**
@@ -34,6 +35,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // An in-memory SQLite database (the tests) exists once per connection: "central" must be
+        // the very same connection, not a second, empty database.
+        if (config('database.connections.'.config('database.default').'.database') === ':memory:') {
+            DB::extend('central', fn () => DB::connection(config('database.default')));
+        }
+
         // Menus ticked for the account in Settings → Akun & Akses (the Super Admin has all).
         Gate::define('view-menu', fn (User $user, string ...$menus) => $user->canView(...$menus));
         Gate::define('edit-menu', fn (User $user, string ...$menus) => $user->canEdit(...$menus));
@@ -50,6 +57,9 @@ class AppServiceProvider extends ServiceProvider
         // Public application forms (Lowongan): a few applications per visitor per hour.
         RateLimiter::for('lamaran', fn (Request $request) => Limit::perHour(10)->by($request->ip())->response(
             fn () => back()->withErrors(['form' => 'Terlalu banyak lamaran dari jaringan ini; coba lagi dalam satu jam.'])));
+
+        // Attendance machines push every few seconds; a generous ceiling per address.
+        RateLimiter::for('iclock', fn (Request $request) => Limit::perMinute(600)->by($request->ip()));
 
         // Pengajuan Akun Demo: a few requests per visitor per hour.
         RateLimiter::for('demo', fn (Request $request) => Limit::perHour(5)->by($request->ip())->response(

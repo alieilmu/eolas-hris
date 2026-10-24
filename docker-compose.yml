@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------
-# HRIS Eloas — duplikasi dari HR Puspita (hcpuspita), lingkungan terpisah.
+# HRIS Eolas — duplikasi dari HR Puspita (hcpuspita), lingkungan terpisah.
 #
-# Domain: https://eloas.zamaludinilmu.com (lewat Traefik, container n8n-traefik-1).
+# Domain: https://eolas.zamaludinilmu.com (old eloas.zamaludinilmu.com redirects there) (lewat Traefik, container n8n-traefik-1).
 # Image, container, volume & database berdiri sendiri. Akses lokal: 127.0.0.1:8097.
 # Data MySQL ada di volume `hris_eloas_db-data`, upload di `hris_eloas_app-storage`.
 # ---------------------------------------------------------------------------
@@ -32,7 +32,19 @@ services:
       - traefik.http.routers.hris_eloas.entrypoints=websecure
       - traefik.http.routers.hris_eloas.tls=true
       - traefik.http.routers.hris_eloas.tls.certresolver=mytlschallenge
+      - traefik.http.routers.hris_eloas.service=hris_eloas
+      # The old (misspelt) domain moves permanently to eolas.zamaludinilmu.com.
+      - traefik.http.middlewares.eolas-redirect.redirectregex.regex=^https?://eloas\.zamaludinilmu\.com/(.*)
+      - traefik.http.middlewares.eolas-redirect.redirectregex.replacement=https://eolas.zamaludinilmu.com/$${1}
+      - traefik.http.middlewares.eolas-redirect.redirectregex.permanent=true
+      - traefik.http.routers.hris_eloas.middlewares=eolas-redirect
       - traefik.http.services.hris_eloas.loadbalancer.server.port=80
+      # Eolas: the product's own domain (own router and certificate).
+      - traefik.http.routers.hris_eolas.rule=Host(`eolas.zamaludinilmu.com`)
+      - traefik.http.routers.hris_eolas.entrypoints=websecure
+      - traefik.http.routers.hris_eolas.tls=true
+      - traefik.http.routers.hris_eolas.tls.certresolver=mytlschallenge
+      - traefik.http.routers.hris_eolas.service=hris_eloas
 
   queue:
     image: hris_eloas-app:latest

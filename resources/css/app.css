@@ -7,7 +7,7 @@
     --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 
-    /* Built-in scales: Eloas green (brand-600 #15803d, accent-400 #86efac). Settings → White Label overrides them per installation
+    /* Built-in scales: Eolas green (brand-600 #15803d, accent-400 #86efac). Settings → White Label overrides them per installation
        with scales drawn from its two colours (App\Support\Branding\Palette, in the page head). */
     --color-brand-50: #eff6f1;
     --color-brand-100: #dcece2;

@@ -36,7 +36,7 @@ class PengajuanUpdateDataTest extends TestCase
 
     private function hr(): User
     {
-        return User::where('email', 'hr@eloas.local')->firstOrFail();
+        return User::where('email', 'hr@eolas.local')->firstOrFail();
     }
 
     /** @return array{0: Karyawan, 1: User} */
@@ -140,7 +140,7 @@ class PengajuanUpdateDataTest extends TestCase
         $this->assertSame('diajukan', $p->fresh()->status);
 
         // An admin without the menu; the employee on the HR page.
-        $viewer = User::where('email', 'viewer@eloas.local')->firstOrFail();
+        $viewer = User::where('email', 'viewer@eolas.local')->firstOrFail();
         $this->actingAs($viewer)->get('/manpower/pengajuan-data')->assertForbidden();
         $this->actingAs($user)->get('/manpower/pengajuan-data')->assertForbidden();
     }

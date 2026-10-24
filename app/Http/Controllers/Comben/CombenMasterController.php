@@ -15,6 +15,7 @@ use App\Models\SkalaUpahKolom;
 use App\Models\SkalaUpahNilai;
 use App\Models\SubGroup;
 use App\Models\SubLocation;
+use App\Models\TunjanganJabatan;
 use App\Models\WorkLocation;
 use App\Support\Karyawan\MasterOptions;
 use Illuminate\Database\Eloquent\Model;
@@ -66,6 +67,8 @@ class CombenMasterController extends Controller
             'plafon_pengobatan' => PlafonPengobatan::orderBy('urutan')->orderBy('id')->get()->map(fn (PlafonPengobatan $p) => self::plafonRow($p) + ['lajang' => $p->lajang, 'keluarga' => $p->keluarga]),
             'plafon_kacamata' => PlafonKacamata::orderBy('urutan')->orderBy('id')->get()->map(fn (PlafonKacamata $p) => self::plafonRow($p) + ['bingkai' => $p->bingkai, 'lensa' => $p->lensa]),
             'sub_groups' => SubGroup::orderByDesc('layer')->orderBy('nama')->get(['id', 'nama', 'layer']),
+            // Tunjangan Jabatan per SubGroup (fixed monthly allowance, part of the upah tetap).
+            'tunjangan_jabatan' => (object) TunjanganJabatan::pluck('nominal', 'sub_group_id')->map(fn ($n) => (int) $n)->all(),
             'work_locations' => WorkLocation::orderBy('order')->get(['id', 'name']),
             // Cuti Tahunan & Besar.
             'cuti_aturan' => CutiAturan::current()->only(['jatah_tahunan', 'masa_aktif_tahun', 'besar_interval_tahun', 'besar_hari', 'besar_gapok_diambil', 'besar_gapok_diuangkan', 'besar_batas_bulan']),
@@ -316,5 +319,23 @@ class CombenMasterController extends Controller
             'jabatan_ho' => $p->jabatan_ho,
             'jabatan_site' => $p->jabatan_site,
         ];
+    }
+
+    /** Saves the Tunjangan Jabatan of every SubGroup at once ({sub_group_id: nominal}). */
+    public function updateTunjangan(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'nominal' => ['present', 'array'],
+            'nominal.*' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+        ]);
+        $ids = SubGroup::pluck('id')->all();
+        foreach ($data['nominal'] as $id => $nominal) {
+            if (in_array((int) $id, $ids, true)) {
+                TunjanganJabatan::updateOrCreate(['sub_group_id' => (int) $id], ['nominal' => (int) ($nominal ?? 0)]);
+            }
+        }
+        Inertia::flash('success', 'Tunjangan Jabatan disimpan.');
+
+        return back();
     }
 }

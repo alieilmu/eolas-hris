@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Tenancy\Tenant;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
@@ -59,7 +60,16 @@ class Branding extends Model
     /** /branding/logo?v=…, or null when none was uploaded. The version makes a new upload show at once. */
     public function fileUrl(string $jenis): ?string
     {
-        return $this->{self::FILES[$jenis]} ? "/branding/{$jenis}?v=".($this->updated_at?->timestamp ?? 0) : null;
+        return $this->{self::FILES[$jenis]} ? "/branding/{$jenis}?v=".$this->version() : null;
+    }
+
+    /**
+     * Cache key of the files: the last change, and the demo workspace (or the main app), so a
+     * browser that visits several of them never shows one's logo for another's.
+     */
+    private function version(): string
+    {
+        return ($this->updated_at?->timestamp ?? 0).'-'.substr(md5(Tenant::current() ?? 'main'), 0, 8);
     }
 
     /** For every page (Inertia shared props). */
@@ -74,7 +84,7 @@ class Branding extends Model
             'logo_url' => $this->fileUrl('logo'),
             'logo_full_url' => $this->fileUrl('logo-full'),
             // Always there: an uploaded one, or one drawn from the initial and the colours.
-            'favicon_url' => '/branding/favicon?v='.($this->updated_at?->timestamp ?? 0),
+            'favicon_url' => '/branding/favicon?v='.$this->version(),
         ];
     }
 }

@@ -26,8 +26,8 @@ class DemoRequestController extends Controller
         return Inertia::render('Demo/Request', [
             'sumber' => DemoAccount::SUMBER,
             'jumlah_karyawan' => self::JUMLAH_KARYAWAN,
-            'auto_approve' => config('eloas.demo_auto_approve'),
-            'demo_days' => config('eloas.demo_days'),
+            'auto_approve' => config('eolas.demo_auto_approve'),
+            'demo_days' => config('eolas.demo_days'),
         ]);
     }
 
@@ -35,7 +35,7 @@ class DemoRequestController extends Controller
     {
         $data = $request->validate([
             'nama' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'email', 'max:150', 'unique:central.demo_accounts,email', 'unique:central.users,email', 'not_regex:/@eloas\.local$/i'],
+            'email' => ['required', 'email', 'max:150', 'unique:central.demo_accounts,email', 'unique:central.users,email', 'not_regex:/@eolas\.local$/i'],
             'perusahaan' => ['required', 'string', 'max:150'],
             'jabatan' => ['nullable', 'string', 'max:100'],
             'no_hp' => ['nullable', 'string', 'max:30', 'regex:/^[0-9+\-\s()]{6,30}$/'],
@@ -51,7 +51,7 @@ class DemoRequestController extends Controller
             'no_hp.regex' => 'Nomor HP tidak valid.',
         ]);
 
-        $auto = (bool) config('eloas.demo_auto_approve');
+        $auto = (bool) config('eolas.demo_auto_approve');
         $account = DemoAccount::create([
             ...collect($data)->except(['setuju', 'password_confirmation'])->all(),
             'email' => Str::lower($data['email']),

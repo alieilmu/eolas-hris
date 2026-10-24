@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProvisionDemoWorkspace;
 use App\Models\DemoAccount;
 use App\Support\Tenancy\Tenant;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -21,8 +22,8 @@ class DemoAccountController extends Controller
 
         return Inertia::render('Settings/DemoAccounts', [
             'accounts' => $accounts->map->toShare(),
-            'auto_approve' => config('eloas.demo_auto_approve'),
-            'demo_days' => config('eloas.demo_days'),
+            'auto_approve' => config('eolas.demo_auto_approve'),
+            'demo_days' => config('eolas.demo_days'),
             'stats' => [
                 'total' => $accounts->count(),
                 'aktif' => $accounts->filter->usable()->count(),
@@ -52,6 +53,17 @@ class DemoAccountController extends Controller
         $account->update(['expires_at' => $from->copy()->addDays($days)->endOfDay()]);
 
         Inertia::flash('success', "Masa demo {$account->perusahaan} diperpanjang {$days} hari.");
+
+        return back();
+    }
+
+    /** Sets the end of the demo to a date chosen by hand (the end of that day). */
+    public function setExpiry(Request $request, DemoAccount $account): RedirectResponse
+    {
+        $tanggal = $request->validate(['tanggal' => ['required', 'date_format:Y-m-d', 'after_or_equal:2000-01-01', 'before:2100-01-01']])['tanggal'];
+        $account->update(['expires_at' => Carbon::parse($tanggal)->endOfDay()]);
+
+        Inertia::flash('success', "Masa demo {$account->perusahaan} berakhir ".$account->expires_at->translatedFormat('j F Y').'.');
 
         return back();
     }

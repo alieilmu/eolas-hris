@@ -17,8 +17,14 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        // Attendance machines (ADMS): outside the web group, without session and CSRF.
+        then: fn () => Illuminate\Support\Facades\Route::group([], base_path('routes/iclock.php')),
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Only Traefik (Docker network) and the host nginx reach the app (port bound to 127.0.0.1):
+        // trust their X-Forwarded-* so the visitor's real address is seen (rate limits, machines).
+        $middleware->trustProxies(at: ['127.0.0.1', '172.16.0.0/12']);
+
         $middleware->web(append: [
             UseTenant::class,
             HandleInertiaRequests::class,

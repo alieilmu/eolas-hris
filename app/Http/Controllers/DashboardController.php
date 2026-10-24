@@ -20,7 +20,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The Eloas dashboard: one look over every module — people, attendance, leave and travel,
+ * The Eolas dashboard: one look over every module — people, attendance, leave and travel,
  * Comben, recruitment and Man Power Planning — for the account's locations. Lists with
  * names only appear for the menus the account may open.
  */

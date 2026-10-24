@@ -51,7 +51,7 @@ class NotifikasiTest extends TestCase
 
     private function hr(): User
     {
-        return User::where('email', 'hr@eloas.local')->firstOrFail();
+        return User::where('email', 'hr@eolas.local')->firstOrFail();
     }
 
     /** An employee with a portal account. */

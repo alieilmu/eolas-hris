@@ -338,7 +338,7 @@ class OrgStructureTest extends TestCase
 
     public function test_viewer_reads_the_charts_but_cannot_change_them(): void
     {
-        $this->actingAs(User::where('email', 'viewer@eloas.local')->firstOrFail());
+        $this->actingAs(User::where('email', 'viewer@eolas.local')->firstOrFail());
         $ho = $this->location('Head Office');
 
         $this->get("/manpower/org-structure?lokasi={$ho->id}")->assertOk()->assertInertia(fn (Assert $page) => $page

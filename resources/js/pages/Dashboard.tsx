@@ -170,7 +170,7 @@ export default function Dashboard(props: Props) {
                                     {sapa}, {auth.user?.name.split(' ')[0]} 👋
                                 </h2>
                                 <p className="mt-2 max-w-xl text-sm text-brand-100">
-                                    Ringkasan seluruh modul Eloas HRIS{props.lokasi ? ` untuk ${props.locations.find((l) => l.id === props.lokasi)?.name}` : ''}. Arahkan
+                                    Ringkasan seluruh modul Eolas HRIS{props.lokasi ? ` untuk ${props.locations.find((l) => l.id === props.lokasi)?.name}` : ''}. Arahkan
                                     kursor ke grafik untuk detail, klik kartu untuk membuka modulnya.
                                 </p>
                             </div>

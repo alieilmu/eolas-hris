@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * A code used in Roster and Absensi (D, N, OFF, ...). Its DWS is what an export
  * for payroll carries; its jenis says what kind of day it is.
  */
-#[Fillable(['kode', 'dws', 'keterangan', 'jenis', 'order'])]
+#[Fillable(['kode', 'dws', 'keterangan', 'jenis', 'order', 'jam_masuk', 'jam_keluar', 'istirahat_mulai', 'istirahat_selesai'])]
 class ShiftCode extends Model
 {
     /** What kind of day a code means; drives % Kehadiran and Man Onsite. */
@@ -23,6 +23,18 @@ class ShiftCode extends Model
         'izin' => 'Izin',
         'mangkir' => 'Mangkir',
     ];
+
+    /** "07:00", without seconds, for the pages. */
+    public static function hhmm(?string $time): ?string
+    {
+        return $time ? substr($time, 0, 5) : null;
+    }
+
+    /** Has working hours set (a work shift with a schedule). */
+    public function terjadwal(): bool
+    {
+        return $this->jam_masuk !== null && $this->jam_keluar !== null;
+    }
 
     public function rosters(): HasMany
     {

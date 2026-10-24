@@ -6,7 +6,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Process;
 
-/** Runs eloas:workspace for a demo account in its own PHP process (see ProvisionWorkspace). */
+/** Runs eolas:workspace for a demo account in its own PHP process (see ProvisionWorkspace). */
 class ProvisionDemoWorkspace implements ShouldQueue
 {
     use Queueable;
@@ -20,7 +20,7 @@ class ProvisionDemoWorkspace implements ShouldQueue
     public function handle(): void
     {
         Process::path(base_path())->timeout($this->timeout)
-            ->run([PHP_BINARY, 'artisan', 'eloas:workspace', (string) $this->accountId])
+            ->run([PHP_BINARY, 'artisan', 'eolas:workspace', (string) $this->accountId])
             ->throw();
     }
 }

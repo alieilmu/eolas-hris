@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\JenisKaryawan;
+use App\Support\Kehadiran\KehadiranDefaults;
 use App\Support\Karyawan\MasterOptions;
 use App\Support\Karyawan\Nrp;
 use Illuminate\Database\Seeder;
@@ -12,7 +13,7 @@ use Illuminate\Database\Seeder;
  * shares is there (NRP employee types, the choice lists; shift codes and roster patterns
  * come with the migrations) — the organisation, employees and Comben are theirs to enter.
  */
-class EloasKosongSeeder extends Seeder
+class EolasKosongSeeder extends Seeder
 {
     public function run(): void
     {
@@ -20,9 +21,10 @@ class EloasKosongSeeder extends Seeder
             JenisKaryawan::firstOrCreate(['kode' => $kode], ['nama' => $nama]);
         }
         MasterOptions::seedDefaults();
+        KehadiranDefaults::seed();
         Nrp::flush();
         MasterOptions::flush();
 
-        $this->call(EloasBrandingSeeder::class);
+        $this->call(EolasBrandingSeeder::class);
     }
 }

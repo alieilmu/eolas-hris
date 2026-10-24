@@ -267,7 +267,7 @@ class CombenTest extends TestCase
 
     public function test_viewers_are_kept_out(): void
     {
-        $this->actingAs(User::where('email', 'viewer@eloas.local')->firstOrFail());
+        $this->actingAs(User::where('email', 'viewer@eolas.local')->firstOrFail());
         $this->get('/comben/deklarasi')->assertForbidden();
         $this->get('/comben/monitoring')->assertForbidden();
         $this->get('/comben/master-data')->assertForbidden();

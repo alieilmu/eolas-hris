@@ -14,7 +14,7 @@ import {
     UserPlus,
     Workflow,
 } from 'lucide-react';
-import { EloasMark } from '@/components/EloasMark';
+import { EolasMark } from '@/components/EolasMark';
 import { GUIDE_MODULES } from '@/constants/guide';
 
 const STEPS = [
@@ -35,7 +35,7 @@ export default function Landing({ demo_days }: { demo_days: number }) {
             {/* Nav */}
             <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/85 backdrop-blur">
                 <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-                    <EloasMark />
+                    <EolasMark />
                     <nav className="hidden items-center gap-7 text-sm font-semibold text-slate-500 md:flex">
                         <a href="#modul" className="hover:text-brand-700">
                             Modul
@@ -77,7 +77,7 @@ export default function Landing({ demo_days }: { demo_days: number }) {
                             sistem.
                         </h1>
                         <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-500">
-                            Eloas HRIS menyatukan recruitment, data karyawan, struktur organisasi, man power planning, roster & absensi, cuti, dinas, dan
+                            Eolas HRIS menyatukan recruitment, data karyawan, struktur organisasi, man power planning, roster & absensi, cuti, dinas, dan
                             klaim benefit. Cocok untuk kantor pusat maupun operasional site.
                         </p>
                         <div className="mt-8 flex flex-wrap gap-3">
@@ -252,7 +252,7 @@ export default function Landing({ demo_days }: { demo_days: number }) {
                             <h3 className="mt-4 text-2xl font-black text-slate-900">Data Anda sendiri</h3>
                             <p className="relative mt-2 text-sm leading-relaxed text-slate-500">
                                 Workspace dimulai kosong (hanya master dasar). Bangun organisasi Anda dan masukkan karyawan, bisa lewat template import Excel,
-                                untuk menguji Eloas dengan kondisi nyata perusahaan Anda.
+                                untuk menguji Eolas dengan kondisi nyata perusahaan Anda.
                             </p>
                         </div>
                     </div>
@@ -293,7 +293,7 @@ export default function Landing({ demo_days }: { demo_days: number }) {
                         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(50%_80%_at_50%_0%,var(--color-brand-600),transparent)] opacity-60" />
                         <div className="relative">
                             <Workflow className="mx-auto text-accent-300" size={36} />
-                            <h2 className="mt-4 text-3xl font-black tracking-tight">Siap mencoba Eloas HRIS?</h2>
+                            <h2 className="mt-4 text-3xl font-black tracking-tight">Siap mencoba Eolas HRIS?</h2>
                             <p className="mx-auto mt-3 max-w-lg text-brand-100">
                                 Ajukan akun demo sekarang. Gratis {demo_days} hari, tanpa kartu kredit.
                             </p>
@@ -310,8 +310,8 @@ export default function Landing({ demo_days }: { demo_days: number }) {
 
             <footer className="border-t border-slate-100 py-8">
                 <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 text-xs text-slate-400 sm:flex-row sm:px-6">
-                    <EloasMark />
-                    <p>© {new Date().getFullYear()} Eloas HRIS · Human Capital Management System</p>
+                    <EolasMark />
+                    <p>© {new Date().getFullYear()} Eolas HRIS · Human Capital Management System</p>
                 </div>
             </footer>
         </div>

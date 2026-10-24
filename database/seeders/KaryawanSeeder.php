@@ -256,7 +256,7 @@ class KaryawanSeeder extends Seeder
         $karyawan = Karyawan::create([
             'nrp' => $nrp,
             'name' => $e['name'],
-            'email' => Str::of($e['name'])->lower()->replace(' ', '.').'@eloas.local',
+            'email' => Str::of($e['name'])->lower()->replace(' ', '.').'@eolas.local',
             'status' => $keluar ? Karyawan::STATUS_KELUAR : Karyawan::STATUS_AKTIF,
             // Their placement is the one of their position.
             ...JabatanComposer::employeePlacementOf($jabatan),

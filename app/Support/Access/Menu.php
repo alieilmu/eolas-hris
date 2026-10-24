@@ -31,12 +31,16 @@ class Menu
             'absensi' => 'Absensi',
             'trip-leave' => 'Trip & Leave',
             'pengajuan-dinas' => 'Pengajuan Dinas',
+            'kehadiran' => 'Kehadiran (CI/CO & mesin absen)',
+            // "Ubah" = may approve or reject overtime.
+            'lembur-approve' => 'Persetujuan Lembur',
             'master-attendance' => 'Master Data Attendance',
         ],
         'Comben' => [
             'deklarasi' => 'Deklarasi',
             'monitoring-plafon' => 'Monitoring Plafon',
             'cuti' => 'Cuti Tahunan & Besar',
+            'data-gaji' => 'Data Gaji (SSU, tunjangan, PTKP)',
             'master-comben' => 'Master Data Comben',
         ],
     ];
@@ -54,15 +58,18 @@ class Menu
         'absensi' => '/attendance/absensi',
         'trip-leave' => '/attendance/trip-leave',
         'pengajuan-dinas' => '/attendance/pengajuan-dinas',
+        'kehadiran' => '/attendance/kehadiran',
+        'lembur-approve' => '/attendance/kehadiran?tab=lembur',
         'master-attendance' => '/attendance/master-data',
         'deklarasi' => '/comben/deklarasi',
         'monitoring-plafon' => '/comben/monitoring',
         'cuti' => '/comben/cuti',
+        'data-gaji' => '/comben/data-gaji',
         'master-comben' => '/comben/master-data',
     ];
 
     /** Menus whose pages list employees: they only show the account's locations. */
-    public const SCOPED = ['org-structure', 'mpp', 'karyawan', 'update-data', 'roster', 'absensi', 'trip-leave', 'pengajuan-dinas', 'deklarasi', 'monitoring-plafon', 'cuti'];
+    public const SCOPED = ['org-structure', 'mpp', 'karyawan', 'update-data', 'roster', 'absensi', 'trip-leave', 'pengajuan-dinas', 'deklarasi', 'monitoring-plafon', 'cuti', 'kehadiran', 'lembur-approve', 'data-gaji'];
 
     /** @return list<string> */
     public static function keys(): array
