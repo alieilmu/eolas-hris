@@ -112,7 +112,7 @@ class AttendanceTest extends TestCase
             ->where('period.label', 'Oktober 2026')
             ->has('period.days', 31)
             ->where('period.days.3.weekday', 0) // 04.10.2026 is a Sunday
-            ->has('codes', 8)
+            ->has('codes', 9) // incl. IP (Izin Potong Gapok)
             ->has('patterns', 4)
             ->where('rows', fn ($rows) => collect($rows)->contains('id', $a->id)));
         $this->get('/time/attendance')->assertOk()->assertInertia(fn (Assert $page) => $page
@@ -390,7 +390,7 @@ class AttendanceTest extends TestCase
         $guide = $exported->getSheet(0);
         $this->assertSame(['Shift Code', 'DWS', 'Description'], $guide->rangeToArray('A1:C1')[0]);
         $this->assertSame(['D', 'DAY', 'Day shift'], $guide->rangeToArray('A2:C2')[0]);
-        $this->assertSame(['A1:C9'], array_map(fn ($t) => $t->getRange(), $guide->getTableCollection()->getArrayCopy()));
+        $this->assertSame(['A1:C10'], array_map(fn ($t) => $t->getRange(), $guide->getTableCollection()->getArrayCopy()));
         $this->assertSame('Petunjuk import Roster', $guide->getCell('E1')->getValue());
         $this->assertStringStartsWith('1. Isi kolom tanggal di sheet Roster', $guide->getCell('E3')->getValue());
 

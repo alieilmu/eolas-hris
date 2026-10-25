@@ -13,6 +13,7 @@ import {
     type CutiLapanganRow,
     type LumpsumRow,
 } from '@/components/compensation/LeaveSettings';
+import { PayrollSection, type PayrollData } from '@/components/compensation/PayrollSettings';
 import { rupiah } from '@/lib/compensation';
 
 interface GolonganRow {
@@ -67,6 +68,7 @@ interface Props {
     point_of_hire: { id: number; code: string; name: string }[];
     employee_class: string[];
     position_allowance: Record<string, number>;
+    payroll: PayrollData;
 }
 
 const BASE = '/compensation/settings';
@@ -112,6 +114,12 @@ function Page(props: Props) {
             label: 'Tunjangan Jabatan',
             hint: 'Tunjangan tetap bulanan per SubGroup. Bersama Gaji Pokok (Struktur Skala Upah) menjadi upah tetap: dasar BPJS, THR, dan upah lembur per jam (1/173). Lihat per karyawan di Comben → Data Gaji.',
             render: () => <TunjanganSection jobLevels={props.job_levels} amount={props.position_allowance} />,
+        },
+        {
+            id: 'payroll',
+            label: 'Payroll',
+            hint: 'Periode gaji (cutoff), metode PPh21 default, cara menghitung potong gapok (ALPA / Izin Potong Gapok), tarif JKK per lokasi, dan tarif BPJS & PPh21 per tahun. Dipakai Simulasi Gaji dan proses payroll.',
+            render: () => <PayrollSection data={props.payroll} />,
         },
         {
             id: 'policy-leave',

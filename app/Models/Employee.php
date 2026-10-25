@@ -125,6 +125,11 @@ class Employee extends Model
         return $this->hasOne(EmployeeProfile::class);
     }
 
+    public function payrollProfile(): HasOne
+    {
+        return $this->hasOne(EmployeePayrollProfile::class);
+    }
+
     /** Leave taken outside Cuti & Dinas (imported history, or typed by HR). */
     public function leaveTransactions(): HasMany
     {

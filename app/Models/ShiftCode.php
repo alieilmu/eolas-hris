@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * A code used in Roster and Absensi (D, N, OFF, ...). Its DWS is what an export
  * for payroll carries; its jenis says what kind of day it is.
  */
-#[Fillable(['code', 'daily_work_schedule', 'description', 'type', 'sort_order', 'start_time', 'end_time', 'break_start', 'break_end'])]
+#[Fillable(['code', 'daily_work_schedule', 'description', 'type', 'deducts_base_salary', 'sort_order', 'start_time', 'end_time', 'break_start', 'break_end'])]
 class ShiftCode extends Model
 {
     /** What kind of day a code means; drives % Kehadiran and Man Onsite. */
@@ -23,6 +23,11 @@ class ShiftCode extends Model
         'permission' => 'Izin',
         'absent' => 'Mangkir',
     ];
+
+    protected function casts(): array
+    {
+        return ['deducts_base_salary' => 'boolean'];
+    }
 
     /** "07:00", without seconds, for the pages. */
     public static function hhmm(?string $time): ?string

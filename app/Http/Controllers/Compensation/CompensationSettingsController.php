@@ -17,11 +17,15 @@ use App\Models\JobLevel;
 use App\Models\SubLocation;
 use App\Models\JobLevelAllowance;
 use App\Models\WorkLocation;
+use App\Models\PayrollRate;
+use App\Models\PayrollSetting;
+use App\Models\TerRate;
 use App\Support\Employees\LookupValues;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -91,7 +95,54 @@ class CompensationSettingsController extends Controller
             'field_leave_allowance' => FieldLeaveAllowance::get(['work_location_id', 'point_of_hire_id', 'employee_class', 'amount']),
             'point_of_hire' => PointOfHire::orderBy('code')->get(['id', 'code', 'name']),
             'employee_class' => LookupValues::values('employee_class'),
+            // Payroll: periods, tax method, potong gapok, BPJS / PPh21 figures per year, JKK per location.
+            'payroll' => [
+                'settings' => PayrollSetting::current()->only(['cutoff_day', 'default_tax_method', 'absence_divisor_mode', 'absence_divisor_days']),
+                'tax_methods' => PayrollSetting::TAX_METHODS,
+                'divisor_modes' => PayrollSetting::DIVISOR_MODES,
+                'rates' => PayrollRate::orderByDesc('year')->get()->map(fn (PayrollRate $r) => $r->only(['year', ...PayrollRate::RATES, ...PayrollRate::AMOUNTS])),
+                'jkk' => WorkLocation::orderBy('sort_order')->get(['id', 'name', 'type', 'jkk_rate']),
+                'ter' => TerRate::orderBy('category')->orderBy('lower_bound')->get(['category', 'lower_bound', 'upper_bound', 'rate'])->groupBy('category'),
+            ],
         ]);
+    }
+
+    // --- Payroll -----------------------------------------------------------------------
+
+    public function updatePayroll(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'cutoff_day' => ['required', 'integer', 'min:1', 'max:31'],
+            'default_tax_method' => ['required', Rule::in(array_keys(PayrollSetting::TAX_METHODS))],
+            'absence_divisor_mode' => ['required', Rule::in(array_keys(PayrollSetting::DIVISOR_MODES))],
+            'absence_divisor_days' => ['required', 'integer', 'min:1', 'max:31'],
+            'jkk' => ['present', 'array'],
+            'jkk.*' => ['required', 'numeric', 'min:0', 'max:10'],
+        ], [], ['cutoff_day' => 'Tanggal cutoff', 'absence_divisor_days' => 'Pembagi potong gapok', 'jkk.*' => 'Tarif JKK']);
+        PayrollSetting::current()->update(collect($data)->except('jkk')->all());
+        foreach ($data['jkk'] as $id => $rate) {
+            WorkLocation::whereKey((int) $id)->update(['jkk_rate' => $rate]);
+        }
+        Inertia::flash('success', 'Pengaturan payroll disimpan.');
+
+        return back();
+    }
+
+    /** The BPJS / PPh21 figures of one year; a year not there yet is added. */
+    public function updatePayrollRates(Request $request): RedirectResponse
+    {
+        $rules = ['year' => ['required', 'integer', 'min:2020', 'max:2100']];
+        foreach (PayrollRate::RATES as $f) {
+            $rules[$f] = ['required', 'numeric', 'min:0', 'max:100'];
+        }
+        foreach (PayrollRate::AMOUNTS as $f) {
+            $rules[$f] = ['required', 'integer', 'min:0', 'max:100000000000'];
+        }
+        $data = $request->validate($rules);
+        PayrollRate::updateOrCreate(['year' => $data['year']], $data);
+        Inertia::flash('success', "Tarif payroll {$data['year']} disimpan.");
+
+        return back();
     }
 
     // --- Golongan ------------------------------------------------------------------------

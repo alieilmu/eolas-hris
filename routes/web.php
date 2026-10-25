@@ -10,6 +10,7 @@ use App\Http\Controllers\Compensation\CompensationSettingsController;
 use App\Http\Controllers\Time\LeaveBalanceController;
 use App\Http\Controllers\Compensation\LeaveSettingsController;
 use App\Http\Controllers\Compensation\BenefitClaimController;
+use App\Http\Controllers\Compensation\PayrollSimulationController;
 use App\Http\Controllers\Compensation\SalaryController;
 use App\Http\Controllers\Compensation\BenefitBalanceController;
 use App\Http\Controllers\DashboardController;
@@ -346,6 +347,12 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
             Route::delete('/history/{salary}', 'destroy')->whereNumber('salary')->name('.destroy');
         });
 
+        // Simulasi Gaji: one slip worked out live by the payroll engine; the employee's payroll choices.
+        Route::controller(PayrollSimulationController::class)->middleware('menu:employee-compensation')->group(function () {
+            Route::get('/payroll-simulation', 'index')->name('payroll-simulation');
+            Route::put('/payroll-profile/{employee}', 'updateProfile')->whereNumber('employee')->name('payroll-profile.update');
+        });
+
         Route::controller(CompensationSettingsController::class)->middleware('menu:compensation-settings')->prefix('settings')->name('master.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/grade', 'storeGrade')->name('grade.store');
@@ -365,6 +372,8 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
             Route::delete('/field-leave/{field}', [LeaveSettingsController::class, 'destroyFieldLeave'])->whereNumber('field')->name('field-leave.destroy');
             Route::put('/field-leave-allowances', [LeaveSettingsController::class, 'updateFieldLeaveAllowance'])->name('field-leave-allowances.update');
             Route::put('/position-allowances', 'updateAllowance')->name('position-allowances.update');
+            Route::put('/payroll', 'updatePayroll')->name('payroll.update');
+            Route::put('/payroll/rates', 'updatePayrollRates')->name('payroll.rates.update');
         });
     });
 

@@ -13,6 +13,7 @@ interface CodeRow {
     daily_work_schedule: string | null;
     description: string | null;
     type: Jenis;
+    deducts_base_salary: boolean;
     start_time: string | null;
     end_time: string | null;
     break_start: string | null;
@@ -74,7 +75,7 @@ function Page({ codes, type_options, patterns, cash_advance_status, public_holid
         {
             id: 'shift-codes',
             label: 'Kode Shift',
-            hint: 'Kode Shift dipakai di Roster dan Absensi. DWS adalah terjemahannya untuk export (pilih "DWS" saat export). Jenis menentukan cara hitung % Kehadiran dan Man Onsite: Hadir = kerja di lokasi (onsite); Cuti & Dinas memakai kode pertama berjenis Dinas / Cuti. Jam masuk, keluar dan istirahat dipakai Kehadiran (CI/CO) dan Lembur; jam keluar lebih kecil dari jam masuk = shift malam (selesai besok). Jam istirahat tidak dihitung sebagai jam kerja.',
+            hint: 'Kode Shift dipakai di Roster dan Absensi. DWS adalah terjemahannya untuk export (pilih "DWS" saat export). Jenis menentukan cara hitung % Kehadiran dan Man Onsite: Hadir = kerja di lokasi (onsite); Cuti & Dinas memakai kode pertama berjenis Dinas / Cuti. Jam masuk, keluar dan istirahat dipakai Kehadiran (CI/CO) dan Lembur; jam keluar lebih kecil dari jam masuk = shift malam (selesai besok). Jam istirahat tidak dihitung sebagai jam kerja. Potong Gapok = tiap hari dengan kode ini memotong gaji pokok (gapok ÷ hari kerja, lihat Pengaturan Kompensasi → Payroll); hanya untuk jenis Mangkir dan Izin, mis. A (ALPA) dan IP (Izin Potong Gapok).',
             render: () => (
                 <CrudTable
                     title="Kode Shift"
@@ -91,6 +92,16 @@ function Page({ codes, type_options, patterns, cash_advance_status, public_holid
                             width: 'w-52',
                             options: Object.entries(type_options).map(([value, label]) => ({ value, label })),
                         },
+                        {
+                            key: 'deducts_base_salary',
+                            label: 'Potong Gapok',
+                            type: 'select',
+                            width: 'w-28',
+                            options: [
+                                { value: '0', label: 'Tidak' },
+                                { value: '1', label: 'Ya', display: 'Ya (gapok ÷ hari kerja)' },
+                            ],
+                        },
                         { key: 'start_time', label: 'Masuk', type: 'time', width: 'w-28' },
                         { key: 'end_time', label: 'Keluar', type: 'time', width: 'w-28' },
                         { key: 'break_start', label: 'Istirahat', type: 'time', width: 'w-28' },
@@ -101,12 +112,13 @@ function Page({ codes, type_options, patterns, cash_advance_status, public_holid
                         daily_work_schedule: r.daily_work_schedule ?? '',
                         description: r.description ?? '',
                         type: r.type,
+                        deducts_base_salary: r.deducts_base_salary ? '1' : '0',
                         start_time: r.start_time ?? '',
                         end_time: r.end_time ?? '',
                         break_start: r.break_start ?? '',
                         break_end: r.break_end ?? '',
                     })}
-                    emptyForm={{ code: '', daily_work_schedule: '', description: '', type: 'work', start_time: '', end_time: '', break_start: '', break_end: '' }}
+                    emptyForm={{ code: '', daily_work_schedule: '', description: '', type: 'work', deducts_base_salary: '0', start_time: '', end_time: '', break_start: '', break_end: '' }}
                     extraColumns={[
                         { label: 'Jam kerja', render: (r) => (r.work_hours !== null ? `${String(r.work_hours).replace('.', ',')} jam` : '-') },
                         {

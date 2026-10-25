@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
-import { Head, router, useForm } from '@inertiajs/react';
-import { AlertTriangle, Check, ChevronDown, Loader2, Pencil, Search, Trash2 } from 'lucide-react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { AlertTriangle, Calculator, Check, ChevronDown, Loader2, Pencil, Search, Trash2 } from 'lucide-react';
 import { AttendanceHeader, Field, Modal, ghostButton, inputClass, primaryButton, smallInput } from '@/components/time/ui';
 import { rupiah } from '@/lib/compensation';
 
@@ -128,7 +128,7 @@ export default function Salaries({ rows, locations, location, summary, scale, re
                                     <th className="px-3 py-2 text-right">Tunj. jabatan</th>
                                     <th className="px-3 py-2 text-right">Upah tetap</th>
                                     <th className="px-3 py-2">PTKP</th>
-                                    {can_edit && <th className="px-3 py-2" />}
+                                    <th className="px-3 py-2" />
                                 </tr>
                             </thead>
                             <tbody>
@@ -170,17 +170,24 @@ export default function Salaries({ rows, locations, location, summary, scale, re
                                                     {r.gender ?? '?'} · {r.marital_status ?? '?'} · {r.children} anak
                                                 </span>
                                             </td>
-                                            {can_edit && (
-                                                <td className="px-3 py-2">
+                                            <td className="px-3 py-2 whitespace-nowrap">
+                                                <Link
+                                                    href={`/compensation/payroll-simulation?employee=${r.id}`}
+                                                    title="Simulasi slip gaji"
+                                                    className="inline-block rounded-lg p-1.5 text-slate-400 hover:bg-brand-50 hover:text-brand-600"
+                                                >
+                                                    <Calculator size={14} />
+                                                </Link>
+                                                {can_edit && (
                                                     <button onClick={() => setEditing(r)} title="Ubah golongan / step" className="rounded-lg p-1.5 text-slate-400 hover:bg-brand-50 hover:text-brand-600">
                                                         <Pencil size={14} />
                                                     </button>
-                                                </td>
-                                            )}
+                                                )}
+                                            </td>
                                         </tr>
                                         {open === r.id && (
                                             <tr className="bg-slate-50/70">
-                                                <td colSpan={8} className="px-10 py-3">
+                                                <td colSpan={9} className="px-10 py-3">
                                                     <p className="mb-2 text-[11px] font-bold tracking-wide text-slate-500 uppercase">Riwayat golongan & gaji pokok</p>
                                                     {r.history.length === 0 && <p className="text-xs text-slate-400">Belum ada riwayat.</p>}
                                                     <ul className="space-y-1">
@@ -213,7 +220,7 @@ export default function Salaries({ rows, locations, location, summary, scale, re
                                 ))}
                                 {shown.length === 0 && (
                                     <tr>
-                                        <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">
+                                        <td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-400">
                                             Tidak ada karyawan.
                                         </td>
                                     </tr>

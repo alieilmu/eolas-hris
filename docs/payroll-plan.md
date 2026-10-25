@@ -1,6 +1,6 @@
 # Rencana Modul Payroll — Eolas HRIS
 
-> Status: **fase 1 sebagian dibangun** (lihat bagian 12) · disusun 24 Okt 2026, diperbarui 25 Okt 2026 · basis kode: branch `eloas`
+> Status: **fase 1 sebagian & fase 2 dibangun** (lihat bagian 12) · disusun 24 Okt 2026, diperbarui 25 Okt 2026 · basis kode: branch `eloas`
 > Acuan regulasi: PP 58/2023 & PMK 168/2023 (PPh21 TER), UU HPP (tarif Pasal 17), PP 35/2021 (lembur),
 > Permenaker 6/2016 (THR), Perpres 64/2020 (BPJS Kesehatan), PP 44/2015 & PP 45/2015 (BPJS Ketenagakerjaan).
 > Semua angka tarif dan batas disimpan sebagai **master data per tahun**, bukan ditanam di kode.
@@ -301,7 +301,15 @@ Masih terbuka: bank tujuan untuk file transfer, daftar tunjangan tetap lain sela
 - **Comben → Data Gaji** dan tab **Tunjangan Jabatan**; PTKP otomatis.
 - Menu akses baru: `kehadiran`, `lembur-approve`, `data-gaji`.
 
-Belum: master data payroll (cutoff, metode pajak), mesin PPh21/BPJS, proses gaji, slip, dan laporan (fase 2 dst).
+### Fase 2 (25 Okt 2026)
+
+- **Potong gapok:** kode absensi punya tanda *Potong Gapok* (Pengaturan Waktu & Kehadiran → Kode Shift; hanya jenis Mangkir/Izin). Bawaan: **A (ALPA)** dan kode baru **IP (Izin Potong Gapok)**; izin biasa (I) tidak dipotong. Potongan per hari = gaji pokok ÷ hari kerja di roster periode itu (atau angka tetap, mis. 21/25).
+- **Pengaturan Kompensasi → Payroll:** tanggal cutoff, metode PPh21 default (gross / gross-up / net), pembagi potong gapok, tarif JKK per lokasi (HO 0,24%, site 1,74%), tarif BPJS & PPh21 per tahun (2026: plafon BPJS Kes 12 jt, plafon JP 10.547.400 — perlu dicek tiap tahun), tabel TER PP 58/2023.
+- **Mesin hitung** (`App\Support\Payroll`): `Bpjs`, `Pph21` (TER Jan–Nov, Pasal 17 setahun di Desember, gross-up, +20% tanpa NPWP/NIK), `AbsenceDeduction`, `PayrollCalculator`. Upah lembur = jam tertimbang × upah tetap ÷ 173 dari lembur berstatus Disetujui.
+- **Kompensasi → Simulasi Gaji:** slip satu karyawan per periode (tidak disimpan), rincian PPh21 & BPJS, hari yang dipotong; metode pajak & kepesertaan BPJS per karyawan.
+- Tes: contoh DJP (TER B Rp10.054.000 → Rp150.810; Desember K/1 → Rp743.490) dan slip lengkap.
+
+Belum (fase 3 dst.): payroll run tersimpan & persetujuan, pro-rata masuk/keluar & final pay, slip PDF/portal, rekap & ekspor, input variabel, pinjaman, THR, laporan bank/BPJS/e-Bupot. Desember saat ini menghitung ulang Jan–Nov dari data yang ada. Belum ada: batas bawah UMK untuk dasar BPJS Kesehatan dan iuran anggota keluarga tambahan.
 
 ## 13. Catatan lama: keputusan yang perlu dikonfirmasi
 

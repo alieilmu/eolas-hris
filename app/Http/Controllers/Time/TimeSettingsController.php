@@ -35,12 +35,13 @@ class TimeSettingsController extends Controller
                 'daily_work_schedule' => $c->daily_work_schedule,
                 'description' => $c->description,
                 'type' => $c->type,
+                'deducts_base_salary' => $c->deducts_base_salary,
                 'start_time' => ShiftCode::hhmm($c->start_time),
                 'end_time' => ShiftCode::hhmm($c->end_time),
                 'break_start' => ShiftCode::hhmm($c->break_start),
                 'break_end' => ShiftCode::hhmm($c->break_end),
                 'work_hours' => ($j = ShiftWindow::of($c, CarbonImmutable::today())) ? round($j->workedMinutes() / 60, 2) : null,
-                'usage' => $c->rosters_count + $c->attendance_records_count,
+                'usage' => $c->shift_schedules_count + $c->attendance_records_count,
                 'patterns' => $patterns->filter(fn (ShiftPattern $p) => $p->usesCode($c->id))->pluck('name')->values(),
             ]),
             'type_options' => ShiftCode::JENIS,
@@ -115,17 +116,20 @@ class TimeSettingsController extends Controller
             'daily_work_schedule' => ['nullable', 'string', 'max:30'],
             'description' => ['nullable', 'string', 'max:150'],
             'type' => ['required', Rule::in(array_keys(ShiftCode::JENIS))],
+            'deducts_base_salary' => ['nullable', 'boolean'],
             'start_time' => ['nullable', 'date_format:H:i', 'required_with:end_time'],
             'end_time' => ['nullable', 'date_format:H:i', 'required_with:start_time'],
             'break_start' => ['nullable', 'date_format:H:i', 'required_with:break_end'],
             'break_end' => ['nullable', 'date_format:H:i', 'required_with:break_start'],
         ], ['code.regex' => 'Kode Shift hanya huruf, angka, dan - _ / + tanpa spasi.'], [
-            'code' => 'Kode Shift', 'daily_work_schedule' => 'DWS', 'type' => 'Jenis', 'start_time' => 'Jam masuk', 'end_time' => 'Jam keluar',
+            'code' => 'Kode Shift', 'daily_work_schedule' => 'DWS', 'type' => 'Jenis', 'deducts_base_salary' => 'Potong Gapok', 'start_time' => 'Jam masuk', 'end_time' => 'Jam keluar',
             'break_start' => 'Istirahat mulai', 'break_end' => 'Istirahat selesai',
         ]);
         foreach (['start_time', 'end_time', 'break_start', 'break_end'] as $f) {
             $data[$f] = filled($data[$f] ?? null) ? $data[$f] : null;
         }
+        // Only a day off work can cut the gaji pokok.
+        $data['deducts_base_salary'] = (bool) ($data['deducts_base_salary'] ?? false) && in_array($data['type'], ['absent', 'permission'], true);
         if ($data['start_time'] && $data['start_time'] === $data['end_time']) {
             throw ValidationException::withMessages(['end_time' => 'Jam keluar tidak boleh sama dengan jam masuk.']);
         }
