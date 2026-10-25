@@ -12,6 +12,7 @@ interface Account {
     status: 'pending' | 'provisioning' | 'active' | 'inactive' | 'failed' | 'ends';
     status_label: string;
     data_source: 'demo' | 'blank';
+    industry_label: string | null;
     source_label: string;
     expires_at: string | null;
     days_left: number | null;
@@ -48,7 +49,7 @@ export default function DemoStatus({ account }: { account: Account }) {
                         </span>
                         <h1 className="mt-5 text-xl font-black text-slate-900">Workspace sedang disiapkan…</h1>
                         <p className="mt-2 text-sm text-slate-500">
-                            {account.company_name} · {account.source_label}. Biasanya selesai kurang dari satu menit.
+                            {account.company_name} · {account.source_label}{account.industry_label ? ` (${account.industry_label})` : ''}. Biasanya selesai kurang dari satu menit.
                         </p>
                         <ul className="mx-auto mt-6 max-w-xs space-y-2 text-left text-sm">
                             {STEPS.map((s, i) => (
@@ -77,7 +78,7 @@ export default function DemoStatus({ account }: { account: Account }) {
                         </motion.span>
                         <h1 className="mt-5 text-xl font-black text-slate-900">Workspace Anda siap! 🎉</h1>
                         <p className="mt-2 text-sm text-slate-500">
-                            Halo {account.name}, workspace <b>{account.company_name}</b> sudah aktif dengan <b>{account.source_label.toLowerCase()}</b>.
+                            Halo {account.name}, workspace <b>{account.company_name}</b> sudah aktif dengan <b>{account.source_label.toLowerCase()}{account.industry_label ? ` ${account.industry_label.toLowerCase()}` : ''}</b>.
                         </p>
                         <dl className="mt-6 grid grid-cols-2 gap-3 text-left text-sm">
                             <div className="rounded-2xl bg-slate-50 p-3">

@@ -13,6 +13,7 @@ interface Account {
     company_size: string | null;
     requirements: string | null;
     data_source: 'demo' | 'blank';
+    industry_label: string | null;
     source_label: string;
     status: 'pending' | 'provisioning' | 'active' | 'inactive' | 'failed' | 'ends';
     status_label: string;
@@ -136,7 +137,7 @@ export default function TrialAccounts({ accounts, auto_approve, demo_days, stats
                                             <td className="px-4 py-3">
                                                 <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
                                                     {a.data_source === 'demo' ? <FlaskConical size={14} className="text-brand-600" /> : <Database size={14} className="text-slate-500" />}
-                                                    {a.source_label}
+                                                    {a.source_label}{a.industry_label ? ` · ${a.industry_label}` : ''}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3">

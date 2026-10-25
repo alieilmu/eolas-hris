@@ -18,7 +18,8 @@ class EolasBlankSeeder extends Seeder
 {
     public function run(): void
     {
-        foreach (['1' => 'Karyawan Normal', '7' => 'Tenaga Ahli', '8' => 'Mekanik Magang', '9' => 'Operator Magang'] as $code => $name) {
+        // General employee types; the company renames them or sets its own codes (and format) in the sesi awal.
+        foreach (['1' => 'Karyawan Tetap', '2' => 'Karyawan Kontrak', '3' => 'Harian Lepas', '4' => 'Magang'] as $code => $name) {
             EmployeeCategory::firstOrCreate(['code' => $code], ['name' => $name]);
         }
         LookupValues::seedDefaults();

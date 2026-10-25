@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\Branding;
 use App\Models\TrialAccount;
+use App\Support\Demo\Industry;
+use App\Support\Demo\IndustrySkin;
 use App\Models\User;
 use App\Support\Tenancy\Tenant;
 use Database\Seeders\EolasDemoSeeder;
@@ -38,6 +40,9 @@ class ProvisionWorkspace extends Command
 
             $this->call('migrate', ['--force' => true]);
             $this->call('db:seed', ['--class' => $account->data_source === 'blank' ? EolasBlankSeeder::class : EolasDemoSeeder::class, '--force' => true]);
+            if ($account->data_source !== 'blank') {
+                IndustrySkin::apply($account->industry ?? Industry::DEFAULT);
+            }
             $this->accounts($account);
             Branding::query()->first()?->update(['company_name' => $account->company_name]);
         } catch (Throwable $e) {

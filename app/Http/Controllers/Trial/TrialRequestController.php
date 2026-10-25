@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Trial;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProvisionDemoWorkspace;
 use App\Models\TrialAccount;
+use App\Support\Demo\Industry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -25,6 +26,7 @@ class TrialRequestController extends Controller
     {
         return Inertia::render('Trial/Request', [
             'source' => TrialAccount::SUMBER,
+            'industries' => collect(Industry::LABELS)->map(fn ($label, $key) => ['value' => $key, 'label' => $label, 'description' => Industry::DESCRIPTIONS[$key]])->values(),
             'company_size' => self::JUMLAH_KARYAWAN,
             'auto_approve' => config('eolas.demo_auto_approve'),
             'demo_days' => config('eolas.demo_days'),
@@ -42,6 +44,7 @@ class TrialRequestController extends Controller
             'company_size' => ['nullable', Rule::in(self::JUMLAH_KARYAWAN)],
             'requirements' => ['nullable', 'string', 'max:1000'],
             'data_source' => ['required', Rule::in(array_keys(TrialAccount::SUMBER))],
+            'industry' => ['nullable', 'required_if:data_source,demo', Rule::in(array_keys(Industry::LABELS))],
             'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
             'agree' => ['accepted'],
         ], [
@@ -51,6 +54,7 @@ class TrialRequestController extends Controller
             'phone.regex' => 'Nomor HP tidak valid.',
         ]);
 
+        $data['industry'] = $data['data_source'] === 'demo' ? ($data['industry'] ?? Industry::DEFAULT) : null;
         $auto = (bool) config('eolas.demo_auto_approve');
         $account = TrialAccount::create([
             ...collect($data)->except(['agree', 'password_confirmation'])->all(),
@@ -77,7 +81,7 @@ class TrialRequestController extends Controller
             'company_name' => $account->company_name,
             // Masked: the page is reachable by its code alone.
             'email' => preg_replace('/(?<=^.{2})[^@]*(?=@)/', '•••', $account->email),
-            ...collect($account->toShare())->only(['status', 'status_label', 'data_source', 'source_label', 'expires_at', 'days_left'])->all(),
+            ...collect($account->toShare())->only(['status', 'status_label', 'data_source', 'source_label', 'industry_label', 'expires_at', 'days_left'])->all(),
         ]]);
     }
 }

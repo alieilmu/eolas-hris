@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
  * A demo account and its workspace (database hris_eloas_t{id}, files under
  * storage/app/tenants/{database}). Always read from the main database ("central").
  */
-#[Fillable(['code', 'name', 'email', 'password', 'company_name', 'position', 'phone', 'company_size', 'requirements', 'data_source', 'status', 'database', 'notes', 'approved_at', 'provisioned_at', 'expires_at', 'last_login_at'])]
+#[Fillable(['code', 'name', 'email', 'password', 'company_name', 'position', 'phone', 'company_size', 'requirements', 'data_source', 'industry', 'status', 'database', 'notes', 'approved_at', 'provisioned_at', 'expires_at', 'last_login_at'])]
 #[Hidden(['password'])]
 class TrialAccount extends Model
 {
@@ -94,6 +94,8 @@ class TrialAccount extends Model
             'requirements' => $this->requirements,
             'data_source' => $this->data_source,
             'source_label' => self::SUMBER[$this->data_source] ?? $this->data_source,
+            'industry' => $this->industry,
+            'industry_label' => $this->data_source === 'demo' ? (\App\Support\Demo\Industry::LABELS[$this->industry ?? \App\Support\Demo\Industry::DEFAULT] ?? null) : null,
             'status' => $this->expired() && $this->status === 'active' ? 'ends' : $this->status,
             'status_label' => $this->expired() && $this->status === 'active' ? 'Masa demo berakhir' : (self::STATUS[$this->status] ?? $this->status),
             'notes' => $this->notes,

@@ -8,6 +8,7 @@ interface Props {
     company_size: string[];
     auto_approve: boolean;
     demo_days: number;
+    industries: { value: string; label: string; description: string }[];
 }
 
 const input =
@@ -39,7 +40,7 @@ const CHOICES = [
     },
 ];
 
-export default function DemoRequest({ company_size, auto_approve, demo_days }: Props) {
+export default function DemoRequest({ company_size, auto_approve, demo_days, industries }: Props) {
     const form = useForm({
         name: '',
         email: '',
@@ -49,6 +50,7 @@ export default function DemoRequest({ company_size, auto_approve, demo_days }: P
         company_size: '',
         requirements: '',
         data_source: 'demo' as 'demo' | 'blank',
+        industry: 'mining',
         password: '',
         password_confirmation: '',
         agree: false,
@@ -132,6 +134,29 @@ export default function DemoRequest({ company_size, auto_approve, demo_days }: P
                                 );
                             })}
                         </div>
+                        {data.data_source === 'demo' && (
+                            <div className="mt-4">
+                                <p className="text-xs font-bold text-slate-500">Jenis perusahaan untuk data demo</p>
+                                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                    {industries.map((i) => {
+                                        const on = data.industry === i.value;
+                                        return (
+                                            <button
+                                                type="button"
+                                                key={i.value}
+                                                onClick={() => setData('industry', i.value)}
+                                                aria-pressed={on}
+                                                className={`rounded-xl border px-3 py-2 text-left transition ${on ? 'border-brand-500 bg-brand-50' : 'border-slate-100 hover:border-brand-200'}`}
+                                            >
+                                                <span className={`block text-sm font-bold ${on ? 'text-brand-700' : 'text-slate-700'}`}>{i.label}</span>
+                                                <span className="block text-[11px] leading-snug text-slate-500">{i.description}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {errors.industry && <p className="mt-1 text-xs text-rose-600">{errors.industry}</p>}
+                            </div>
+                        )}
                     </div>
 
                     <div>
