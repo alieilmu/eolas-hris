@@ -29,6 +29,7 @@ import {
     Users,
     Wallet,
     Calculator,
+    Rocket,
 } from 'lucide-react';
 import type { NavModule } from '@/types';
 
@@ -95,6 +96,7 @@ export const APP_MODULES: NavModule[] = [
         label: 'Administrasi',
         icon: SlidersHorizontal,
         items: [
+            { id: 'setup', label: 'Sesi Awal', icon: Rocket, href: '/setup', menu: 'settings', setupOnly: true },
             { id: 'users', label: 'Pengguna & Akses', icon: ShieldCheck, href: '/settings/users', menu: 'settings' },
             { id: 'branding', label: 'Branding', icon: Palette, href: '/settings/branding', menu: 'settings' },
             { id: 'trial-accounts', label: 'Akun Demo', icon: FlaskConical, href: '/settings/trial-accounts', menu: 'settings', centralOnly: true },

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\EmployeeCategory;
+use App\Models\WorkspaceSetup;
 use App\Support\TimeClock\TimeClockDefaults;
 use App\Support\Employees\LookupValues;
 use App\Support\Employees\EmployeeNumber;
@@ -26,5 +27,7 @@ class EolasBlankSeeder extends Seeder
         LookupValues::flush();
 
         $this->call(EolasBrandingSeeder::class);
+        // Its Super Admin starts with the sesi awal (company profile, NRP format, organisation, data migration).
+        WorkspaceSetup::firstOrCreate([], ['status' => 'pending']);
     }
 }

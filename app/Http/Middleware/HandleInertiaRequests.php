@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Branding;
 use App\Models\User;
+use App\Models\WorkspaceSetup;
 use App\Support\Tenancy\Tenant;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -46,6 +47,8 @@ class HandleInertiaRequests extends Middleware
             'branding' => fn () => Branding::current()->toShare(),
             // Eolas: the demo workspace this account works in (null in the main application).
             'workspace' => fn () => ($a = Tenant::account()) ? collect($a->toShare())->only(['code', 'company_name', 'data_source', 'source_label', 'expires_at', 'days_left'])->all() : null,
+            // Sesi awal of a workspace for the company's own data (Super Admin only).
+            'setup' => fn () => $user?->isAdmin() ? WorkspaceSetup::current()?->status : null,
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,

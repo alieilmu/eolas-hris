@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\WorkspaceSetup;
 use App\Models\Applicant;
 use App\Models\JobPosting;
 use App\Models\Candidate;
@@ -33,6 +34,10 @@ class DashboardController extends Controller
         $user = $request->user();
         if ($user->isEmployee()) {
             return redirect()->route('self_service');
+        }
+        // A workspace for the company's own data starts with its sesi awal.
+        if ($user->isAdmin() && WorkspaceSetup::pending()) {
+            return redirect()->route('setup');
         }
         AccessScope::enable();
 

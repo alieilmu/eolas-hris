@@ -54,6 +54,7 @@ use App\Http\Controllers\Recruitment\JobPostingController;
 use App\Http\Controllers\Recruitment\ReportController;
 use App\Http\Controllers\Recruitment\PipelineController;
 use App\Http\Controllers\Settings\BrandingController;
+use App\Http\Controllers\Settings\SetupController;
 use App\Http\Controllers\Settings\UserController;
 use App\Support\LegacyUrls;
 use Illuminate\Support\Facades\Route;
@@ -390,6 +391,14 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
         Route::post('/employee-accounts/{user}/reset', 'resetEmployee')->whereNumber('user')->name('employee-accounts.reset');
         Route::post('/employee-accounts/{user}/status', 'toggleEmployee')->whereNumber('user')->name('employee-accounts.toggle');
         Route::delete('/employee-accounts/{user}', 'destroyEmployee')->whereNumber('user')->name('employee-accounts.destroy');
+    });
+    // Sesi awal: first-run setup of a workspace for the company's own data (Super Admin).
+    Route::middleware('can:manage-users')->prefix('setup')->controller(SetupController::class)->group(function () {
+        Route::get('/', 'show')->name('setup');
+        Route::post('/steps/{step}', 'step')->name('setup.step');
+        Route::post('/organization', 'organization')->name('setup.organization');
+        Route::post('/finish', 'finish')->name('setup.finish');
+        Route::post('/dismiss', 'dismiss')->name('setup.dismiss');
     });
     // Settings → Akun Demo: the demo requests and their workspaces (main application, Super Admin).
     Route::middleware(['can:manage-users', 'central'])->prefix('settings/trial-accounts')->name('settings.demo')->controller(TrialAccountController::class)->group(function () {
