@@ -6,7 +6,8 @@ import { DirtyGuardProvider, useGuard } from '@/components/settings/DirtyGuard';
 import { PositionImport } from '@/components/settings/PositionImport';
 import { WorkforcePlanningSettings, type MppSettingsData } from '@/components/settings/WorkforcePlanningSettings';
 import { OptionList, type OptionCategory } from '@/components/settings/OptionList';
-import { decodeNrp, type LokasiCode } from '@/lib/employee_number';
+import { decodeNrp, describeFormat, formatLength, segmentPositions, SEGMENT_LABEL, type LokasiCode } from '@/lib/employee_number';
+import { EmployeeNumberFormatEditor, type FormatProps } from '@/components/core_hr/EmployeeNumberFormatEditor';
 import type { UnitOption } from '@/lib/orgTree';
 import { PlacementDialog } from '@/components/placement/PlacementDialog';
 import { emptyPlacement, type PenempatanOptions } from '@/lib/placement';
@@ -90,6 +91,7 @@ interface Position {
 }
 
 interface Props {
+    employee_number_format: FormatProps;
     type: Jenis[];
     location: Lokasi[];
     work_locations: WorkLocation[];
@@ -113,36 +115,40 @@ const count = (n: number, noun: string) => (n > 0 ? `${n} ${noun}` : '-');
 
 // --- NRP guide ------------------------------------------------------------------------------
 
-const SEGMENTS = [
-    { digits: '1', label: 'Jenis karyawan', color: 'bg-brand-600' },
-    { digits: '2–3', label: 'Lokasi penerimaan', color: 'bg-emerald-600' },
-    { digits: '4–5', label: 'Tahun masuk', color: 'bg-amber-500' },
-    { digits: '6–8', label: 'Nomor urut', color: 'bg-slate-500' },
-];
+const SEGMENT_COLOR = { text: 'bg-violet-500', category: 'bg-brand-600', point_of_hire: 'bg-emerald-600', year: 'bg-amber-500', sequence: 'bg-slate-500' } as const;
 
-function EmployeeNumberGuide({ type, location, workLocations }: { type: Jenis[]; location: Lokasi[]; workLocations: WorkLocation[] }) {
+function EmployeeNumberGuide({ type, location, workLocations, format }: { type: Jenis[]; location: Lokasi[]; workLocations: WorkLocation[]; format: FormatProps }) {
     const [sample, setSample] = useState('');
-    const decoded = sample.trim() ? decodeNrp(sample, { type, location }) : null;
+    const decoded = sample.trim() ? decodeNrp(sample, { type, location }, format) : null;
     const place = (id: number | null) => workLocations.find((w) => w.id === id)?.name;
+    const length = formatLength(format);
 
     return (
         <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
             <div>
-                <h3 className="text-sm font-bold text-slate-800">Struktur NRP (8 digit)</h3>
+                <h3 className="text-sm font-bold text-slate-800">Struktur NRP ({length === null ? 'bebas' : `${length} karakter`})</h3>
                 <p className="mt-0.5 text-xs text-slate-500">
-                    Jenis Karyawan, Tempat Penerimaan dan Status Asal terisi otomatis dari NRP. Status Asal = <b>Lokal</b> bila lokasi penerimaan sama
-                    dengan lokasi kerja jabatannya, selain itu <b>Kiriman</b>. NRP karyawan baru yang tidak sesuai pola ditolak.
+                    {format.mode === 'free' ? (
+                        <>NRP bebas ({describeFormat(format)}); tidak ada data yang dibaca dari NRP. Ubah di Format Nomor Induk.</>
+                    ) : (
+                        <>
+                            Jenis Karyawan, Tempat Penerimaan dan Status Asal terisi otomatis dari NRP. Status Asal = <b>Lokal</b> bila lokasi penerimaan sama
+                            dengan lokasi kerja jabatannya, selain itu <b>Kiriman</b>. NRP karyawan baru yang tidak sesuai pola ditolak.
+                        </>
+                    )}
                 </p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-                {SEGMENTS.map((s) => (
-                    <div key={s.digits} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-                        <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black text-white ${s.color}`}>{s.digits}</span>
-                        <span className="text-xs font-bold text-slate-600">{s.label}</span>
-                    </div>
-                ))}
-            </div>
+            {format.mode === 'pattern' && (
+                <div className="flex flex-wrap gap-2">
+                    {segmentPositions(format).map(({ segment, where }, i) => (
+                        <div key={i} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black text-white ${SEGMENT_COLOR[segment.type]}`}>{where}</span>
+                            <span className="text-xs font-bold text-slate-600">{segment.type === 'text' ? `"${segment.value}"` : SEGMENT_LABEL[segment.type]}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <div className="flex flex-wrap items-start gap-3">
                 <div>
@@ -150,29 +156,54 @@ function EmployeeNumberGuide({ type, location, workLocations }: { type: Jenis[];
                     <input
                         value={sample}
                         onChange={(e) => setSample(e.target.value)}
-                        placeholder="mis. 11524101"
-                        maxLength={8}
-                        className="w-40 rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm tracking-widest outline-none focus:ring-2 focus:ring-brand-500"
+                        placeholder={`mis. ${format.example}`}
+                        maxLength={length ?? format.max_length}
+                        className="w-48 rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm tracking-widest outline-none focus:ring-2 focus:ring-brand-500"
                     />
                 </div>
                 {decoded && (
                     <div
                         className={`flex-1 rounded-xl border px-4 py-2.5 text-xs ${decoded.error ? 'border-rose-100 bg-rose-50 text-rose-600' : 'border-emerald-100 bg-emerald-50 text-emerald-800'}`}
                     >
-                        {decoded.error ?? (
-                            <span>
-                                <b>{decoded.type?.name}</b> • diterima di <b>{decoded.location?.name}</b>
-                                {decoded.location?.work_location_id
-                                    ? ` (${place(decoded.location.work_location_id)})`
-                                    : ' (belum dipetakan ke lokasi kerja)'}{' '}
-                                • masuk <b>{decoded.year}</b> • nomor urut <b>{decoded.sequence}</b>
-                            </span>
-                        )}
+                        {decoded.error ??
+                            (format.mode === 'free' ? (
+                                'Format NRP sesuai.'
+                            ) : (
+                                <span>
+                                    {[
+                                        decoded.type && <b key="t">{decoded.type.name}</b>,
+                                        decoded.location && (
+                                            <span key="l">
+                                                diterima di <b>{decoded.location.name}</b>
+                                                {decoded.location.work_location_id ? ` (${place(decoded.location.work_location_id)})` : ' (belum dipetakan ke lokasi kerja)'}
+                                            </span>
+                                        ),
+                                        decoded.year && (
+                                            <span key="y">
+                                                masuk <b>{decoded.year}</b>
+                                            </span>
+                                        ),
+                                        decoded.sequence && (
+                                            <span key="s">
+                                                nomor urut <b>{decoded.sequence}</b>
+                                            </span>
+                                        ),
+                                    ]
+                                        .filter(Boolean)
+                                        .reduce<ReactNode[]>((all, part, i) => (i ? [...all, ' • ', part] : [part]), [])}
+                                </span>
+                            ))}
                     </div>
                 )}
             </div>
         </div>
     );
+}
+
+/** "Karakter ke-2–3 NRP" for a segment type, or null when the format has none. */
+function whereIn(format: FormatProps, type: 'category' | 'point_of_hire'): string | null {
+    const found = segmentPositions(format).find((p) => p.segment.type === type);
+    return found ? `Karakter ke-${found.where} NRP (${found.segment.length} karakter, huruf/angka)` : null;
 }
 
 // --- jabatan ----------------------------------------------------------------------------------
@@ -340,9 +371,15 @@ function MasterDataPage(props: Props) {
             icon: Hash,
             sections: [
                 {
+                    id: 'employee-number-format',
+                    label: 'Format Nomor Induk',
+                    hint: 'Susunan NRP perusahaan Anda, mis. "TY" + jenis karyawan + tahun masuk + nomor urut, atau bebas. NRP yang sudah ada tidak diubah.',
+                    render: () => <EmployeeNumberFormatEditor format={props.employee_number_format} />,
+                },
+                {
                     id: 'employee-categories',
                     label: 'Jenis Karyawan',
-                    hint: 'Digit ke-1 NRP. Kode yang sudah dipakai NRP karyawan tidak bisa diubah atau dihapus.',
+                    hint: `${whereIn(props.employee_number_format, 'category') ?? 'Tidak dipakai di format NRP sekarang'}. Kode yang sudah dipakai NRP karyawan tidak bisa diubah atau dihapus.`,
                     render: () => (
                         <CrudTable
                             title="Jenis Karyawan"
@@ -377,7 +414,7 @@ function MasterDataPage(props: Props) {
                 {
                     id: 'points-of-hire',
                     label: 'Lokasi Penerimaan',
-                    hint: 'Digit ke-2–3 NRP. Petakan ke lokasi kerja agar Status Asal (Lokal/Kiriman) bisa dihitung.',
+                    hint: `${whereIn(props.employee_number_format, 'point_of_hire') ?? 'Tidak dipakai di format NRP sekarang'}. Petakan ke lokasi kerja agar Status Asal (Lokal/Kiriman) bisa dihitung.`,
                     render: () => (
                         <CrudTable
                             title="Lokasi Penerimaan"
@@ -800,8 +837,8 @@ function MasterDataPage(props: Props) {
                             {active.hint && <p className="mt-0.5 text-xs text-slate-400">{active.hint}</p>}
                         </div>
 
-                        {(active.id === 'employee-categories' || active.id === 'points-of-hire') && (
-                            <EmployeeNumberGuide type={type} location={location} workLocations={workLocations} />
+                        {(active.id === 'employee-categories' || active.id === 'points-of-hire' || active.id === 'employee-number-format') && (
+                            <EmployeeNumberGuide type={type} location={location} workLocations={workLocations} format={props.employee_number_format} />
                         )}
 
                         {/* Keyed so each master type gets fresh form state instead of inheriting the previous type's add/edit row. */}

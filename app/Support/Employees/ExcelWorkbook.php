@@ -280,14 +280,14 @@ class ExcelWorkbook
         }
 
         $rows[] = [];
-        $rows[] = ['KODE NRP — digit 1: jenis karyawan'];
+        $rows[] = ['KODE JENIS KARYAWAN (bagian NRP)'];
         $headerRows[] = count($rows);
         foreach (EmployeeNumber::categoryMap() as $code => $name) {
             $rows[] = [(string) $code, $name];
         }
 
         $rows[] = [];
-        $rows[] = ['KODE NRP — digit 2–3: lokasi penerimaan'];
+        $rows[] = ['KODE LOKASI PENERIMAAN (bagian NRP)'];
         $headerRows[] = count($rows);
         foreach (PointOfHire::with('workLocation')->orderBy('code')->get() as $location) {
             $rows[] = [$location->code, $location->name, $location->workLocation?->name ?? '(belum dipetakan ke lokasi kerja)'];

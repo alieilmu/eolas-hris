@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\CoreHr\Settings;
 
+use App\Support\Employees\EmployeeNumber;
 use App\Http\Controllers\Controller;
 use App\Models\EmployeeCategory;
 use Illuminate\Http\RedirectResponse;
@@ -49,11 +50,14 @@ class EmployeeCategoryController extends Controller
 
     private function validated(Request $request, ?EmployeeCategory $current = null): array
     {
+        $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
+        $length = EmployeeNumber::segmentLength('category');
+
         return $request->validate([
-            'code' => ['required', 'digits:1', Rule::unique('employee_categories', 'code')->ignore($current)],
+            'code' => ['required', 'regex:/^[A-Z0-9]{'.($length ?? 1).','.($length ?? 4).'}$/', Rule::unique('employee_categories', 'code')->ignore($current)],
             'name' => ['required', 'string', 'max:100'],
         ], [
-            'code.digits' => 'Kode jenis karyawan harus 1 digit angka (digit pertama NRP).',
+            'code.regex' => $length ? "Kode jenis karyawan harus {$length} karakter (huruf/angka), sesuai Format Nomor Induk." : 'Kode jenis karyawan 1–4 karakter (huruf/angka).',
             'code.unique' => 'Kode :input sudah dipakai jenis karyawan lain.',
         ], ['code' => 'Kode', 'name' => 'Nama']);
     }

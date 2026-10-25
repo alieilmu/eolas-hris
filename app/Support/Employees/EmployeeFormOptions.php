@@ -63,6 +63,8 @@ class EmployeeFormOptions
             'type' => collect(EmployeeNumber::categoryMap())->map(fn ($name, $code) => ['code' => (string) $code, 'name' => $name])->values(),
             'location' => collect(EmployeeNumber::pointOfHireMap())->map(fn ($l, $code) => ['code' => (string) $code, ...$l])->values(),
             'max_sequence' => EmployeeNumber::maxSequencePerPrefix(),
+            'format' => ['mode' => EmployeeNumber::format()['mode'], 'segments' => EmployeeNumber::format()['segments'], 'max_length' => EmployeeNumber::format()['max_length'],
+                'describe' => EmployeeNumber::describe(), 'example' => EmployeeNumber::example()],
         ];
     }
 }

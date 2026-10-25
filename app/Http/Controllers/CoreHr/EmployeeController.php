@@ -72,6 +72,7 @@ class EmployeeController extends Controller
     /** New employee with the essentials; the rest is completed on the profile page. */
     public function store(Request $request): RedirectResponse
     {
+        $request->merge(['employee_number' => EmployeeNumber::normalize($request->input('employee_number'))]);
         $data = $request->validate([
             'employee_number' => ['required', 'string', 'max:20', 'unique:employees,employee_number'],
             'name' => ['required', 'string', 'max:255'],

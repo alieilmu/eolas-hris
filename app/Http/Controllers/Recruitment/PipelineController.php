@@ -283,6 +283,7 @@ class PipelineController extends Controller
         if ($candidate->employee()->exists()) {
             throw ValidationException::withMessages(['employee_number' => "{$candidate->name} sudah menjadi karyawan."]);
         }
+        $request->merge(['employee_number' => EmployeeNumber::normalize($request->input('employee_number'))]);
         $data = $request->validate([
             'employee_number' => ['required', 'string', 'max:20', 'unique:employees,employee_number'],
             'name' => ['required', 'string', 'max:255'],

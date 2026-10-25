@@ -34,6 +34,7 @@ use App\Http\Controllers\CoreHr\Settings\DivisionController;
 use App\Http\Controllers\CoreHr\Settings\PositionController;
 use App\Http\Controllers\CoreHr\Settings\PositionExcelController;
 use App\Http\Controllers\CoreHr\Settings\EmployeeCategoryController;
+use App\Http\Controllers\CoreHr\Settings\EmployeeNumberFormatController;
 use App\Http\Controllers\CoreHr\Settings\PointOfHireController;
 use App\Http\Controllers\CoreHr\Settings\SettingsController;
 use App\Http\Controllers\CoreHr\Settings\LookupValueController;
@@ -158,6 +159,7 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
             Route::get('/', [SettingsController::class, 'index'])->name('index');
 
             $crud = ['store', 'update', 'destroy'];
+            Route::put('/employee-number-format', [EmployeeNumberFormatController::class, 'update'])->name('employee-number-format.update');
             Route::resource('employee-categories', EmployeeCategoryController::class)->only($crud)->parameters(['employee-categories' => 'jenisKaryawan']);
             Route::resource('points-of-hire', PointOfHireController::class)->only($crud)->parameters(['points-of-hire' => 'lokasiPenerimaan']);
             Route::resource('work-locations', WorkLocationController::class)->only($crud)->parameters(['work-locations' => 'workLocation']);

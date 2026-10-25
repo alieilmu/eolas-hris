@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\CoreHr\Settings;
 
+use App\Support\Employees\EmployeeNumber;
 use App\Http\Controllers\Controller;
 use App\Models\PointOfHire;
 use Illuminate\Http\RedirectResponse;
@@ -52,12 +53,15 @@ class PointOfHireController extends Controller
 
     private function validated(Request $request, ?PointOfHire $current = null): array
     {
+        $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
+        $length = EmployeeNumber::segmentLength('point_of_hire');
+
         return $request->validate([
-            'code' => ['required', 'digits:2', Rule::unique('points_of_hire', 'code')->ignore($current)],
+            'code' => ['required', 'regex:/^[A-Z0-9]{'.($length ?? 1).','.($length ?? 4).'}$/', Rule::unique('points_of_hire', 'code')->ignore($current)],
             'name' => ['required', 'string', 'max:100'],
             'work_location_id' => ['nullable', 'integer', 'exists:work_locations,id'],
         ], [
-            'code.digits' => 'Kode lokasi penerimaan harus 2 digit angka (digit ke-2–3 NRP), mis. 03.',
+            'code.regex' => $length ? "Kode lokasi penerimaan harus {$length} karakter (huruf/angka), sesuai Format Nomor Induk." : 'Kode lokasi penerimaan 1–4 karakter (huruf/angka).',
             'code.unique' => 'Kode :input sudah dipakai lokasi penerimaan lain.',
         ], ['code' => 'Kode', 'name' => 'Nama', 'work_location_id' => 'Lokasi kerja']);
     }

@@ -236,13 +236,7 @@ class ExcelSchema
             '   • Jika NRP sudah ada  → data karyawan tersebut DIPERBARUI.',
             '   • Jika NRP belum ada  → karyawan BARU dibuat (wajib isi Name, Work Location, Job Level, dan kolom unit-nya).',
             '',
-            '   STRUKTUR NRP (8 digit) — untuk karyawan baru, NRP yang tidak sesuai akan DITOLAK:',
-            '   • Digit 1     : jenis karyawan      (lihat sheet Referensi, mis. 1 = Karyawan Normal)',
-            '   • Digit 2–3   : lokasi penerimaan   (lihat sheet Referensi, mis. 15 = Murung Raya)',
-            '   • Digit 4–5   : tahun masuk          (mis. 24 = 2024; sebaiknya sama dengan Hire Date)',
-            '   • Digit 6–8   : nomor urut',
-            '   • Employee Category, Hire Location dan Origin Status terisi otomatis dari NRP.',
-            '     Status Asal = Lokal bila lokasi penerimaan sama dengan Work Location karyawan, selain itu Kiriman.',
+            ...self::employeeNumberInstructions(),
             '',
             '   KOLOM WAJIB (judulnya bertanda * dan berwarna ungu):',
             '   • Kelompok 1 Identity & Job: Sequence No., Employee Number, Name, SAP Employee Number, Work Location,',
@@ -296,6 +290,32 @@ class ExcelSchema
             '   • Klik Export di halaman Data Lengkap, edit file hasilnya, lalu import kembali.',
             '   • Kolom isian di file export sudah sama persis dengan yang dibutuhkan import.',
         ];
+    }
+
+    /** The NRP lines of the instructions, following the company's Format Nomor Induk. */
+    private static function employeeNumberInstructions(): array
+    {
+        if (EmployeeNumber::isFree()) {
+            return ['   FORMAT NRP: '.EmployeeNumber::describe().'. NRP tidak boleh sama dengan karyawan lain.'];
+        }
+        $lines = ['   STRUKTUR NRP ('.EmployeeNumber::length().' karakter, contoh '.EmployeeNumber::example().') — untuk karyawan baru, NRP yang tidak sesuai akan DITOLAK:'];
+        $at = 1;
+        foreach (EmployeeNumber::format()['segments'] as $s) {
+            $len = $s['type'] === 'text' ? strlen($s['value']) : (int) $s['length'];
+            $where = str_pad($len === 1 ? "Karakter {$at}" : 'Karakter '.$at.'–'.($at + $len - 1), 16);
+            $lines[] = "   • {$where}: ".match ($s['type']) {
+                'text' => "\"{$s['value']}\" (tetap)",
+                'category' => 'jenis karyawan (lihat sheet Referensi)',
+                'point_of_hire' => 'lokasi penerimaan (lihat sheet Referensi)',
+                'year' => 'tahun masuk (sebaiknya sama dengan Hire Date)',
+                'sequence' => 'nomor urut',
+            };
+            $at += $len;
+        }
+        $lines[] = '   • Employee Category, Hire Location dan Origin Status terisi otomatis dari NRP (bila ada di format).';
+        $lines[] = '     Status Asal = Lokal bila lokasi penerimaan sama dengan Work Location karyawan, selain itu Kiriman.';
+
+        return $lines;
     }
 
     /** @return list<string> sheet "Petunjuk" of the per-group update template */

@@ -3,12 +3,12 @@ import { router, useForm, usePage } from '@inertiajs/react';
 import { BadgeCheck, Loader2, Save, Wand2, X } from 'lucide-react';
 import { DateInput } from '@/components/DateInput';
 import { PlacementFields } from '@/components/placement/PlacementFields';
-import { decodeNrp, originStatus, type NrpCodes } from '@/lib/employee_number';
+import { DEFAULT_FORMAT, decodeNrp, formatLength, hasSegment, originStatus, suggestNrp, type NrpCodes, type NrpFormat } from '@/lib/employee_number';
 import { emptyPlacement, type PenempatanOptions, type Placement } from '@/lib/placement';
 
 type DialogProps = {
     placement_options?: PenempatanOptions;
-    employee_number_codes?: NrpCodes & { max_sequence: Record<string, number> };
+    employee_number_codes?: NrpCodes & { max_sequence: Record<string, number>; format: NrpFormat };
 };
 
 /** A position chosen in the organisation chart ("Kelola" → Karyawan baru). */
@@ -69,14 +69,10 @@ export function AddEmployeeDialog({
         if (codes && !type) setJenis(codes.type[0]?.code ?? '');
     }, [codes, type]);
 
-    const suggestion = (() => {
-        if (!codes || !type || !location || !/^\d{4}$/.test(year)) return null;
-        const prefix = `${type}${location}${year.slice(2)}`;
-        const next = (codes.max_sequence[prefix] ?? 0) + 1;
-        return next > 999 ? null : `${prefix}${String(next).padStart(3, '0')}`;
-    })();
+    const format = codes?.format ?? DEFAULT_FORMAT;
+    const suggestion = codes ? suggestNrp(format, { type, location, year }, codes.max_sequence) : null;
 
-    const decoded = codes && form.data.employee_number.trim() ? decodeNrp(form.data.employee_number, codes) : null;
+    const decoded = codes && form.data.employee_number.trim() ? decodeNrp(form.data.employee_number, codes, format) : null;
     const workLocationId = form.data.work_location_id ? Number(form.data.work_location_id) : null;
     const origin = decoded && !decoded.error ? originStatus(decoded.location, workLocationId) : null;
 
@@ -128,13 +124,16 @@ export function AddEmployeeDialog({
                     <div className="space-y-4 overflow-y-auto p-6">
                         <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-3">
                             <p className="text-[11px] font-bold tracking-wide text-slate-500 uppercase">Susun NRP</p>
-                            {codes ? (
+                            {codes && format.mode === 'free' ? (
+                                <p className="text-xs text-slate-500">Format NRP bebas: isi nomor unik apa saja (maks. {format.max_length} karakter).</p>
+                            ) : codes ? (
                                 <div className="flex flex-wrap items-center gap-2">
+                                    {hasSegment(format, 'category') && (
                                     <select
                                         value={type}
                                         onChange={(e) => setJenis(e.target.value)}
                                         className={smallSelect}
-                                        title="Digit 1: jenis karyawan"
+                                        title="Jenis karyawan"
                                     >
                                         {codes.type.map((j) => (
                                             <option key={j.code} value={j.code}>
@@ -142,11 +141,13 @@ export function AddEmployeeDialog({
                                             </option>
                                         ))}
                                     </select>
+                                    )}
+                                    {hasSegment(format, 'point_of_hire') && (
                                     <select
                                         value={location}
                                         onChange={(e) => setLokasi(e.target.value)}
                                         className={smallSelect}
-                                        title="Digit 2–3: lokasi penerimaan"
+                                        title="Lokasi penerimaan"
                                     >
                                         <option value="">Lokasi penerimaan...</option>
                                         {codes.location.map((l) => (
@@ -155,13 +156,16 @@ export function AddEmployeeDialog({
                                             </option>
                                         ))}
                                     </select>
+                                    )}
+                                    {hasSegment(format, 'year') && (
                                     <input
                                         value={year}
                                         onChange={(e) => setTahun(e.target.value)}
                                         maxLength={4}
-                                        title="Digit 4–5: tahun masuk"
+                                        title="Tahun masuk"
                                         className={`${smallSelect} w-16`}
                                     />
+                                    )}
                                     <button
                                         type="button"
                                         disabled={!suggestion}
@@ -169,7 +173,7 @@ export function AddEmployeeDialog({
                                         className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-700 disabled:opacity-40"
                                     >
                                         <Wand2 size={13} />
-                                        {suggestion ? `Pakai ${suggestion}` : 'Pilih lokasi'}
+                                        {suggestion ? `Pakai ${suggestion}` : 'Lengkapi pilihan'}
                                     </button>
                                 </div>
                             ) : (
@@ -184,7 +188,7 @@ export function AddEmployeeDialog({
                                     type="text"
                                     value={form.data.employee_number}
                                     onChange={(e) => form.setData('employee_number', e.target.value)}
-                                    maxLength={8}
+                                    maxLength={formatLength(format) ?? format.max_length}
                                     className={`${inputClass} font-mono tracking-widest`}
                                     autoFocus
                                 />
@@ -204,7 +208,9 @@ export function AddEmployeeDialog({
                             fieldError('employee_number')
                         ) : decoded ? (
                             <p className={`-mt-2 text-[11px] ${decoded.error ? 'text-rose-600' : 'text-emerald-700'}`}>
-                                {decoded.error ?? `${decoded.type?.name} • diterima di ${decoded.location?.name} • masuk ${decoded.year}`}
+                                {decoded.error ??
+                                    ([decoded.type?.name, decoded.location && `diterima di ${decoded.location.name}`, decoded.year && `masuk ${decoded.year}`].filter(Boolean).join(' • ') ||
+                                        'Format NRP sesuai.')}
                             </p>
                         ) : null}
                         {hireDate && (

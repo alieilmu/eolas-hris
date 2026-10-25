@@ -35,6 +35,7 @@ class SettingsController extends Controller
         $lokasiUse = $countByPrefix(1, 2);
 
         return Inertia::render('CoreHr/Settings/Index', [
+            'employee_number_format' => EmployeeNumberFormatController::props(),
             'type' => EmployeeCategory::orderBy('code')->get()->map(fn (EmployeeCategory $j) => [
                 'id' => $j->id,
                 'code' => $j->code,

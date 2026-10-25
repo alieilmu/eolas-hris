@@ -58,10 +58,10 @@ class MasterDataTest extends TestCase
     public function test_nrp_pattern_and_the_values_read_from_it(): void
     {
         $this->assertNull(EmployeeNumber::error('11524101'));
-        $this->assertStringContainsString('8 digit', EmployeeNumber::error('1152410'));
-        $this->assertStringContainsString('Digit ke-1', EmployeeNumber::error('51524101'));
+        $this->assertStringContainsString('8 karakter', EmployeeNumber::error('1152410'));
+        $this->assertStringContainsString('Karakter ke-1', EmployeeNumber::error('51524101'));
         $this->assertStringContainsString('(1, 7, 8, 9)', EmployeeNumber::error('51524101'));
-        $this->assertStringContainsString('Digit ke-2–3', EmployeeNumber::error('12224101'));
+        $this->assertStringContainsString('Karakter ke-2–3', EmployeeNumber::error('12224101'));
 
         $this->assertSame(
             ['employee_category' => 'Tenaga Ahli', 'hire_location' => 'Head Office', 'origin_status' => 'Kiriman'],
@@ -75,6 +75,46 @@ class MasterDataTest extends TestCase
         $hendra = $this->named('Hendra Wijaya'); // 1 15 01 101
         $this->assertSame(substr($hendra->employee_number, 0, 5).'102', EmployeeNumber::next('1', '15', 2001));
         $this->assertSame('71826001', EmployeeNumber::next('7', '18', 2026), 'a fresh prefix starts at 001');
+    }
+
+    public function test_a_company_format_with_letters(): void
+    {
+        // "TY" + jenis karyawan (2 letters) + tahun masuk (4) + nomor urut (4).
+        $this->put(self::BASE.'/employee-number-format', ['mode' => 'pattern', 'segments' => [
+            ['type' => 'text', 'value' => 'ty'], ['type' => 'category', 'length' => 2], ['type' => 'year', 'length' => 4], ['type' => 'sequence', 'length' => 4],
+        ]])->assertSessionHasNoErrors();
+        $this->assertSame('"TY" + jenis karyawan (2) + tahun masuk (4) + nomor urut (4)', EmployeeNumber::describe());
+
+        // Codes now take two characters, letters included; existing ones are flagged.
+        $this->post(self::BASE.'/employee-categories', ['code' => 'pj', 'name' => 'Penjahit'])->assertSessionHasNoErrors();
+        $this->post(self::BASE.'/employee-categories', ['code' => '5', 'name' => 'Satu digit'])->assertSessionHasErrors('code');
+        $this->get(self::BASE)->assertInertia(fn (Assert $page) => $page
+            ->where('employee_number_format.mismatch.category', ['1', '7', '8', '9'])
+            ->where('employee_number_format.mismatch.employees', Employee::withoutGlobalScope('access')->count()));
+
+        $this->assertNull(EmployeeNumber::error('typj20260001'));
+        $this->assertSame('TYPJ20260001', EmployeeNumber::normalize(' typj20260001 '));
+        $this->assertStringContainsString('harus "TY"', EmployeeNumber::error('XXPJ20260001'));
+        $this->assertStringContainsString('bukan kode jenis karyawan', EmployeeNumber::error('TYQQ20260001'));
+        $this->assertSame('TYPJ20260001', EmployeeNumber::next('PJ', null, 2026));
+        $this->assertSame(['prefix' => 'TYPJ2026', 'category' => 'PJ', 'year' => '2026', 'sequence' => '0001'], EmployeeNumber::parse('TYPJ20260001'));
+        // Old NRPs are kept, nothing is read from them any more.
+        $this->assertSame(['employee_category' => null, 'hire_location' => null, 'origin_status' => null], EmployeeNumber::derived($this->named('Agus Setiawan')));
+    }
+
+    public function test_an_impossible_format_is_refused_and_a_free_one_only_needs_unique_numbers(): void
+    {
+        $put = fn (array $segments) => $this->put(self::BASE.'/employee-number-format', ['mode' => 'pattern', 'segments' => $segments]);
+        $put([['type' => 'sequence', 'length' => 4], ['type' => 'text', 'value' => 'TY']])->assertSessionHasErrors('segments');
+        $put([['type' => 'year', 'length' => 3], ['type' => 'sequence', 'length' => 4]])->assertSessionHasErrors('segments');
+        $put([['type' => 'text', 'value' => 'ABCDEFGHIJ'], ['type' => 'text', 'value' => 'ABCDEFGHIJ'], ['type' => 'sequence', 'length' => 4]])->assertSessionHasErrors('segments');
+
+        $this->put(self::BASE.'/employee-number-format', ['mode' => 'free', 'max_length' => 10])->assertSessionHasNoErrors();
+        $this->assertNull(EmployeeNumber::error('EMP-0001'));
+        $this->assertNotNull(EmployeeNumber::error('EMP 0001'));
+        $this->assertNotNull(EmployeeNumber::error('EMPLOYEE-00001'));
+        $this->assertNull(EmployeeNumber::next('1', '15', 2026));
+        $this->post(self::BASE.'/employee-categories', ['code' => 'ABC', 'name' => 'Bebas'])->assertSessionHasNoErrors();
     }
 
     public function test_year_digits_that_disagree_with_tanggal_masuk_only_warn(): void
@@ -120,7 +160,7 @@ class MasterDataTest extends TestCase
         ])], ['Accept' => 'application/json'])->assertOk();
 
         $reasons = collect($response->json('skipped'))->pluck('reason', 'row');
-        $this->assertStringContainsString('Digit ke-1', $reasons[2]);
+        $this->assertStringContainsString('Karakter ke-1', $reasons[2]);
         $this->assertStringContainsString('"Jedi", tidak ada di daftar pilihan', $reasons[3]);
         $this->assertSame(1, $response->json('created'));
 

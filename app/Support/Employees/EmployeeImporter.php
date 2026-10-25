@@ -64,7 +64,7 @@ class EmployeeImporter
 
         foreach ($rows as $idx => $row) {
             $rowNum = $row['__row'] ?? $idx + 2; // the header is row 1
-            $employee_number = $this->text($row[ExcelSchema::KEY_LABEL] ?? null) ?? '';
+            $employee_number = EmployeeNumber::normalize($this->text($row[ExcelSchema::KEY_LABEL] ?? null));
             $nama = $this->text($row[ExcelSchema::header('name')] ?? null) ?? '';
             $placementCells = [];
             foreach (self::PLACEMENT as $key => $name) {
