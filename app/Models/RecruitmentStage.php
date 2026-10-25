@@ -6,11 +6,11 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['title', 'status', 'color', 'order'])]
+#[Fillable(['title', 'status', 'color', 'sort_order'])]
 class RecruitmentStage extends Model
 {
     public function candidates(): HasMany
     {
-        return $this->hasMany(Candidate::class)->orderBy('order');
+        return $this->hasMany(Candidate::class)->orderBy('sort_order');
     }
 }

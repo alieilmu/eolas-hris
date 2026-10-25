@@ -43,10 +43,10 @@ export default function Landing({ demo_days }: { demo_days: number }) {
                         <a href="#data" className="hover:text-brand-700">
                             Pilihan Data
                         </a>
-                        <a href="#cara" className="hover:text-brand-700">
+                        <a href="#method" className="hover:text-brand-700">
                             Cara Kerja
                         </a>
-                        <a href="/lowongan" className="hover:text-brand-700">
+                        <a href="/careers" className="hover:text-brand-700">
                             Lowongan
                         </a>
                     </nav>
@@ -260,7 +260,7 @@ export default function Landing({ demo_days }: { demo_days: number }) {
             </section>
 
             {/* Steps */}
-            <section id="cara" className="scroll-mt-16 bg-slate-50/70 py-20">
+            <section id="method" className="scroll-mt-16 bg-slate-50/70 py-20">
                 <div className="mx-auto max-w-6xl px-4 sm:px-6">
                     <div className="mx-auto max-w-2xl text-center">
                         <p className="text-xs font-black tracking-widest text-brand-600 uppercase">Cara Kerja</p>

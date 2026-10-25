@@ -126,7 +126,7 @@ export default function Login({ workspace }: { workspace: string | null }) {
                     <FlaskConical size={16} /> Belum punya akun? Ajukan akun demo
                 </Link>
                 <a
-                    href="/lowongan"
+                    href="/careers"
                     className="mt-4 flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-brand-700 hover:bg-white/70"
                 >
                     <Briefcase size={16} /> Melamar kerja? Lihat lowongan

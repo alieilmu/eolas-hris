@@ -171,21 +171,21 @@ export interface OnsiteDay {
     date: string;
     total: number;
     onsite: number;
-    dinas: number;
-    cuti: number;
+    business_trip: number;
+    leave: number;
     off: number;
-    absen: number;
-    kosong: number;
+    attendance: number;
+    blank: number;
     from_plan: number;
 }
 
 export const ONSITE_SERIES: { key: keyof OnsiteDay; label: string; color: string }[] = [
     { key: 'onsite', label: 'Onsite', color: '#15803d' },
-    { key: 'dinas', label: 'Dinas', color: '#0d9488' },
-    { key: 'cuti', label: 'Cuti', color: '#86efac' },
+    { key: 'business_trip', label: 'Dinas', color: '#0d9488' },
+    { key: 'leave', label: 'Cuti', color: '#86efac' },
     { key: 'off', label: 'Off', color: '#d9f99d' },
-    { key: 'absen', label: 'Sakit/Izin/Absen', color: '#f59e0b' },
-    { key: 'kosong', label: 'Belum diisi', color: '#e2e8f0' },
+    { key: 'attendance', label: 'Sakit/Izin/Absen', color: '#f59e0b' },
+    { key: 'blank', label: 'Belum diisi', color: '#e2e8f0' },
 ];
 
 /** Man Onsite per day as stacked bars; days after today come from the roster (striped). */
@@ -243,7 +243,7 @@ export function OnsiteChart({ days, today }: { days: OnsiteDay[]; today: string 
                     {ONSITE_SERIES.map((s) => (
                         <div key={s.key}>
                             <p className="truncate text-[10px] font-semibold text-slate-400">{s.label}</p>
-                            <p className="text-sm font-black" style={{ color: s.key === 'kosong' || s.key === 'off' ? '#64748b' : s.color }}>
+                            <p className="text-sm font-black" style={{ color: s.key === 'blank' || s.key === 'off' ? '#64748b' : s.color }}>
                                 {num(h[s.key] as number)}
                             </p>
                         </div>

@@ -14,7 +14,7 @@ class AuthenticationTest extends TestCase
 
     public function test_guests_are_redirected_to_login(): void
     {
-        $this->get('/manpower/karyawan')->assertRedirect('/login');
+        $this->get('/core-hr/employees')->assertRedirect('/login');
         // "/" is the public landing page for visitors.
         $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Landing'));
     }
@@ -32,10 +32,10 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create(['role' => User::ROLE_HR]);
 
-        $this->get('/manpower/karyawan')->assertRedirect('/login');
+        $this->get('/core-hr/employees')->assertRedirect('/login');
 
         $this->post('/login', ['email' => $user->email, 'password' => 'password'])
-            ->assertRedirect('/manpower/karyawan');
+            ->assertRedirect('/core-hr/employees');
 
         $this->assertAuthenticatedAs($user);
     }
@@ -45,11 +45,11 @@ class AuthenticationTest extends TestCase
         $user = User::factory()->create();
 
         $this->from('/login')
-            ->post('/login', ['email' => $user->email, 'password' => 'salah'])
+            ->post('/login', ['email' => $user->email, 'password' => 'wrong'])
             ->assertRedirect('/login')
             ->assertSessionHasErrors(['email' => 'Email / NRP atau password salah.']);
 
-        $this->post('/login', ['email' => 'tidak-ada@eolas.local', 'password' => 'salah'])
+        $this->post('/login', ['email' => 'tidak-present@eolas.local', 'password' => 'wrong'])
             ->assertSessionHasErrors(['email' => 'Email / NRP atau password salah.']);
 
         $this->assertGuest();
@@ -60,7 +60,7 @@ class AuthenticationTest extends TestCase
         $user = User::factory()->create();
 
         foreach (range(1, 5) as $_) {
-            $this->post('/login', ['email' => $user->email, 'password' => 'salah']);
+            $this->post('/login', ['email' => $user->email, 'password' => 'wrong']);
         }
 
         $this->post('/login', ['email' => $user->email, 'password' => 'password'])
@@ -89,19 +89,19 @@ class AuthenticationTest extends TestCase
         $admin = User::factory()->create(['role' => User::ROLE_HR, 'permissions' => ['recruitment' => 'view']]);
 
         $this->actingAs($admin)
-            ->get('/recruitment/tracking')
+            ->get('/recruitment/pipeline')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Recruitment/Tracking')
-                ->where('auth.user.role', 'HR')
+                ->component('Recruitment/Pipeline')
+                ->where('auth.user.role', User::ROLE_HR)
                 ->where('auth.user.role_label', 'Admin')
                 ->where('auth.menus', ['recruitment' => 'view'])
                 ->where('auth.can.viewSensitiveData', false)
                 ->where('auth.can.manageUsers', false)
                 ->missing('auth.user.password'));
 
-        $this->actingAs(User::factory()->create(['role' => User::ROLE_HR, 'permissions' => ['recruitment' => 'view', 'karyawan' => 'edit']]))
-            ->get('/recruitment/tracking')
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_HR, 'permissions' => ['recruitment' => 'view', 'employees' => 'edit']]))
+            ->get('/recruitment/pipeline')
             ->assertInertia(fn (Assert $page) => $page
                 ->where('auth.can.viewSensitiveData', true)
                 ->where('auth.can.manageUsers', false));
@@ -111,16 +111,16 @@ class AuthenticationTest extends TestCase
     {
         $cases = [
             'super admin' => [User::factory()->create(['role' => User::ROLE_ADMIN]), true, true],
-            'admin with Man Power' => [User::factory()->create(['role' => User::ROLE_HR, 'permissions' => ['karyawan' => 'view']]), true, false],
-            'admin without it' => [User::factory()->create(['role' => User::ROLE_HR, 'permissions' => ['roster' => 'edit']]), false, false],
-            'karyawan' => [User::factory()->create(['role' => User::ROLE_KARYAWAN]), false, false],
+            'admin with Man Power' => [User::factory()->create(['role' => User::ROLE_HR, 'permissions' => ['employees' => 'view']]), true, false],
+            'admin without it' => [User::factory()->create(['role' => User::ROLE_HR, 'permissions' => ['shift-schedule' => 'edit']]), false, false],
+            'employee' => [User::factory()->create(['role' => User::ROLE_EMPLOYEE]), false, false],
         ];
 
         foreach ($cases as $name => [$user, $sensitive, $manage]) {
             $this->assertSame($sensitive, Gate::forUser($user)->allows('view-sensitive-data'), $name);
             $this->assertSame($manage, Gate::forUser($user)->allows('manage-users'), $name);
         }
-        $this->assertTrue(Gate::forUser($cases['admin without it'][0])->allows('edit-menu', 'roster'));
-        $this->assertFalse(Gate::forUser($cases['admin with Man Power'][0])->allows('edit-menu', 'karyawan'));
+        $this->assertTrue(Gate::forUser($cases['admin without it'][0])->allows('edit-menu', 'shift-schedule'));
+        $this->assertFalse(Gate::forUser($cases['admin with Man Power'][0])->allows('edit-menu', 'employees'));
     }
 }

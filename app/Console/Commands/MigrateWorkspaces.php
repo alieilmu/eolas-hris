@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Models\DemoAccount;
+use App\Models\TrialAccount;
 use App\Support\Tenancy\Tenant;
 use Illuminate\Console\Command;
 use Throwable;
@@ -17,7 +17,7 @@ class MigrateWorkspaces extends Command
     public function handle(): int
     {
         $failed = 0;
-        foreach (DemoAccount::whereNotNull('database')->whereIn('status', ['aktif', 'nonaktif'])->get() as $account) {
+        foreach (TrialAccount::whereNotNull('database')->whereIn('status', ['active', 'inactive'])->get() as $account) {
             try {
                 Tenant::use($account->database);
                 $this->call('migrate', ['--force' => true]);

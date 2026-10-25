@@ -5,13 +5,13 @@ export interface StageCard {
     name: string;
     position: string;
     email: string | null;
-    no_hp: string | null;
+    phone: string | null;
     applied_date: string | null;
-    hari_di_tahap: number;
+    days_in_stage: number;
     notes_count: number;
     has_cv: boolean;
-    ditolak: boolean;
-    nrp: string | null;
+    rejected: boolean;
+    employee_number: string | null;
 }
 
 export interface Stage {
@@ -21,34 +21,34 @@ export interface Stage {
     candidates: StageCard[];
 }
 
-export interface Jawaban {
+export interface Answers {
     field_id: string;
     label: string;
     type: string;
-    kunci: string | null;
+    field_key: string | null;
     value: string | null;
-    file: { nama: string; ukuran: number | null; mime: string | null; url: string } | null;
+    file: { name: string; size: number | null; mime: string | null; url: string } | null;
 }
 
 export interface CandidateDetail {
     id: number;
     name: string;
     email: string | null;
-    no_hp: string | null;
+    phone: string | null;
     position: string;
     portfolio_url: string | null;
     applied_date: string | null;
     stage: { id: number; title: string; color: string | null };
-    tahap_terakhir: boolean;
-    cv: { nama: string; url: string } | null;
-    ditolak: { tanggal: string; alasan: string | null } | null;
-    karyawan: { id: number; nrp: string } | null;
+    last_stage: boolean;
+    cv: { name: string; url: string } | null;
+    rejected: { date: string; reason: string | null } | null;
+    employee: { id: number; employee_number: string } | null;
     form: string | null;
     /** The position of a vacancy opened from Man Power Planning. */
-    jabatan: { id: number; name: string; work_location_id: number | null } | null;
-    jawaban: Jawaban[];
-    notes: { id: number; author: string; content: string; waktu: string }[];
-    history: { from: string; to: string; by: string; waktu: string }[];
+    job_position: { id: number; name: string; work_location_id: number | null } | null;
+    answers: Answers[];
+    notes: { id: number; author: string; content: string; created_at: string }[];
+    history: { from: string; to: string; by: string; created_at: string }[];
 }
 
 export type FieldType = 'text' | 'textarea' | 'email' | 'tel' | 'number' | 'date' | 'select' | 'url' | 'file';

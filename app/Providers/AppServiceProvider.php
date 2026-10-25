@@ -41,7 +41,7 @@ class AppServiceProvider extends ServiceProvider
             DB::extend('central', fn () => DB::connection(config('database.default')));
         }
 
-        // Menus ticked for the account in Settings → Akun & Akses (the Super Admin has all).
+        // Menus ticked for the account in Administrasi → Pengguna & Akses (the Super Admin has all).
         Gate::define('view-menu', fn (User $user, string ...$menus) => $user->canView(...$menus));
         Gate::define('edit-menu', fn (User $user, string ...$menus) => $user->canEdit(...$menus));
 
@@ -52,10 +52,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-users', fn (User $user) => $user->isAdmin());
 
         // The employee portal: an employee's own account.
-        Gate::define('portal', fn (User $user) => $user->isKaryawan() && $user->karyawan_id !== null);
+        Gate::define('self_service', fn (User $user) => $user->isEmployee() && $user->employee_id !== null);
 
         // Public application forms (Lowongan): a few applications per visitor per hour.
-        RateLimiter::for('lamaran', fn (Request $request) => Limit::perHour(10)->by($request->ip())->response(
+        RateLimiter::for('application', fn (Request $request) => Limit::perHour(10)->by($request->ip())->response(
             fn () => back()->withErrors(['form' => 'Terlalu banyak lamaran dari jaringan ini; coba lagi dalam satu jam.'])));
 
         // Attendance machines push every few seconds; a generous ceiling per address.

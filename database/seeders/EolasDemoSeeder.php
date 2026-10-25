@@ -13,6 +13,6 @@ class EolasDemoSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call([DemoSeeder::class, EolasGajiDemoSeeder::class, EolasKehadiranDemoSeeder::class, EolasBrandingSeeder::class]);
+        $this->call([DemoSeeder::class, EolasSalaryDemoSeeder::class, EolasTimeClockDemoSeeder::class, EolasBrandingSeeder::class]);
     }
 }

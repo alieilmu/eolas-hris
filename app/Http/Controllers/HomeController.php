@@ -20,8 +20,8 @@ class HomeController extends Controller
         if (! $user) {
             return Inertia::render('Landing', ['demo_days' => config('eolas.demo_days')]);
         }
-        if ($user->isKaryawan()) {
-            return redirect()->route('portal');
+        if ($user->isEmployee()) {
+            return redirect()->route('self_service');
         }
         if (! $user->must_change_password) {
             return redirect()->route('dashboard');

@@ -6,10 +6,10 @@ const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 p
 /** Change the own password; a first-time password has to be replaced before anything else opens. */
 export default function Password({ must_change }: { must_change: boolean }) {
     const { auth } = usePage().props;
-    const karyawan = auth.user?.role === 'Karyawan';
+    const employee = auth.user?.role === 'employee';
 
     return (
-        <div className={karyawan ? '' : 'flex min-h-0 flex-1 items-start justify-center overflow-y-auto bg-slate-50 p-6'}>
+        <div className={employee ? '' : 'flex min-h-0 flex-1 items-start justify-center overflow-y-auto bg-slate-50 p-6'}>
             <Head title="Ganti Password" />
             <div className="mx-auto w-full max-w-md space-y-4">
                 {must_change && (
@@ -17,12 +17,12 @@ export default function Password({ must_change }: { must_change: boolean }) {
                         <ShieldAlert size={18} className="mt-0.5 shrink-0" />
                         <span>
                             Ini login pertama Anda (atau password baru saja direset). Ganti password dulu sebelum melanjutkan
-                            {karyawan ? ' — password awal adalah tanggal lahir (ddmmyyyy).' : '.'}
+                            {employee ? ' — password awal adalah tanggal lahir (ddmmyyyy).' : '.'}
                         </span>
                     </div>
                 )}
                 <Form
-                    action="/akun/password"
+                    action="/account/password"
                     method="put"
                     resetOnError
                     className="space-y-4 rounded-3xl border border-slate-200 border-t-4 border-t-accent-400 bg-white p-6 shadow-sm"

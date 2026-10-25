@@ -45,7 +45,7 @@ class HandleInertiaRequests extends Middleware
             // White label: names, logos and colours (Settings → White Label).
             'branding' => fn () => Branding::current()->toShare(),
             // Eolas: the demo workspace this account works in (null in the main application).
-            'workspace' => fn () => ($a = Tenant::account()) ? collect($a->toShare())->only(['kode', 'perusahaan', 'sumber_data', 'sumber_label', 'expires_at', 'days_left'])->all() : null,
+            'workspace' => fn () => ($a = Tenant::account()) ? collect($a->toShare())->only(['code', 'company_name', 'data_source', 'source_label', 'expires_at', 'days_left'])->all() : null,
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,
@@ -53,7 +53,7 @@ class HandleInertiaRequests extends Middleware
                     'email' => $user->email,
                     'role' => $user->role,
                     'role_label' => User::ROLE_LABELS[$user->role] ?? $user->role,
-                    'karyawan_id' => $user->karyawan_id,
+                    'employee_id' => $user->employee_id,
                 ] : null,
                 // UI hints only; every route and controller still authorizes on its own.
                 'can' => [
@@ -61,7 +61,7 @@ class HandleInertiaRequests extends Middleware
                     'manageUsers' => (bool) $user?->isAdmin(),
                 ],
                 // Unread pengajuan notifications (the bell); employees have none.
-                'notifikasi' => $user && ! $user->isKaryawan() ? rescue(fn () => $user->unreadNotifications()->count(), 0) : 0,
+                'notifications' => $user && ! $user->isEmployee() ? rescue(fn () => $user->unreadNotifications()->count(), 0) : 0,
                 // Menu => "view" | "edit", for the sidebar and the edit buttons.
                 'menus' => (object) ($user?->menus() ?? []),
             ],

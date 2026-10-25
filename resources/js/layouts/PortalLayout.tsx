@@ -5,8 +5,8 @@ import { BrandLogo, brandLine, useBranding } from '@/components/BrandLogo';
 import { FlashToast } from '@/components/FlashToast';
 
 const NAV = [
-    { href: '/portal', label: 'Beranda', icon: Home },
-    { href: '/portal/data', label: 'Data Saya', icon: UserPen },
+    { href: '/self-service', label: 'Beranda', icon: Home },
+    { href: '/self-service/profile', label: 'Data Saya', icon: UserPen },
 ];
 
 /** Portal Karyawan: a simple top bar instead of the admin sidebar; on a phone the menu is a row of tabs under it. */
@@ -20,7 +20,7 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
         <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50">
             <header className="sticky top-0 z-40 border-b-[3px] border-accent-400 bg-white">
                 <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-4">
-                    <Link href="/portal" className="flex min-w-0 items-center gap-2 sm:gap-3">
+                    <Link href="/self-service" className="flex min-w-0 items-center gap-2 sm:gap-3">
                         <BrandLogo className="h-7 sm:h-8" />
                         <div className="min-w-0 border-l border-slate-200 pl-2 leading-tight sm:pl-3">
                             <p className="truncate text-sm font-black tracking-tight text-brand-700">Portal Karyawan</p>
@@ -44,7 +44,7 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                     <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
                         {user && <span className="mr-2 hidden max-w-48 truncate text-sm font-bold text-slate-600 lg:block">{user.name}</span>}
                         <Link
-                            href="/akun/password"
+                            href="/account/password"
                             title="Ganti password"
                             aria-label="Ganti password"
                             className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-brand-600"

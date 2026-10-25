@@ -2,8 +2,8 @@
 
 namespace App\Support\Payroll;
 
-use App\Models\Karyawan;
-use App\Support\Comben\Entitlement;
+use App\Models\Employee;
+use App\Support\Compensation\BenefitEntitlement;
 
 /**
  * Status PTKP for PPh21, read from the employee's data (no manual override):
@@ -23,23 +23,23 @@ class Ptkp
         'K/3' => 'C',
     ];
 
-    public static function status(Karyawan $k): string
+    public static function status(Employee $k): string
     {
         if (self::perempuan($k)) {
             return 'TK/0';
         }
-        $tanggungan = min(self::MAKS_TANGGUNGAN, Entitlement::jumlahAnak($k));
+        $tanggungan = min(self::MAKS_TANGGUNGAN, BenefitEntitlement::childrenCount($k));
 
-        return (Entitlement::kawin($k) ? 'K' : 'TK').'/'.$tanggungan;
+        return (BenefitEntitlement::kawin($k) ? 'K' : 'TK').'/'.$tanggungan;
     }
 
-    public static function kategoriTer(string $status): string
+    public static function terCategory(string $status): string
     {
         return self::KATEGORI_TER[$status] ?? 'A';
     }
 
-    public static function perempuan(Karyawan $k): bool
+    public static function perempuan(Employee $k): bool
     {
-        return $k->profile?->jenis_kelamin === 'Perempuan';
+        return $k->profile?->gender === 'Perempuan';
     }
 }

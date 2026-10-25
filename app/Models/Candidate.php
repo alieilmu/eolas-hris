@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Support\Recruitment\Lamaran;
+use App\Support\Recruitment\Application;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,10 +10,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Storage;
 
-/** Someone in Recruitment Tracking: a card in one stage, from an application or added by HR. */
+/** Someone in Pipeline Kandidat: a card in one stage, from an application or added by HR. */
 #[Fillable([
-    'recruitment_stage_id', 'applicant_id', 'name', 'email', 'no_hp', 'position', 'portfolio_url',
-    'cv_url', 'cv_path', 'cv_nama', 'status', 'applied_date', 'order', 'ditolak_at', 'alasan_ditolak',
+    'recruitment_stage_id', 'applicant_id', 'name', 'email', 'phone', 'position', 'portfolio_url',
+    'cv_url', 'cv_path', 'cv_filename', 'status', 'applied_date', 'sort_order', 'rejected_at', 'rejection_reason',
 ])]
 class Candidate extends Model
 {
@@ -21,7 +21,7 @@ class Candidate extends Model
     {
         return [
             'applied_date' => 'immutable_date:Y-m-d',
-            'ditolak_at' => 'datetime',
+            'rejected_at' => 'datetime',
         ];
     }
 
@@ -29,8 +29,8 @@ class Candidate extends Model
     {
         // A CV HR uploaded goes with the card (one from the application stays with the application).
         static::deleted(function (self $m) {
-            if ($m->cv_path && str_starts_with($m->cv_path, 'rekrutmen/kandidat/')) {
-                Storage::disk(Lamaran::DISK)->delete($m->cv_path);
+            if ($m->cv_path && str_starts_with($m->cv_path, 'recruitment/candidate/')) {
+                Storage::disk(Application::DISK)->delete($m->cv_path);
             }
         });
     }
@@ -52,11 +52,11 @@ class Candidate extends Model
 
     public function statusHistories(): HasMany
     {
-        return $this->hasMany(StatusHistory::class)->latest();
+        return $this->hasMany(CandidateStageHistory::class)->latest();
     }
 
-    public function karyawan(): HasOne
+    public function employee(): HasOne
     {
-        return $this->hasOne(Karyawan::class);
+        return $this->hasOne(Employee::class);
     }
 }

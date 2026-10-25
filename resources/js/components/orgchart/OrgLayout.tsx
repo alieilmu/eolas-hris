@@ -4,11 +4,11 @@ import { Building, PanelRightClose, PanelRightOpen, PencilRuler, Users } from 'l
 import type { LocationTab } from '@/lib/orgTree';
 
 /** "organisasi": arrange the structure; "mpp": fill it with people. */
-export type OrgMode = 'organisasi' | 'mpp';
+export type OrgMode = 'organization' | 'workforce_planning';
 
 const MODES: { id: OrgMode; label: string; hint: string; icon: typeof Users }[] = [
-    { id: 'organisasi', label: 'Mode Organisasi', hint: 'Menyusun struktur: jabatan, unit, Sub Lokasi dan atasannya', icon: PencilRuler },
-    { id: 'mpp', label: 'Mode MPP', hint: 'Mengisi struktur dengan karyawan, mutasi dan copot', icon: Users },
+    { id: 'organization', label: 'Mode Organisasi', hint: 'Menyusun struktur: jabatan, unit, Sub Lokasi dan atasannya', icon: PencilRuler },
+    { id: 'workforce_planning', label: 'Mode MPP', hint: 'Mengisi struktur dengan karyawan, mutasi dan copot', icon: Users },
 ];
 
 /** Title bar with the switch between the two modes; switching keeps the page (no reload). */
@@ -121,14 +121,14 @@ export function LocationTabs({ locations, activeId, mode, badge }: TabsProps) {
                 return (
                     <Link
                         key={l.id}
-                        href={`/manpower/org-structure?lokasi=${l.id}&mode=${mode}`}
+                        href={`/core-hr/org-chart?location=${l.id}&mode=${mode}`}
                         preserveScroll
                         preserveState
                         className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-bold transition-all ${
                             active ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                         }`}
                     >
-                        {l.type === 'Head Office' && <Building size={13} className={active ? 'text-accent-300' : 'text-slate-400'} />}
+                        {l.type === 'head_office' && <Building size={13} className={active ? 'text-accent-300' : 'text-slate-400'} />}
                         {l.name}
                         <span className={`rounded-full px-1.5 text-[10px] tabular-nums ${active ? 'bg-white/20' : 'bg-slate-100'}`}>{badge(l)}</span>
                     </Link>

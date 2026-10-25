@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\DemoAccount;
+use App\Models\TrialAccount;
 use App\Support\Tenancy\Tenant;
 use Closure;
 use Illuminate\Http\Request;
@@ -33,7 +33,7 @@ class UseTenant
             return $next($request);
         }
 
-        $account = DemoAccount::where('database', $database)->first();
+        $account = TrialAccount::where('database', $database)->first();
         if (! $account || ! $account->usable()) {
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -49,7 +49,7 @@ class UseTenant
 
         $request->session()->put(self::SESSION, $database);
         Tenant::use($database);
-        app()->instance(DemoAccount::class, $account);
+        app()->instance(TrialAccount::class, $account);
 
         return $next($request);
     }

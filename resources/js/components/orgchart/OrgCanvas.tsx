@@ -82,7 +82,7 @@ export function OrgCanvas({ roots, heightOf, byLayer = false, renderNode, focusK
                                         <text x={20} y={b.top + 30} fontSize={15} fontWeight={800} fill="var(--color-brand-700)">
                                             LAYER {b.layer}
                                         </text>
-                                        {b.subGroups.slice(0, 4).map((g, j) => (
+                                        {b.jobLevels.slice(0, 4).map((g, j) => (
                                             <text key={g} x={20} y={b.top + 50 + j * 15} fontSize={10.5} fill="var(--color-slate-500)">
                                                 {g.length > 20 ? `${g.slice(0, 19)}…` : g}
                                             </text>

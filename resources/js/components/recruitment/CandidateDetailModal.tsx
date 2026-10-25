@@ -18,9 +18,9 @@ import {
     UserPlus,
     X,
 } from 'lucide-react';
-import { AddKaryawanDialog } from '@/components/manpower/AddKaryawanDialog';
+import { AddEmployeeDialog } from '@/components/core_hr/AddEmployeeDialog';
 import { CandidateFormDialog } from '@/components/recruitment/CandidateFormDialog';
-import { Jawaban } from '@/components/recruitment/Jawaban';
+import { Answers } from '@/components/recruitment/Answers';
 import { fmtDate } from '@/lib/format';
 import { deleteJson, postJson } from '@/lib/http';
 import { tint, type CandidateDetail, type Stage } from '@/lib/recruitment';
@@ -31,27 +31,27 @@ const visit = { preserveScroll: true, preserveState: true } as const;
 export function CandidateDetailModal({
     candidateId,
     stages,
-    posisiOptions,
+    positionTitleOptions,
     canEdit,
-    canKaryawan,
+    canEmployee,
     onClose,
 }: {
     candidateId: number;
     stages: Stage[];
-    posisiOptions: string[];
+    positionTitleOptions: string[];
     canEdit: boolean;
-    canKaryawan: boolean;
+    canEmployee: boolean;
     onClose: () => void;
 }) {
     const [c, setC] = useState<CandidateDetail | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [note, setNote] = useState('');
     const [saving, setSaving] = useState(false);
-    const [dialog, setDialog] = useState<'edit' | 'karyawan' | 'tolak' | null>(null);
-    const [alasan, setAlasan] = useState('');
+    const [dialog, setDialog] = useState<'edit' | 'employee' | 'reject' | null>(null);
+    const [reason, setAlasan] = useState('');
 
     const load = useCallback(() => {
-        fetch(`/recruitment/kandidat/${candidateId}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+        fetch(`/recruitment/candidate/${candidateId}`, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error('Data kandidat tidak bisa dimuat.'))))
             .then(setC)
             .catch((e: Error) => setError(e.message));
@@ -66,16 +66,16 @@ export function CandidateDetailModal({
 
     const refresh = () => {
         load();
-        router.reload({ only: ['stages', 'jumlah', 'posisi_options'] });
+        router.reload({ only: ['stages', 'quantity', 'position_title_options'] });
     };
 
     const moveTo = (stageId: number) => {
         const target = stages.find((s) => s.id === stageId);
         if (!c || !target || stageId === c.stage.id) return;
         router.post(
-            '/recruitment/kandidat/pindah',
+            '/recruitment/candidate/move',
             { candidate_id: c.id, stage_id: stageId, ordered_ids: [...target.candidates.map((x) => x.id).filter((id) => id !== c.id), c.id] },
-            { ...visit, only: ['stages', 'jumlah'], onSuccess: load },
+            { ...visit, only: ['stages', 'quantity'], onSuccess: load },
         );
     };
 
@@ -83,7 +83,7 @@ export function CandidateDetailModal({
         if (!c || !note.trim()) return;
         setSaving(true);
         try {
-            const saved = await postJson<CandidateDetail['notes'][number]>(`/recruitment/kandidat/${c.id}/catatan`, { content: note });
+            const saved = await postJson<CandidateDetail['notes'][number]>(`/recruitment/candidate/${c.id}/notes`, { content: note });
             setC({ ...c, notes: [saved, ...c.notes] });
             setNote('');
             router.reload({ only: ['stages'] });
@@ -96,15 +96,15 @@ export function CandidateDetailModal({
 
     const removeNote = async (id: number) => {
         if (!c || !confirm('Hapus catatan ini?')) return;
-        await deleteJson(`/recruitment/catatan/${id}`).catch((e: Error) => alert(e.message));
+        await deleteJson(`/recruitment/notes/${id}`).catch((e: Error) => alert(e.message));
         setC({ ...c, notes: c.notes.filter((n) => n.id !== id) });
     };
 
-    const reject = (tolak: boolean) =>
+    const decideReject = (reject: boolean) =>
         c &&
         router.post(
-            `/recruitment/kandidat/${c.id}/tolak`,
-            { tolak, alasan: tolak ? alasan : null },
+            `/recruitment/candidate/${c.id}/reject`,
+            { reject, reason: reject ? reason : null },
             {
                 ...visit,
                 onSuccess: () => {
@@ -117,10 +117,10 @@ export function CandidateDetailModal({
 
     const destroy = () =>
         c &&
-        confirm(`Hapus ${c.name} dari Recruitment Tracking?${c.form ? ' Lamarannya kembali ke daftar Pelamar.' : ''}`) &&
-        router.delete(`/recruitment/kandidat/${c.id}`, { ...visit, onSuccess: onClose });
+        confirm(`Hapus ${c.name} dari Pipeline Kandidat?${c.form ? ' Lamarannya kembali ke daftar Pelamar.' : ''}`) &&
+        router.delete(`/recruitment/candidate/${c.id}`, { ...visit, onSuccess: onClose });
 
-    const wa = c?.no_hp ? `https://wa.me/${c.no_hp.replace(/\D/g, '').replace(/^0/, '62')}` : null;
+    const wa = c?.phone ? `https://wa.me/${c.phone.replace(/\D/g, '').replace(/^0/, '62')}` : null;
 
     return (
         <div
@@ -155,17 +155,17 @@ export function CandidateDetailModal({
                                     <span className="rounded-full px-2.5 py-0.5 text-[11px] font-bold" style={tint(c.stage.color)}>
                                         {c.stage.title}
                                     </span>
-                                    {c.ditolak && (
+                                    {c.rejected && (
                                         <span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-bold text-rose-600">
                                             Tidak dilanjutkan
                                         </span>
                                     )}
-                                    {c.karyawan && (
+                                    {c.employee && (
                                         <Link
-                                            href={`/manpower/karyawan/${c.karyawan.id}/profil`}
+                                            href={`/core-hr/employees/${c.employee.id}/profile`}
                                             className="flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 hover:underline"
                                         >
-                                            <BadgeCheck size={13} /> Karyawan · NRP {c.karyawan.nrp}
+                                            <BadgeCheck size={13} /> Karyawan · NRP {c.employee.employee_number}
                                         </Link>
                                     )}
                                 </div>
@@ -177,7 +177,7 @@ export function CandidateDetailModal({
 
                         {canEdit && (
                             <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50/60 px-4 py-2.5 sm:px-6">
-                                {!c.karyawan && !c.ditolak && (
+                                {!c.employee && !c.rejected && (
                                     <label className="flex items-center gap-2 text-xs font-bold text-slate-500">
                                         Pindah ke
                                         <select
@@ -194,9 +194,9 @@ export function CandidateDetailModal({
                                     </label>
                                 )}
                                 <div className="ml-auto flex flex-wrap gap-1.5">
-                                    {!c.karyawan && !c.ditolak && c.tahap_terakhir && canKaryawan && (
+                                    {!c.employee && !c.rejected && c.last_stage && canEmployee && (
                                         <button
-                                            onClick={() => setDialog('karyawan')}
+                                            onClick={() => setDialog('employee')}
                                             className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-700"
                                         >
                                             <UserPlus size={14} /> Jadikan Karyawan
@@ -208,23 +208,23 @@ export function CandidateDetailModal({
                                     >
                                         <Pencil size={14} /> Ubah
                                     </button>
-                                    {!c.karyawan &&
-                                        (c.ditolak ? (
+                                    {!c.employee &&
+                                        (c.rejected ? (
                                             <button
-                                                onClick={() => reject(false)}
+                                                onClick={() => decideReject(false)}
                                                 className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-white"
                                             >
                                                 <RotateCcw size={14} /> Lanjutkan kembali
                                             </button>
                                         ) : (
                                             <button
-                                                onClick={() => setDialog('tolak')}
+                                                onClick={() => setDialog('reject')}
                                                 className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-white"
                                             >
                                                 <Ban size={14} /> Tidak dilanjutkan
                                             </button>
                                         ))}
-                                    {!c.karyawan && (
+                                    {!c.employee && (
                                         <button
                                             onClick={destroy}
                                             title="Hapus kandidat"
@@ -235,10 +235,10 @@ export function CandidateDetailModal({
                                         </button>
                                     )}
                                 </div>
-                                {dialog === 'tolak' && (
+                                {dialog === 'reject' && (
                                     <div className="flex w-full flex-wrap items-center gap-2 rounded-xl border border-rose-100 bg-white p-2">
                                         <input
-                                            value={alasan}
+                                            value={reason}
                                             onChange={(e) => setAlasan(e.target.value)}
                                             autoFocus
                                             maxLength={255}
@@ -252,8 +252,8 @@ export function CandidateDetailModal({
                                             Batal
                                         </button>
                                         <button
-                                            onClick={() => reject(true)}
-                                            disabled={!alasan.trim()}
+                                            onClick={() => decideReject(true)}
+                                            disabled={!reason.trim()}
                                             className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-50"
                                         >
                                             Simpan
@@ -262,10 +262,10 @@ export function CandidateDetailModal({
                                 )}
                             </div>
                         )}
-                        {c.ditolak && (
+                        {c.rejected && (
                             <p className="border-b border-rose-100 bg-rose-50 px-4 py-2 text-xs text-rose-700 sm:px-6">
-                                Tidak dilanjutkan sejak {fmtDate(c.ditolak.tanggal)}
-                                {c.ditolak.alasan ? ` — ${c.ditolak.alasan}` : ''}.
+                                Tidak dilanjutkan sejak {fmtDate(c.rejected.date)}
+                                {c.rejected.reason ? ` — ${c.rejected.reason}` : ''}.
                             </p>
                         )}
 
@@ -273,7 +273,7 @@ export function CandidateDetailModal({
                             <div className="space-y-6">
                                 <section className="grid gap-3 sm:grid-cols-2">
                                     <Info icon={Mail} label="Email" value={c.email} href={c.email ? `mailto:${c.email}` : undefined} />
-                                    <Info icon={Phone} label="Nomor HP" value={c.no_hp} href={wa ?? undefined} hint={wa ? 'WhatsApp' : undefined} />
+                                    <Info icon={Phone} label="Nomor HP" value={c.phone} href={wa ?? undefined} hint={wa ? 'WhatsApp' : undefined} />
                                     <Info icon={CalendarDays} label="Tanggal melamar" value={fmtDate(c.applied_date)} />
                                     <Info
                                         icon={ExternalLink}
@@ -283,12 +283,12 @@ export function CandidateDetailModal({
                                     />
                                 </section>
 
-                                {c.jawaban.length > 0 && (
+                                {c.answers.length > 0 && (
                                     <section>
                                         <h3 className="mb-2 text-xs font-bold tracking-widest text-slate-500 uppercase">
                                             Jawaban lamaran · {c.form}
                                         </h3>
-                                        <Jawaban items={c.jawaban} />
+                                        <Answers items={c.answers} />
                                     </section>
                                 )}
 
@@ -321,7 +321,7 @@ export function CandidateDetailModal({
                                                 <div className="mb-1 flex items-center gap-2 text-[11px]">
                                                     <b className="text-brand-700">{n.author}</b>
                                                     <span className="text-slate-400">
-                                                        {new Date(n.waktu).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                        {new Date(n.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
                                                     </span>
                                                     {canEdit && (
                                                         <button
@@ -354,7 +354,7 @@ export function CandidateDetailModal({
                                             className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm font-bold text-brand-700 hover:bg-brand-50"
                                         >
                                             <FileText size={16} />
-                                            <span className="min-w-0 flex-1 truncate">{c.cv.nama}</span>
+                                            <span className="min-w-0 flex-1 truncate">{c.cv.name}</span>
                                             <ExternalLink size={14} />
                                         </a>
                                     ) : (
@@ -373,7 +373,7 @@ export function CandidateDetailModal({
                                                     {h.from} → <b className="text-accent-300">{h.to}</b>
                                                 </p>
                                                 <p className="text-[10px] text-slate-500">
-                                                    {new Date(h.waktu).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} · {h.by}
+                                                    {new Date(h.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })} · {h.by}
                                                 </p>
                                             </li>
                                         ))}
@@ -391,20 +391,20 @@ export function CandidateDetailModal({
                     <CandidateFormDialog
                         candidate={c}
                         stages={stages}
-                        posisiOptions={posisiOptions}
+                        positionTitleOptions={positionTitleOptions}
                         onClose={() => setDialog(null)}
                         onSaved={refresh}
                     />
                 </div>
             )}
-            {c && dialog === 'karyawan' && (
+            {c && dialog === 'employee' && (
                 <div onMouseDown={(e) => e.stopPropagation()}>
-                    <AddKaryawanDialog
+                    <AddEmployeeDialog
                         title={`Jadikan Karyawan — ${c.name}`}
-                        submitUrl={`/recruitment/kandidat/${c.id}/karyawan`}
+                        submitUrl={`/recruitment/candidate/${c.id}/employee`}
                         initial={{ name: c.name }}
-                        fixedJabatan={c.jabatan ?? undefined}
-                        tanggalMasuk
+                        fixedPosition={c.job_position ?? undefined}
+                        hireDate
                         onClose={() => setDialog(null)}
                         onSaved={refresh}
                     />

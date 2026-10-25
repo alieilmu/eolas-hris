@@ -29,7 +29,7 @@ class BrandingTest extends TestCase
 
     private function save(array $data = []): TestResponse
     {
-        return $this->actingAs($this->admin())->post('/settings/white-label', [
+        return $this->actingAs($this->admin())->post('/settings/branding', [
             'app_name' => 'HRIS Nusantara',
             'company_name' => 'PT Contoh Jaya',
             'tagline' => 'Konstruksi',
@@ -56,7 +56,7 @@ class BrandingTest extends TestCase
         Storage::disk('local')->assertExists($b->logo_path);
 
         // Every page: the names in the shared props, the colours and the title in the head.
-        $html = $this->actingAs($this->admin())->get('/settings/white-label')
+        $html = $this->actingAs($this->admin())->get('/settings/branding')
             ->assertInertia(fn (Assert $page) => $page->where('branding.app_name', 'HRIS Nusantara')->where('branding.tagline', 'Konstruksi'))
             ->getContent();
         $this->assertStringContainsString('--color-brand-600:#1f5fa8', $html);
@@ -70,7 +70,7 @@ class BrandingTest extends TestCase
 
     public function test_without_a_favicon_one_is_drawn_from_the_initial(): void
     {
-        $this->save(['hapus' => ['favicon', 'logo']])->assertSessionHasNoErrors();
+        $this->save(['delete' => ['favicon', 'logo']])->assertSessionHasNoErrors();
         auth()->logout();
 
         $svg = $this->get('/branding/favicon')->assertOk()->assertHeader('Content-Type', 'image/svg+xml')->getContent();
@@ -92,14 +92,14 @@ class BrandingTest extends TestCase
 
     public function test_bad_input_is_refused(): void
     {
-        $this->save(['brand_color' => 'biru'])->assertSessionHasErrors('brand_color');
+        $this->save(['brand_color' => 'blue'])->assertSessionHasErrors('brand_color');
         $this->save(['logo' => UploadedFile::fake()->create('logo.svg', 10, 'image/svg+xml')])->assertSessionHasErrors('logo');
     }
 
     public function test_only_the_super_admin_may_change_it(): void
     {
         $hr = User::where('role', User::ROLE_HR)->firstOrFail();
-        $this->actingAs($hr)->get('/settings/white-label')->assertForbidden();
-        $this->actingAs($hr)->post('/settings/white-label', ['brand_color' => '#000000', 'accent_color' => '#ffffff'])->assertForbidden();
+        $this->actingAs($hr)->get('/settings/branding')->assertForbidden();
+        $this->actingAs($hr)->post('/settings/branding', ['brand_color' => '#000000', 'accent_color' => '#ffffff'])->assertForbidden();
     }
 }

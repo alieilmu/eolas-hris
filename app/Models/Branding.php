@@ -58,9 +58,9 @@ class Branding extends Model
     }
 
     /** /branding/logo?v=…, or null when none was uploaded. The version makes a new upload show at once. */
-    public function fileUrl(string $jenis): ?string
+    public function fileUrl(string $type): ?string
     {
-        return $this->{self::FILES[$jenis]} ? "/branding/{$jenis}?v=".$this->version() : null;
+        return $this->{self::FILES[$type]} ? "/branding/{$type}?v=".$this->version() : null;
     }
 
     /**

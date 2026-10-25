@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 
-/** Admin = Super Admin, HR = Admin (menus and locations from Settings), Karyawan = employee portal. */
-export type Role = 'Admin' | 'HR' | 'Karyawan';
+/** super_admin = Super Admin, admin = Admin (menus and locations from Settings), employee = self-service portal. */
+export type Role = 'super_admin' | 'admin' | 'employee';
 
 export type MenuLevel = 'view' | 'edit';
 
@@ -11,7 +11,7 @@ export interface AuthUser {
     email: string | null;
     role: Role;
     role_label: string;
-    karyawan_id: number | null;
+    employee_id: number | null;
 }
 
 /** White label (Settings → White Label), shared with every page. */
@@ -36,15 +36,15 @@ export interface Auth {
     /** Menu key => level, for the sidebar and the edit buttons. */
     menus: Record<string, MenuLevel>;
     /** Unread notifications (pengajuan from the portal); 0 for employees. */
-    notifikasi: number;
+    notifications: number;
 }
 
 /** Eolas: the demo workspace the account works in (null in the main application). */
 export interface Workspace {
-    kode: string;
-    perusahaan: string;
-    sumber_data: 'demo' | 'kosong';
-    sumber_label: string;
+    code: string;
+    company_name: string;
+    data_source: 'demo' | 'blank';
+    source_label: string;
     expires_at: string | null;
     days_left: number | null;
 }
@@ -55,7 +55,7 @@ export interface NavItem {
     icon: LucideIcon;
     href?: string;
     disabled?: boolean;
-    /** The access menu (Settings → Akun & Akses) that shows this item; 'settings' = Super Admin. */
+    /** The access menu (Administrasi → Pengguna & Akses) that shows this item; 'settings' = Super Admin. */
     menu?: string;
     /** Sub-modules, shown indented under this item. */
     children?: NavItem[];
@@ -83,7 +83,7 @@ declare module '@inertiajs/core' {
             error?: string;
             warnings?: string[];
             /** Lowongan: the applicant's name after an application was sent. */
-            terkirim?: string;
+            sent?: string;
         };
     }
 }

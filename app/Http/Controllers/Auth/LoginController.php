@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\UseTenant;
-use App\Models\DemoAccount;
+use App\Models\TrialAccount;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -29,7 +29,7 @@ class LoginController extends Controller
         // The demo workspace this account lives in (UseTenant opens it on every request).
         $request->session()->put(UseTenant::SESSION, $request->tenant);
         if ($request->tenant) {
-            DemoAccount::where('database', $request->tenant)->update(['last_login_at' => now()]);
+            TrialAccount::where('database', $request->tenant)->update(['last_login_at' => now()]);
             if ($request->boolean('remember')) {
                 Cookie::queue(Cookie::forever(UseTenant::COOKIE, $request->tenant));
             }

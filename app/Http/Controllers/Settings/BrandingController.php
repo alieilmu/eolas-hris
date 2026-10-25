@@ -35,7 +35,7 @@ class BrandingController extends Controller
                 'brand_color' => $b->brandColor(),
                 'accent_color' => $b->accentColor(),
             ],
-            'files' => collect(Branding::FILES)->map(fn (string $column, string $jenis) => $b->fileUrl($jenis))->all(),
+            'files' => collect(Branding::FILES)->map(fn (string $column, string $type) => $b->fileUrl($type))->all(),
             'defaults' => ['app_name' => (string) config('app.name', 'HRIS'), 'brand_color' => Branding::DEFAULT_BRAND, 'accent_color' => Branding::DEFAULT_ACCENT],
         ]);
     }
@@ -52,8 +52,8 @@ class BrandingController extends Controller
             'logo' => ['nullable', $image],
             'logo-full' => ['nullable', $image],
             'favicon' => ['nullable', File::types(['png', 'ico', 'webp'])->max(512)],
-            'hapus' => ['nullable', 'array'],
-            'hapus.*' => ['string'],
+            'delete' => ['nullable', 'array'],
+            'delete.*' => ['string'],
         ], [
             'brand_color.regex' => 'Warna utama harus kode hex, mis. #3f5f8f.',
             'accent_color.regex' => 'Warna aksen harus kode hex, mis. #f2b705.',
@@ -73,12 +73,12 @@ class BrandingController extends Controller
             'brand_color' => Palette::normalize($data['brand_color']),
             'accent_color' => Palette::normalize($data['accent_color']),
         ];
-        foreach (Branding::FILES as $jenis => $column) {
+        foreach (Branding::FILES as $type => $column) {
             $old = $b->{$column};
-            if ($request->hasFile($jenis)) {
-                $file = $request->file($jenis);
-                $values[$column] = $file->storeAs(self::DIR, $jenis.'-'.now()->format('YmdHis').'.'.strtolower($file->getClientOriginalExtension() ?: $file->extension()), 'local');
-            } elseif (in_array($jenis, $data['hapus'] ?? [], true)) {
+            if ($request->hasFile($type)) {
+                $file = $request->file($type);
+                $values[$column] = $file->storeAs(self::DIR, $type.'-'.now()->format('YmdHis').'.'.strtolower($file->getClientOriginalExtension() ?: $file->extension()), 'local');
+            } elseif (in_array($type, $data['delete'] ?? [], true)) {
                 $values[$column] = null;
             } else {
                 continue;
@@ -96,10 +96,10 @@ class BrandingController extends Controller
     }
 
     /** An uploaded logo / favicon; without an uploaded favicon, one drawn from the initial and the colours. */
-    public function file(string $jenis): StreamedResponse|HttpResponse
+    public function file(string $type): StreamedResponse|HttpResponse
     {
         $b = Branding::current();
-        $path = $b->{Branding::FILES[$jenis]};
+        $path = $b->{Branding::FILES[$type]};
         $headers = ['Cache-Control' => 'private, max-age=604800', 'X-Content-Type-Options' => 'nosniff'];
 
         if ($path && Storage::disk('local')->exists($path)) {
@@ -108,7 +108,7 @@ class BrandingController extends Controller
                 'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'",
             ]);
         }
-        abort_unless($jenis === 'favicon', 404);
+        abort_unless($type === 'favicon', 404);
 
         return response(self::initialIcon($b), 200, $headers + ['Content-Type' => 'image/svg+xml']);
     }

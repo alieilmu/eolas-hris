@@ -8,16 +8,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** The organisation level under Departemen; most positions belong to one. */
-#[Fillable(['departemen_id', 'name', 'order'])]
+#[Fillable(['department_id', 'name', 'sort_order'])]
 class Section extends Model
 {
-    public function departemen(): BelongsTo
+    public function department(): BelongsTo
     {
-        return $this->belongsTo(Departemen::class);
+        return $this->belongsTo(Department::class);
     }
 
-    public function jabatans(): HasMany
+    public function positions(): HasMany
     {
-        return $this->hasMany(Jabatan::class)->orderBy('order');
+        return $this->hasMany(Position::class)->orderBy('sort_order');
     }
 }

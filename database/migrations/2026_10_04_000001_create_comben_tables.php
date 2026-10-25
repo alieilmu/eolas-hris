@@ -1,6 +1,5 @@
 <?php
 
-use App\Support\Comben\CombenDefaults;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -110,10 +109,8 @@ return new class extends Migration
             $table->dropColumn('plafon_pengobatan');
         });
 
-        // On a database that already has its organisation (the live one); a fresh one is seeded by CombenSeeder.
-        if (DB::table('sub_groups')->exists()) {
-            CombenDefaults::seed();
-        }
+        // The live database was given its Comben master data here when this ran (Oct 2026); a fresh
+        // one is seeded by CompensationSeeder after every migration (the classes now use the new names).
     }
 
     public function down(): void

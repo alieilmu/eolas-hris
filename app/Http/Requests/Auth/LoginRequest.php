@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Auth;
 
-use App\Models\DemoAccount;
-use App\Models\Karyawan;
+use App\Models\TrialAccount;
+use App\Models\Employee;
 use App\Models\User;
 use App\Support\Tenancy\Tenant;
 use Illuminate\Auth\Events\Lockout;
@@ -59,7 +59,7 @@ class LoginRequest extends FormRequest
         // Admins sign in with their email, employees with their NRP.
         $user = str_contains($login, '@')
             ? User::where('email', $login)->first()
-            : User::where('role', User::ROLE_KARYAWAN)->whereHas('karyawan', fn ($q) => $q->where('nrp', $login))->first();
+            : User::where('role', User::ROLE_EMPLOYEE)->whereHas('employee', fn ($q) => $q->where('employee_number', $login))->first();
 
         $valid = $user && Hash::check($this->string('password'), $user->password);
         if (! $valid) {
@@ -70,7 +70,7 @@ class LoginRequest extends FormRequest
                 'email' => 'Email / NRP atau password salah.',
             ]);
         }
-        if (! $user->is_active || ($user->isKaryawan() && $user->karyawan?->status === Karyawan::STATUS_KELUAR)) {
+        if (! $user->is_active || ($user->isEmployee() && $user->employee?->status === Employee::STATUS_TERMINATED)) {
             throw ValidationException::withMessages(['email' => 'Akun ini tidak aktif. Hubungi HR.']);
         }
 
@@ -87,11 +87,11 @@ class LoginRequest extends FormRequest
      */
     private function openWorkspace(string $login): void
     {
-        $kode = Str::lower(trim((string) $this->string('workspace')));
+        $code = Str::lower(trim((string) $this->string('workspace')));
         $account = match (true) {
-            $kode !== '' => DemoAccount::where('kode', $kode)->first()
+            $code !== '' => TrialAccount::where('code', $code)->first()
                 ?? throw ValidationException::withMessages(['email' => 'Kode workspace tidak ditemukan.']),
-            str_contains($login, '@') => DemoAccount::where('email', $login)->first(),
+            str_contains($login, '@') => TrialAccount::where('email', $login)->first(),
             default => null,
         };
         if (! $account) {

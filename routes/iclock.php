@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Attendance\IclockController;
+use App\Http\Controllers\Time\IclockController;
 use Illuminate\Support\Facades\Route;
 
 // ADMS push from attendance machines (Attendance → Kehadiran → Mesin Absen): no session,

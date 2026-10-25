@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Employee;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,7 +20,7 @@ class EnsureAccountReady
         if (! $user) {
             return $next($request);
         }
-        if (! $user->is_active || ($user->isKaryawan() && (! $user->karyawan || $user->karyawan->status === 'Keluar'))) {
+        if (! $user->is_active || ($user->isEmployee() && (! $user->employee || $user->employee->status === Employee::STATUS_TERMINATED))) {
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();

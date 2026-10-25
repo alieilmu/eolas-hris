@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * ...) for people assigned away from their site. Its positions sit in its own
  * box in the plan, under the position it reports to (usually the Project Manager).
  */
-#[Fillable(['work_location_id', 'name', 'parent_jabatan_id', 'order'])]
+#[Fillable(['work_location_id', 'name', 'parent_position_id', 'sort_order'])]
 class SubLocation extends Model
 {
     public function workLocation(): BelongsTo
@@ -23,16 +23,16 @@ class SubLocation extends Model
     /** The position its box hangs under in the plan; null = not in the plan yet. */
     public function parent(): BelongsTo
     {
-        return $this->belongsTo(Jabatan::class, 'parent_jabatan_id');
+        return $this->belongsTo(Position::class, 'parent_position_id');
     }
 
-    public function jabatans(): HasMany
+    public function positions(): HasMany
     {
-        return $this->hasMany(Jabatan::class);
+        return $this->hasMany(Position::class);
     }
 
-    public function karyawans(): HasMany
+    public function employees(): HasMany
     {
-        return $this->hasMany(Karyawan::class);
+        return $this->hasMany(Employee::class);
     }
 }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { ChevronDown, FlaskConical, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
-import { NotifikasiBell } from '@/components/NotifikasiBell';
+import { NotificationBell } from '@/components/NotificationBell';
 import type { NavItem, NavModule } from '@/types';
 
 interface SidebarProps {
@@ -15,7 +15,7 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
     const { url, props } = usePage();
     const user = props.auth.user;
     const branding = props.branding;
-    // Settings → Akun & Akses: only the menus this account may open.
+    // Administrasi → Pengguna & Akses: only the menus this account may open.
     const workspace = props.workspace;
     const allowed = (item: NavItem) =>
         !(item.centralOnly && workspace) &&
@@ -141,7 +141,7 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
                 </nav>
                 {user && (
                     <div className="flex shrink-0 flex-col items-center gap-1 border-t border-white/10 py-3">
-                        <NotifikasiBell panelLeft={72} dark />
+                        <NotificationBell panelLeft={72} dark />
                         <div
                             title={`${user.name} (${user.role_label})`}
                             className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-400 font-bold text-brand-950 uppercase"
@@ -173,7 +173,7 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
                     <h1 className="truncate text-sm font-black tracking-tight text-brand-700">{branding.app_name}</h1>
                     {branding.company_name && <p className="truncate text-[10px] font-semibold text-slate-400">{branding.company_name}</p>}
                 </div>
-                <NotifikasiBell panelLeft={296} />
+                <NotificationBell panelLeft={296} />
                 <button
                     onClick={() => toggle(true)}
                     title="Tutup sidebar"
@@ -218,7 +218,7 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
                     <span className="min-w-0 flex-1 leading-tight">
                         <span className="block font-bold text-white">Workspace demo</span>
                         <span className="block truncate text-brand-200">
-                            {workspace.sumber_label}
+                            {workspace.source_label}
                             {workspace.days_left !== null && ` · ${workspace.days_left} hari lagi`}
                         </span>
                     </span>
@@ -237,7 +237,7 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
                         </div>
                     </div>
                     <Link
-                        href="/akun/password"
+                        href="/account/password"
                         className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-brand-200 transition-all hover:bg-white/5 hover:text-white"
                     >
                         <KeyRound size={15} />

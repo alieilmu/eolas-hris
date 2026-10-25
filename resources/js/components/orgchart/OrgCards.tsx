@@ -14,12 +14,12 @@ const LAYER_STRIP: Record<number, string> = {
 };
 
 export interface DragData {
-    type: 'jabatan' | 'sub_location' | 'site' | 'holder' | 'person' | 'palette';
+    type: 'position' | 'sub_location' | 'site' | 'holder' | 'person' | 'palette';
     [key: string]: unknown;
 }
 
 export interface DropData {
-    type: 'jabatan' | 'sub_location' | 'people-panel' | 'root';
+    type: 'position' | 'sub_location' | 'people-panel' | 'root';
     [key: string]: unknown;
 }
 
@@ -46,7 +46,7 @@ export function positionCardHeight(j: JabatanData, expanded: boolean): number {
 }
 
 interface PositionCardProps {
-    jabatan: JabatanData;
+    position: JabatanData;
     /** "plan": structure only; "people": who holds it. */
     mode: 'plan' | 'people';
     draggable?: boolean;
@@ -58,8 +58,8 @@ interface PositionCardProps {
     onDelete?: () => void;
 }
 
-export function PositionCard({ jabatan: j, mode, draggable, droppable, expanded, onOpen, onDelete }: PositionCardProps) {
-    const dnd = useCardDnd(j.key, draggable ? { type: 'jabatan', id: j.id, name: j.name } : null, droppable ? { type: 'jabatan', jabatan: j } : null);
+export function PositionCard({ position: j, mode, draggable, droppable, expanded, onOpen, onDelete }: PositionCardProps) {
+    const dnd = useCardDnd(j.key, draggable ? { type: 'position', id: j.id, name: j.name } : null, droppable ? { type: 'position', position: j } : null);
     const count = j.holders.length;
 
     return (
@@ -84,10 +84,10 @@ export function PositionCard({ jabatan: j, mode, draggable, droppable, expanded,
                     </p>
                 </div>
                 <div className="flex min-w-0 flex-wrap items-center gap-1">
-                    {j.sub_group && (
+                    {j.job_level && (
                         <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md bg-brand-50 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-brand-700 uppercase">
                             <Layers size={9} className="shrink-0" />
-                            {j.sub_group}
+                            {j.job_level}
                         </span>
                     )}
                 </div>
@@ -97,7 +97,7 @@ export function PositionCard({ jabatan: j, mode, draggable, droppable, expanded,
                     {mode === 'people' && expanded && count > 0 ? (
                         <div onClick={(e) => e.stopPropagation()}>
                             {j.holders.map((h) => (
-                                <HolderChip key={h.id} holder={h} jabatanId={j.id} draggable={!!droppable} />
+                                <HolderChip key={h.id} holder={h} positionId={j.id} draggable={!!droppable} />
                             ))}
                         </div>
                     ) : count === 0 ? (
@@ -126,10 +126,10 @@ export function PositionCard({ jabatan: j, mode, draggable, droppable, expanded,
     );
 }
 
-function HolderChip({ holder, jabatanId, draggable }: { holder: Holder; jabatanId: number; draggable: boolean }) {
+function HolderChip({ holder, positionId, draggable }: { holder: Holder; positionId: number; draggable: boolean }) {
     const drag = useDraggable({
         id: `holder:${holder.id}`,
-        data: { type: 'holder', karyawan: holder, from: jabatanId } satisfies DragData,
+        data: { type: 'holder', employee: holder, from: positionId } satisfies DragData,
         disabled: !draggable,
     });
     return (
@@ -140,7 +140,7 @@ function HolderChip({ holder, jabatanId, draggable }: { holder: Holder; jabatanI
             className={`flex min-w-0 items-center gap-1 font-bold text-slate-700 ${draggable ? 'cursor-grab rounded hover:bg-brand-50' : ''} ${
                 drag.isDragging ? 'opacity-40' : ''
             }`}
-            title={draggable ? `${holder.name} (NRP ${holder.nrp}) — geser ke jabatan lain untuk mutasi` : holder.name}
+            title={draggable ? `${holder.name} (NRP ${holder.employee_number}) — geser ke jabatan lain untuk mutasi` : holder.name}
         >
             <User size={11} className="shrink-0 text-emerald-500" />
             <span className="truncate">{holder.name}</span>
@@ -208,8 +208,8 @@ interface SiteProps {
 
 /** Head Office view: a site, by its Project Manager. */
 export function SiteCard({ site, draggable, href }: SiteProps) {
-    const pm = site.jabatan;
-    const dnd = useCardDnd(site.key, draggable && pm ? { type: 'site', jabatanId: pm.id, name: site.work_location.name } : null, null);
+    const pm = site.position;
+    const dnd = useCardDnd(site.key, draggable && pm ? { type: 'site', positionId: pm.id, name: site.work_location.name } : null, null);
 
     return (
         <div
@@ -229,7 +229,7 @@ export function SiteCard({ site, draggable, href }: SiteProps) {
             </div>
             <p className="truncate text-sm leading-tight font-black">
                 {site.work_location.name}
-                {site.work_location.kode && site.work_location.kode !== site.work_location.name ? ` (${site.work_location.kode})` : ''}
+                {site.work_location.code && site.work_location.code !== site.work_location.name ? ` (${site.work_location.code})` : ''}
             </p>
             {pm ? (
                 <>
@@ -248,7 +248,7 @@ export function SiteCard({ site, draggable, href }: SiteProps) {
             ) : (
                 <p className="mt-auto text-[11px] text-amber-200">Belum di-setup di Plan SO</p>
             )}
-            <p className="text-[10px] text-brand-200">{site.jabatan_count} jabatan</p>
+            <p className="text-[10px] text-brand-200">{site.position_count} jabatan</p>
         </div>
     );
 }

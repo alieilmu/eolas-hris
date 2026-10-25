@@ -1,76 +1,78 @@
 <?php
 
 use App\Http\Controllers\Account\PasswordController;
-use App\Http\Controllers\Attendance\AttendanceMasterController;
-use App\Http\Controllers\Attendance\KehadiranController;
-use App\Http\Controllers\Attendance\SheetController;
-use App\Http\Controllers\Attendance\TripController;
+use App\Http\Controllers\Time\TimeSettingsController;
+use App\Http\Controllers\Time\TimeClockController;
+use App\Http\Controllers\Time\SheetController;
+use App\Http\Controllers\Time\LeaveTravelController;
 use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\Comben\CombenMasterController;
-use App\Http\Controllers\Comben\CutiController;
-use App\Http\Controllers\Comben\CutiMasterController;
-use App\Http\Controllers\Comben\DeklarasiController;
-use App\Http\Controllers\Comben\GajiController;
-use App\Http\Controllers\Comben\MonitoringController;
+use App\Http\Controllers\Compensation\CompensationSettingsController;
+use App\Http\Controllers\Time\LeaveBalanceController;
+use App\Http\Controllers\Compensation\LeaveSettingsController;
+use App\Http\Controllers\Compensation\BenefitClaimController;
+use App\Http\Controllers\Compensation\SalaryController;
+use App\Http\Controllers\Compensation\BenefitBalanceController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\Demo\DemoAccountController;
-use App\Http\Controllers\Demo\DemoRequestController;
-use App\Http\Controllers\Demo\WorkspaceController;
+use App\Http\Controllers\Trial\TrialAccountController;
+use App\Http\Controllers\Trial\TrialRequestController;
+use App\Http\Controllers\Trial\WorkspaceController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\LampiranController;
-use App\Http\Controllers\LowonganController;
-use App\Http\Controllers\Manpower\KaryawanAnakController;
-use App\Http\Controllers\Manpower\KaryawanController;
-use App\Http\Controllers\Manpower\KaryawanExcelController;
-use App\Http\Controllers\Manpower\KaryawanKeluarController;
-use App\Http\Controllers\Manpower\KaryawanPenempatanController;
-use App\Http\Controllers\Manpower\KaryawanPkwtController;
-use App\Http\Controllers\Manpower\KaryawanProfileController;
-use App\Http\Controllers\Manpower\MasterData\BodController;
-use App\Http\Controllers\Manpower\MasterData\DepartemenController;
-use App\Http\Controllers\Manpower\MasterData\DivisiController;
-use App\Http\Controllers\Manpower\MasterData\JabatanController;
-use App\Http\Controllers\Manpower\MasterData\JabatanExcelController;
-use App\Http\Controllers\Manpower\MasterData\JenisKaryawanController;
-use App\Http\Controllers\Manpower\MasterData\LokasiPenerimaanController;
-use App\Http\Controllers\Manpower\MasterData\MasterDataController;
-use App\Http\Controllers\Manpower\MasterData\MasterOptionController;
-use App\Http\Controllers\Manpower\MasterData\SectionController;
-use App\Http\Controllers\Manpower\MasterData\SubGroupController;
-use App\Http\Controllers\Manpower\MasterData\SubLocationController;
-use App\Http\Controllers\Manpower\MasterData\WorkLocationController;
-use App\Http\Controllers\Manpower\MppController;
-use App\Http\Controllers\Manpower\OrgPlanController;
-use App\Http\Controllers\Manpower\OrgStructureController;
-use App\Http\Controllers\Manpower\PengajuanUpdateDataController;
-use App\Http\Controllers\NotifikasiController;
-use App\Http\Controllers\Portal\DataController as PortalDataController;
-use App\Http\Controllers\Portal\PortalController;
+use App\Http\Controllers\LegacyRedirectController;
+use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\CareersController;
+use App\Http\Controllers\CoreHr\EmployeeChildController;
+use App\Http\Controllers\CoreHr\EmployeeController;
+use App\Http\Controllers\CoreHr\EmployeeExcelController;
+use App\Http\Controllers\CoreHr\EmployeeTerminationController;
+use App\Http\Controllers\CoreHr\EmployeePlacementController;
+use App\Http\Controllers\CoreHr\EmployeeContractController;
+use App\Http\Controllers\CoreHr\EmployeeProfileController;
+use App\Http\Controllers\CoreHr\Settings\DirectorateController;
+use App\Http\Controllers\CoreHr\Settings\DepartmentController;
+use App\Http\Controllers\CoreHr\Settings\DivisionController;
+use App\Http\Controllers\CoreHr\Settings\PositionController;
+use App\Http\Controllers\CoreHr\Settings\PositionExcelController;
+use App\Http\Controllers\CoreHr\Settings\EmployeeCategoryController;
+use App\Http\Controllers\CoreHr\Settings\PointOfHireController;
+use App\Http\Controllers\CoreHr\Settings\SettingsController;
+use App\Http\Controllers\CoreHr\Settings\LookupValueController;
+use App\Http\Controllers\CoreHr\Settings\SectionController;
+use App\Http\Controllers\CoreHr\Settings\JobLevelController;
+use App\Http\Controllers\CoreHr\Settings\SubLocationController;
+use App\Http\Controllers\CoreHr\Settings\WorkLocationController;
+use App\Http\Controllers\CoreHr\WorkforcePlanController;
+use App\Http\Controllers\CoreHr\OrgPlanController;
+use App\Http\Controllers\CoreHr\OrgChartController;
+use App\Http\Controllers\CoreHr\ChangeRequestController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\SelfService\ProfileController as PortalDataController;
+use App\Http\Controllers\SelfService\SelfServiceController;
 use App\Http\Controllers\Recruitment\ApplicantController;
-use App\Http\Controllers\Recruitment\FormController;
-use App\Http\Controllers\Recruitment\LaporanController;
-use App\Http\Controllers\Recruitment\TrackingController;
+use App\Http\Controllers\Recruitment\JobPostingController;
+use App\Http\Controllers\Recruitment\ReportController;
+use App\Http\Controllers\Recruitment\PipelineController;
 use App\Http\Controllers\Settings\BrandingController;
 use App\Http\Controllers\Settings\UserController;
+use App\Support\LegacyUrls;
 use Illuminate\Support\Facades\Route;
 
 // White label logos and favicon: also on the login page, so without signing in.
-Route::get('/branding/{jenis}', [BrandingController::class, 'file'])->whereIn('jenis', ['logo', 'logo-full', 'favicon'])->name('branding.file');
+Route::get('/branding/{type}', [BrandingController::class, 'file'])->whereIn('type', ['logo', 'logo-full', 'favicon'])->name('branding.file');
 
 // Lowongan: the open vacancies and their application forms, for anyone (no sign-in).
-Route::controller(LowonganController::class)->prefix('lowongan')->name('lowongan')->group(function () {
+Route::controller(CareersController::class)->prefix('careers')->name('careers')->group(function () {
     Route::get('/', 'index');
     Route::get('/{form}', 'show')->whereNumber('form')->name('.show');
-    Route::post('/{form}', 'submit')->whereNumber('form')->middleware('throttle:lamaran')->name('.submit');
+    Route::post('/{form}', 'submit')->whereNumber('form')->middleware('throttle:application')->name('.submit');
 });
 
 // Eolas: the landing page for visitors ("/" leads signed-in accounts on, see HomeController),
 // and Pengajuan Akun Demo with the page that follows its workspace being prepared.
 Route::get('/', HomeController::class)->name('home');
-Route::controller(DemoRequestController::class)->prefix('demo')->name('demo')->group(function () {
+Route::controller(TrialRequestController::class)->prefix('demo')->name('demo')->group(function () {
     Route::get('/', 'create');
     Route::post('/', 'store')->middleware('throttle:demo')->name('.store');
-    Route::get('/status/{kode}', 'status')->where('kode', '[a-z0-9]{6}')->name('.status');
+    Route::get('/status/{code}', 'status')->where('code', '[a-z0-9]{6}')->name('.status');
 });
 
 Route::middleware('guest')->group(function () {
@@ -93,57 +95,57 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
     Route::post('/workspace/data', [WorkspaceController::class, 'data'])->middleware('can:manage-users')->name('workspace.data');
 
     // Own password; a first-time password must be changed before anything else.
-    Route::get('/akun/password', [PasswordController::class, 'edit'])->name('account.password');
-    Route::put('/akun/password', [PasswordController::class, 'update'])->name('account.password.update');
+    Route::get('/account/password', [PasswordController::class, 'edit'])->name('account.password');
+    Route::put('/account/password', [PasswordController::class, 'update'])->name('account.password.update');
 
     // Modul Recruitment: Tracking (stages and candidates), Pelamar, Pengaturan Form and Laporan.
     Route::middleware('menu:recruitment')->prefix('recruitment')->name('recruitment.')->group(function () {
-        Route::controller(TrackingController::class)->group(function () {
-            Route::get('/tracking', 'index')->name('tracking');
-            Route::post('/tahap', 'storeStage')->name('tahap.store');
-            Route::put('/tahap/{stage}', 'updateStage')->whereNumber('stage')->name('tahap.update');
-            Route::post('/tahap/{stage}/geser', 'moveStage')->whereNumber('stage')->name('tahap.move');
-            Route::delete('/tahap/{stage}', 'destroyStage')->whereNumber('stage')->name('tahap.destroy');
-            Route::post('/kandidat/pindah', 'move')->name('kandidat.move');
-            Route::post('/kandidat', 'store')->name('kandidat.store');
-            Route::get('/kandidat/{candidate}', 'show')->whereNumber('candidate')->name('kandidat.show');
+        Route::controller(PipelineController::class)->group(function () {
+            Route::get('/pipeline', 'index')->name('tracking');
+            Route::post('/stage', 'storeStage')->name('stage.store');
+            Route::put('/stage/{stage}', 'updateStage')->whereNumber('stage')->name('stage.update');
+            Route::post('/stage/{stage}/move', 'moveStage')->whereNumber('stage')->name('stage.move');
+            Route::delete('/stage/{stage}', 'destroyStage')->whereNumber('stage')->name('stage.destroy');
+            Route::post('/candidate/move', 'move')->name('candidate.move');
+            Route::post('/candidate', 'store')->name('candidate.store');
+            Route::get('/candidate/{candidate}', 'show')->whereNumber('candidate')->name('candidate.show');
             // Multipart (a CV): POST with _method=put.
-            Route::put('/kandidat/{candidate}', 'update')->whereNumber('candidate')->name('kandidat.update');
-            Route::delete('/kandidat/{candidate}', 'destroy')->whereNumber('candidate')->name('kandidat.destroy');
-            Route::get('/kandidat/{candidate}/cv', 'cv')->whereNumber('candidate')->name('kandidat.cv');
-            Route::post('/kandidat/{candidate}/catatan', 'storeNote')->whereNumber('candidate')->name('kandidat.note.store');
-            Route::delete('/catatan/{note}', 'destroyNote')->whereNumber('note')->name('kandidat.note.destroy');
-            Route::post('/kandidat/{candidate}/tolak', 'reject')->whereNumber('candidate')->name('kandidat.reject');
-            Route::post('/kandidat/{candidate}/karyawan', 'convert')->whereNumber('candidate')->name('kandidat.convert');
+            Route::put('/candidate/{candidate}', 'update')->whereNumber('candidate')->name('candidate.update');
+            Route::delete('/candidate/{candidate}', 'destroy')->whereNumber('candidate')->name('candidate.destroy');
+            Route::get('/candidate/{candidate}/cv', 'cv')->whereNumber('candidate')->name('candidate.cv');
+            Route::post('/candidate/{candidate}/notes', 'storeNote')->whereNumber('candidate')->name('candidate.note.store');
+            Route::delete('/notes/{note}', 'destroyNote')->whereNumber('note')->name('candidate.note.destroy');
+            Route::post('/candidate/{candidate}/reject', 'reject')->whereNumber('candidate')->name('candidate.reject');
+            Route::post('/candidate/{candidate}/employee', 'convert')->whereNumber('candidate')->name('candidate.convert');
         });
-        Route::controller(ApplicantController::class)->prefix('pelamar')->name('pelamar')->group(function () {
+        Route::controller(ApplicantController::class)->prefix('applicants')->name('applicants')->group(function () {
             Route::get('/', 'index');
             Route::get('/{applicant}', 'show')->whereNumber('applicant')->name('.show');
             Route::get('/{applicant}/file/{field}', 'file')->whereNumber('applicant')->name('.file');
             Route::post('/{applicant}/tracking', 'moveToTracking')->whereNumber('applicant')->name('.tracking');
-            Route::post('/{applicant}/tolak', 'reject')->whereNumber('applicant')->name('.reject');
+            Route::post('/{applicant}/reject', 'reject')->whereNumber('applicant')->name('.reject');
             Route::delete('/{applicant}', 'destroy')->whereNumber('applicant')->name('.destroy');
         });
-        Route::controller(FormController::class)->prefix('form')->name('form')->group(function () {
+        Route::controller(JobPostingController::class)->prefix('job-postings')->name('form')->group(function () {
             Route::get('/', 'index');
             Route::post('/', 'store')->name('.store');
             Route::get('/{form}', 'edit')->whereNumber('form')->name('.edit');
             Route::put('/{form}', 'update')->whereNumber('form')->name('.update');
-            Route::post('/{form}/buka-tutup', 'toggle')->whereNumber('form')->name('.toggle');
-            Route::post('/{form}/salin', 'duplicate')->whereNumber('form')->name('.duplicate');
+            Route::post('/{form}/toggle', 'toggle')->whereNumber('form')->name('.toggle');
+            Route::post('/{form}/duplicate', 'duplicate')->whereNumber('form')->name('.duplicate');
             Route::delete('/{form}', 'destroy')->whereNumber('form')->name('.destroy');
         });
-        Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan');
-        Route::get('/laporan/export', [LaporanController::class, 'export'])->name('laporan.export');
+        Route::get('/reports', [ReportController::class, 'index'])->name('report');
+        Route::get('/reports/export', [ReportController::class, 'export'])->name('report.export');
     });
 
-    Route::prefix('manpower')->name('manpower.')->group(function () {
+    Route::prefix('core-hr')->name('core_hr.')->group(function () {
         // Struktur Organisasi: the plan (positions, lines) and the chart with people.
-        Route::middleware('menu:org-structure')->group(function () {
-            Route::get('/org-structure', [OrgStructureController::class, 'index'])->name('org-structure');
-            Route::get('/org-structure/plan', [OrgPlanController::class, 'show'])->name('org-plan');
-            Route::get('/org-structure/positions', [OrgStructureController::class, 'positions'])->name('org-structure.positions');
-            Route::prefix('org-structure/plan/{workLocation}')->name('org-plan.')->group(function () {
+        Route::middleware('menu:org-chart')->group(function () {
+            Route::get('/org-chart', [OrgChartController::class, 'index'])->name('org-chart');
+            Route::get('/org-chart/plan', [OrgPlanController::class, 'show'])->name('org-plan');
+            Route::get('/org-chart/positions', [OrgChartController::class, 'positions'])->name('org-chart.positions');
+            Route::prefix('org-chart/plan/{workLocation}')->name('org-plan.')->group(function () {
                 Route::post('/setup', [OrgPlanController::class, 'setup'])->name('setup');
                 Route::post('/ops', [OrgPlanController::class, 'ops'])->name('ops');
                 Route::post('/link', [OrgPlanController::class, 'link'])->name('link');
@@ -151,269 +153,278 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
         });
 
         // Master Data Personalia: NRP codes, organisation and choice lists.
-        Route::middleware('menu:master-personalia')->prefix('master-data')->name('master.')->group(function () {
-            Route::get('/', [MasterDataController::class, 'index'])->name('index');
+        Route::middleware('menu:core-hr-settings')->prefix('settings')->name('master.')->group(function () {
+            Route::get('/', [SettingsController::class, 'index'])->name('index');
 
             $crud = ['store', 'update', 'destroy'];
-            Route::resource('jenis-karyawan', JenisKaryawanController::class)->only($crud)->parameters(['jenis-karyawan' => 'jenisKaryawan']);
-            Route::resource('lokasi-penerimaan', LokasiPenerimaanController::class)->only($crud)->parameters(['lokasi-penerimaan' => 'lokasiPenerimaan']);
-            Route::resource('work-location', WorkLocationController::class)->only($crud)->parameters(['work-location' => 'workLocation']);
-            Route::resource('divisi', DivisiController::class)->only($crud);
+            Route::resource('employee-categories', EmployeeCategoryController::class)->only($crud)->parameters(['employee-categories' => 'jenisKaryawan']);
+            Route::resource('points-of-hire', PointOfHireController::class)->only($crud)->parameters(['points-of-hire' => 'lokasiPenerimaan']);
+            Route::resource('work-locations', WorkLocationController::class)->only($crud)->parameters(['work-locations' => 'workLocation']);
+            Route::resource('division', DivisionController::class)->only($crud);
             // Named explicitly: Laravel's English singularizer would turn it into {departeman}.
-            Route::resource('departemen', DepartemenController::class)->only($crud)->parameters(['departemen' => 'departemen']);
-            Route::get('/jabatan/excel/template', [JabatanExcelController::class, 'template'])->name('jabatan.excel.template');
-            Route::post('/jabatan/excel/preview', [JabatanExcelController::class, 'preview'])->name('jabatan.excel.preview');
-            Route::post('/jabatan/excel/import', [JabatanExcelController::class, 'import'])->name('jabatan.excel.import');
-            Route::post('/jabatan/excel/perbaikan', [JabatanExcelController::class, 'perbaikan'])->name('jabatan.excel.perbaikan');
+            Route::resource('department', DepartmentController::class)->only($crud)->parameters(['department' => 'department']);
+            Route::get('/position/excel/template', [PositionExcelController::class, 'template'])->name('position.excel.template');
+            Route::post('/position/excel/preview', [PositionExcelController::class, 'preview'])->name('position.excel.preview');
+            Route::post('/position/excel/import', [PositionExcelController::class, 'import'])->name('position.excel.import');
+            Route::post('/position/excel/fix', [PositionExcelController::class, 'fix'])->name('position.excel.fix');
             // A position's name is composed from its placement, so it is created or removed, never edited.
-            Route::resource('jabatan', JabatanController::class)->only(['store', 'destroy']);
-            Route::resource('bod', BodController::class)->only($crud);
+            Route::resource('position', PositionController::class)->only(['store', 'destroy']);
+            Route::resource('directorate', DirectorateController::class)->only($crud);
             Route::resource('section', SectionController::class)->only($crud);
-            Route::resource('sub-lokasi', SubLocationController::class)->only($crud)->parameters(['sub-lokasi' => 'subLocation']);
-            Route::resource('sub-group', SubGroupController::class)->only($crud)->parameters(['sub-group' => 'subGroup']);
+            Route::resource('sub-locations', SubLocationController::class)->only($crud)->parameters(['sub-locations' => 'subLocation']);
+            Route::resource('job-levels', JobLevelController::class)->only($crud)->parameters(['job-levels' => 'jobLevel']);
         });
 
         // Choice lists: Master Data Personalia, and Status Pengajuan Uang in Master Data Attendance.
-        Route::middleware('menu:master-personalia,master-attendance')->prefix('master-data/opsi')->name('master.opsi.')->group(function () {
-            Route::post('/{kategori}', [MasterOptionController::class, 'store'])->name('store');
-            Route::post('/{kategori}/banyak', [MasterOptionController::class, 'storeMany'])->name('store-many');
-            Route::put('/{option}', [MasterOptionController::class, 'update'])->whereNumber('option')->name('update');
-            Route::delete('/{option}', [MasterOptionController::class, 'destroy'])->whereNumber('option')->name('destroy');
-            Route::post('/{option}/geser', [MasterOptionController::class, 'move'])->whereNumber('option')->name('move');
+        Route::middleware('menu:core-hr-settings,time-settings')->prefix('settings/options')->name('master.options.')->group(function () {
+            Route::post('/{category}', [LookupValueController::class, 'store'])->name('store');
+            Route::post('/{category}/bulk', [LookupValueController::class, 'storeMany'])->name('store-many');
+            Route::put('/{option}', [LookupValueController::class, 'update'])->whereNumber('option')->name('update');
+            Route::delete('/{option}', [LookupValueController::class, 'destroy'])->whereNumber('option')->name('destroy');
+            Route::post('/{option}/move', [LookupValueController::class, 'move'])->whereNumber('option')->name('move');
         });
 
         // Man Power Planning: the plan per work location and period, its revisions, Excel and vacancies.
-        Route::controller(MppController::class)->prefix('mpp')->name('mpp')->group(function () {
-            Route::middleware('menu:mpp')->group(function () {
+        Route::controller(WorkforcePlanController::class)->prefix('workforce-planning')->name('workforce_planning')->group(function () {
+            Route::middleware('menu:workforce-planning')->group(function () {
                 Route::get('/', 'index');
                 Route::put('/{plan}', 'save')->whereNumber('plan')->name('.save');
                 Route::get('/{plan}/export', 'export')->whereNumber('plan')->name('.export');
                 Route::post('/{plan}/import', 'import')->whereNumber('plan')->name('.import');
-                Route::post('/{plan}/lowongan/{jabatan}', 'lowongan')->whereNumber(['plan', 'jabatan'])->name('.lowongan');
-                Route::post('/revisi/{revisi}/batal', 'cancel')->whereNumber('revisi')->name('.revisi.cancel');
+                Route::post('/{plan}/careers/{position}', 'careers')->whereNumber(['plan', 'position'])->name('.careers');
+                Route::post('/revision/{revision}/cancel', 'cancel')->whereNumber('revision')->name('.revision.cancel');
             });
-            Route::post('/revisi/{revisi}/verifikasi', 'verify')->whereNumber('revisi')->middleware('menu:mpp-approve')->name('.revisi.verify');
+            Route::post('/revision/{revision}/verification', 'verify')->whereNumber('revision')->middleware('menu:workforce-planning-approval')->name('.revision.verify');
         });
-        Route::put('/master-data/mpp', [MppController::class, 'settings'])->middleware('menu:master-personalia')->name('master.mpp');
+        Route::put('/settings/workforce-planning', [WorkforcePlanController::class, 'settings'])->middleware('menu:core-hr-settings')->name('master.workforce_planning');
 
         // Pengajuan Update Data from the employee portal, approved or rejected by HR.
-        Route::middleware('menu:update-data')->prefix('pengajuan-data')->name('pengajuan-data')->controller(PengajuanUpdateDataController::class)->group(function () {
+        Route::middleware('menu:data-change-requests')->prefix('change-requests')->name('change-requests')->controller(ChangeRequestController::class)->group(function () {
             Route::get('/', 'index');
-            Route::post('/{pengajuan}/verifikasi', 'verify')->whereNumber('pengajuan')->name('.verify');
+            Route::post('/{submission}/verification', 'verify')->whereNumber('submission')->name('.verify');
         });
 
         // Every Man Power view and action carries personal data (NIK, bank, family, exits).
-        Route::middleware('menu:karyawan')->prefix('karyawan')->name('karyawan.')->group(function () {
-            Route::controller(KaryawanController::class)->group(function () {
+        Route::middleware('menu:employees')->prefix('employees')->name('employee.')->group(function () {
+            Route::controller(EmployeeController::class)->group(function () {
                 Route::get('/', 'dashboard')->name('dashboard');
-                Route::get('/data-lengkap', 'dataLengkap')->name('data-lengkap');
-                Route::get('/keluar', 'keluar')->name('keluar');
+                Route::get('/full-data', 'fullData')->name('full-data');
+                Route::get('/termination', 'termination')->name('termination');
                 Route::post('/', 'store')->name('store');
-                Route::delete('/{karyawan}', 'destroy')->whereNumber('karyawan')->name('destroy');
+                Route::delete('/{employee}', 'destroy')->whereNumber('employee')->name('destroy');
             });
 
-            Route::controller(KaryawanExcelController::class)->prefix('excel')->name('excel.')->group(function () {
+            Route::controller(EmployeeExcelController::class)->prefix('excel')->name('excel.')->group(function () {
                 Route::get('/template', 'template')->name('template');
                 Route::get('/export', 'export')->name('export');
-                Route::get('/template-kelompok', 'groupTemplate')->name('group-template');
+                Route::get('/group-template', 'groupTemplate')->name('group-template');
                 Route::post('/import', 'import')->name('import');
             });
 
-            Route::prefix('{karyawan}')->whereNumber('karyawan')->group(function () {
-                Route::get('/profil', [KaryawanProfileController::class, 'show'])->name('profil');
-                Route::put('/profil', [KaryawanProfileController::class, 'update'])->name('profil.update');
+            Route::prefix('{employee}')->whereNumber('employee')->group(function () {
+                Route::get('/profile', [EmployeeProfileController::class, 'show'])->name('profile');
+                Route::put('/profile', [EmployeeProfileController::class, 'update'])->name('profile.update');
 
-                Route::post('/keluar', [KaryawanKeluarController::class, 'store'])->name('keluar.store');
-                Route::delete('/keluar', [KaryawanKeluarController::class, 'destroy'])->name('keluar.destroy');
+                Route::post('/termination', [EmployeeTerminationController::class, 'store'])->name('termination.store');
+                Route::delete('/termination', [EmployeeTerminationController::class, 'destroy'])->name('termination.destroy');
 
                 // Placement: work location + SubGroup + unit (Ubah Penempatan), or straight into a position (bagan "Kelola").
-                Route::put('/penempatan', [KaryawanPenempatanController::class, 'update'])->name('penempatan.update');
-                Route::put('/jabatan', [KaryawanPenempatanController::class, 'assign'])->name('jabatan.assign');
-                Route::post('/sub-lokasi', [KaryawanPenempatanController::class, 'subLokasi'])->name('sub-lokasi');
-                Route::post('/copot', [KaryawanPenempatanController::class, 'copot'])->name('copot');
+                Route::put('/placement', [EmployeePlacementController::class, 'update'])->name('placement.update');
+                Route::put('/position', [EmployeePlacementController::class, 'assign'])->name('position.assign');
+                Route::post('/sub-locations', [EmployeePlacementController::class, 'subLocation'])->name('sub-locations');
+                Route::post('/remove', [EmployeePlacementController::class, 'remove'])->name('remove');
 
-                Route::post('/pkwt', [KaryawanPkwtController::class, 'store'])->name('pkwt.store');
-                Route::put('/pkwt/{pkwt}', [KaryawanPkwtController::class, 'update'])->name('pkwt.update');
-                Route::delete('/pkwt/{pkwt}', [KaryawanPkwtController::class, 'destroy'])->name('pkwt.destroy');
+                Route::post('/contract', [EmployeeContractController::class, 'store'])->name('contract.store');
+                Route::put('/contract/{contract}', [EmployeeContractController::class, 'update'])->name('contract.update');
+                Route::delete('/contract/{contract}', [EmployeeContractController::class, 'destroy'])->name('contract.destroy');
 
-                Route::post('/anak', [KaryawanAnakController::class, 'store'])->name('anak.store');
-                Route::put('/anak/{anak}', [KaryawanAnakController::class, 'update'])->name('anak.update');
-                Route::delete('/anak/{anak}', [KaryawanAnakController::class, 'destroy'])->name('anak.destroy');
+                Route::post('/children', [EmployeeChildController::class, 'store'])->name('children.store');
+                Route::put('/children/{children}', [EmployeeChildController::class, 'update'])->name('children.update');
+                Route::delete('/children/{children}', [EmployeeChildController::class, 'destroy'])->name('children.destroy');
             });
         });
     });
 
     // Attendance: Roster (plan), Absensi (actual), Trip & Leave and its Pengajuan Dinas list.
-    Route::prefix('attendance')->name('attendance.')->group(function () {
-        Route::get('/roster', [SheetController::class, 'show'])->defaults('type', 'roster')->middleware('menu:roster')->name('roster');
-        Route::get('/absensi', [SheetController::class, 'show'])->defaults('type', 'absensi')->middleware('menu:absensi')->name('absensi');
-        Route::controller(SheetController::class)->prefix('{type}')->whereIn('type', ['roster', 'absensi'])->middleware('menu:@type')->name('sheet.')->group(function () {
-            Route::post('/simpan', 'save')->name('save');
-            Route::post('/import', 'import')->name('import');
-            Route::post('/import/simpan', 'importSave')->name('import.save');
-            Route::get('/export', 'export')->name('export');
-        });
+    Route::prefix('time')->name('time.')->group(function () {
+        // Both sheets share one controller; the URL segment picks the sheet ("type") and its menu.
+        foreach (SheetController::PATH as $type => $segment) {
+            Route::controller(SheetController::class)->prefix($segment)->middleware('menu:'.SheetController::MENU[$type])->name("sheet.{$type}.")->group(function () use ($type) {
+                Route::get('/', 'show')->defaults('type', $type)->name('show');
+                Route::post('/save', 'save')->defaults('type', $type)->name('save');
+                Route::post('/import', 'import')->defaults('type', $type)->name('import');
+                Route::post('/import/save', 'importSave')->defaults('type', $type)->name('import.save');
+                Route::get('/export', 'export')->defaults('type', $type)->name('export');
+            });
+        }
 
-        Route::controller(TripController::class)->group(function () {
-            Route::middleware('menu:trip-leave')->group(function () {
-                Route::get('/trip-leave', 'index')->name('trip');
-                Route::post('/trip-leave', 'store')->name('trip.store');
+        Route::controller(LeaveTravelController::class)->group(function () {
+            Route::middleware('menu:leave-travel')->group(function () {
+                Route::get('/leave-travel', 'index')->name('leave_travel');
+                Route::post('/leave-travel', 'store')->name('leave_travel.store');
             });
-            Route::middleware('menu:trip-leave,pengajuan-dinas')->group(function () {
-                Route::put('/trip-leave/{trip}', 'update')->name('trip.update');
-                Route::delete('/trip-leave/{trip}', 'destroy')->name('trip.destroy');
-                Route::get('/trip-leave/export', 'export')->name('trip.export');
+            Route::middleware('menu:leave-travel,travel-requests')->group(function () {
+                Route::put('/leave-travel/{leave_travel}', 'update')->name('leave_travel.update');
+                Route::delete('/leave-travel/{leave_travel}', 'destroy')->name('leave_travel.destroy');
+                Route::get('/leave-travel/export', 'export')->name('leave_travel.export');
                 // The cuti form: balance, field-leave allowance and Cuti Besar of the employee.
-                Route::get('/cuti-info/{karyawan}', [CutiController::class, 'info'])->whereNumber('karyawan')->name('cuti-info');
+                Route::get('/leave-info/{employee}', [LeaveBalanceController::class, 'info'])->whereNumber('employee')->name('leave-info');
             });
-            Route::middleware('menu:pengajuan-dinas')->group(function () {
-                Route::put('/trip-leave/{trip}/status-uang', 'statusUang')->name('trip.status-uang');
-                Route::put('/trip-leave/{trip}/tiket', 'tiket')->name('trip.tiket');
-                Route::get('/pengajuan-dinas/template', 'template')->name('pengajuan.template');
-                Route::post('/pengajuan-dinas/import', 'import')->name('pengajuan.import');
-                Route::post('/trip-leave/{trip}/verifikasi', 'verify')->name('trip.verify');
-                Route::get('/pengajuan-dinas', 'list')->name('pengajuan');
+            Route::middleware('menu:travel-requests')->group(function () {
+                Route::put('/leave-travel/{leave_travel}/cash-status', 'cashAdvanceStatus')->name('leave_travel.cash-status');
+                Route::put('/leave-travel/{leave_travel}/ticket', 'ticket')->name('leave_travel.ticket');
+                Route::get('/travel-requests/template', 'template')->name('submission.template');
+                Route::post('/travel-requests/import', 'import')->name('submission.import');
+                Route::post('/leave-travel/{leave_travel}/verification', 'verify')->name('leave_travel.verify');
+                Route::get('/travel-requests', 'list')->name('submission');
             });
         });
 
         // Kehadiran: CI/CO from the attendance machines, its resume, overtime and the machines themselves.
-        Route::controller(KehadiranController::class)->prefix('kehadiran')->name('kehadiran')->group(function () {
-            Route::get('/', 'index')->middleware('menu:kehadiran,lembur-approve');
-            Route::middleware('menu:kehadiran')->group(function () {
-                Route::post('/proses', 'proses')->name('.proses');
+        Route::redirect('/overtime', '/time/clock?tab=overtime')->name('overtime');
+        Route::controller(TimeClockController::class)->prefix('clock')->name('time_clock')->group(function () {
+            Route::get('/', 'index')->middleware('menu:time-clock,overtime-approval');
+            Route::middleware('menu:time-clock')->group(function () {
+                Route::post('/process', 'process')->name('.process');
                 Route::post('/log', 'storeLog')->name('.log.store');
                 Route::delete('/log/{log}', 'destroyLog')->whereNumber('log')->name('.log.destroy');
                 Route::post('/import', 'import')->name('.import');
-                Route::post('/mesin', 'storeMesin')->name('.mesin.store');
-                Route::put('/mesin/{mesin}', 'updateMesin')->whereNumber('mesin')->name('.mesin.update');
-                Route::delete('/mesin/{mesin}', 'destroyMesin')->whereNumber('mesin')->name('.mesin.destroy');
+                Route::post('/device', 'storeDevice')->name('.device.store');
+                Route::put('/device/{device}', 'updateDevice')->whereNumber('device')->name('.device.update');
+                Route::delete('/device/{device}', 'destroyDevice')->whereNumber('device')->name('.device.destroy');
             });
-            Route::post('/lembur/verifikasi', 'verifyLembur')->middleware('menu:lembur-approve')->name('.lembur.verify');
+            Route::post('/overtime/verification', 'verifyOvertime')->middleware('menu:overtime-approval')->name('.overtime.verify');
         });
 
-        Route::controller(AttendanceMasterController::class)->middleware('menu:master-attendance')->prefix('master-data')->name('master.')->group(function () {
+        // Leave balances: Cuti Tahunan & Cuti Besar.
+        Route::controller(LeaveBalanceController::class)->middleware('menu:leave-balances')->prefix('leave-balances')->name('leave')->group(function () {
+            Route::get('/', 'index');
+            Route::get('/export', 'export')->name('.export');
+            Route::get('/employee/{employee}', 'show')->whereNumber('employee')->name('.show');
+            Route::post('/employee/{employee}/transaction', 'storeTransaction')->whereNumber('employee')->name('.transaction.store');
+            Route::delete('/transaction/{transaction}', 'destroyTransaction')->whereNumber('transaction')->name('.transaction.destroy');
+            Route::post('/employee/{employee}/long-service', 'decideLongService')->whereNumber('employee')->name('.long_service.decide');
+            Route::post('/long-service/{longServiceLeave}/verification', 'verifyLongService')->whereNumber('longServiceLeave')->name('.long_service.verify');
+        });
+
+        Route::controller(TimeSettingsController::class)->middleware('menu:time-settings')->prefix('settings')->name('master.')->group(function () {
             Route::get('/', 'index')->name('index');
-            Route::post('/kode-shift', 'storeCode')->name('kode-shift.store');
-            Route::put('/kode-shift/{shiftCode}', 'updateCode')->name('kode-shift.update');
-            Route::delete('/kode-shift/{shiftCode}', 'destroyCode')->name('kode-shift.destroy');
-            Route::post('/pola-roster', 'storePattern')->name('pola-roster.store');
-            Route::put('/pola-roster/{rosterPattern}', 'updatePattern')->name('pola-roster.update');
-            Route::delete('/pola-roster/{rosterPattern}', 'destroyPattern')->name('pola-roster.destroy');
-            Route::post('/hari-libur', 'storeHoliday')->name('hari-libur.store');
-            Route::put('/hari-libur/{holiday}', 'updateHoliday')->name('hari-libur.update');
-            Route::delete('/hari-libur/{holiday}', 'destroyHoliday')->name('hari-libur.destroy');
-            Route::put('/waktu-kerja/{workLocation}', 'updateWaktuKerja')->whereNumber('workLocation')->name('waktu-kerja.update');
-            Route::put('/lembur-aturan', 'updateLemburAturan')->name('lembur-aturan.update');
-            Route::put('/hak-lembur', 'updateHakLembur')->name('hak-lembur.update');
+            Route::post('/shift-codes', 'storeCode')->name('shift-codes.store');
+            Route::put('/shift-codes/{shiftCode}', 'updateCode')->name('shift-codes.update');
+            Route::delete('/shift-codes/{shiftCode}', 'destroyCode')->name('shift-codes.destroy');
+            Route::post('/shift-patterns', 'storePattern')->name('shift-patterns.store');
+            Route::put('/shift-patterns/{rosterPattern}', 'updatePattern')->name('shift-patterns.update');
+            Route::delete('/shift-patterns/{rosterPattern}', 'destroyPattern')->name('shift-patterns.destroy');
+            Route::post('/public-holidays', 'storeHoliday')->name('public-holidays.store');
+            Route::put('/public-holidays/{holiday}', 'updateHoliday')->name('public-holidays.update');
+            Route::delete('/public-holidays/{holiday}', 'destroyHoliday')->name('public-holidays.destroy');
+            Route::put('/work-schedule/{workLocation}', 'updateWorkSchedule')->whereNumber('workLocation')->name('work-schedule.update');
+            Route::put('/overtime-policy', 'updateOvertimePolicy')->name('overtime-policy.update');
+            Route::put('/overtime-eligibility', 'updateOvertimeEligibility')->name('overtime-eligibility.update');
         });
     });
 
     // Comben: Deklarasi Pengobatan / Kacamata against the plafon, its monitoring and master data.
-    Route::prefix('comben')->name('comben.')->group(function () {
-        Route::controller(DeklarasiController::class)->middleware('menu:deklarasi')->group(function () {
-            Route::get('/deklarasi', 'index')->name('deklarasi');
-            Route::get('/deklarasi/export', 'export')->name('deklarasi.export');
-            Route::post('/deklarasi', 'store')->name('deklarasi.store');
-            Route::put('/deklarasi/{deklarasi}', 'update')->name('deklarasi.update');
-            Route::delete('/deklarasi/{deklarasi}', 'destroy')->name('deklarasi.destroy');
-            Route::post('/deklarasi/{deklarasi}/verifikasi', 'verify')->name('deklarasi.verify');
-            Route::get('/karyawan/{karyawan}/plafon', 'info')->whereNumber('karyawan')->name('karyawan.plafon');
+    Route::prefix('compensation')->name('compensation.')->group(function () {
+        Route::controller(BenefitClaimController::class)->middleware('menu:benefit-claims')->group(function () {
+            Route::get('/claims', 'index')->name('claim');
+            Route::get('/claims/export', 'export')->name('claim.export');
+            Route::post('/claims', 'store')->name('claim.store');
+            Route::put('/claims/{claim}', 'update')->name('claim.update');
+            Route::delete('/claims/{claim}', 'destroy')->name('claim.destroy');
+            Route::post('/claims/{claim}/verification', 'verify')->name('claim.verify');
+            Route::get('/employee/{employee}/benefit-limit', 'info')->whereNumber('employee')->name('employee.benefit_limit');
         });
-        Route::get('/monitoring', [MonitoringController::class, 'index'])->middleware('menu:monitoring-plafon')->name('monitoring');
-        Route::get('/monitoring/export', [MonitoringController::class, 'export'])->middleware('menu:monitoring-plafon')->name('monitoring.export');
+        Route::get('/benefit-balances', [BenefitBalanceController::class, 'index'])->middleware('menu:benefit-balances')->name('monitoring');
+        Route::get('/benefit-balances/export', [BenefitBalanceController::class, 'export'])->middleware('menu:benefit-balances')->name('monitoring.export');
 
-        // Cuti Tahunan & Cuti Besar.
-        Route::controller(CutiController::class)->middleware('menu:cuti')->prefix('cuti')->name('cuti')->group(function () {
-            Route::get('/', 'index');
-            Route::get('/export', 'export')->name('.export');
-            Route::get('/karyawan/{karyawan}', 'show')->whereNumber('karyawan')->name('.show');
-            Route::post('/karyawan/{karyawan}/pengambilan', 'storePengambilan')->whereNumber('karyawan')->name('.pengambilan.store');
-            Route::delete('/pengambilan/{pengambilan}', 'destroyPengambilan')->whereNumber('pengambilan')->name('.pengambilan.destroy');
-            Route::post('/karyawan/{karyawan}/besar', 'decideBesar')->whereNumber('karyawan')->name('.besar.decide');
-            Route::post('/besar/{cutiBesar}/verifikasi', 'verifyBesar')->whereNumber('cutiBesar')->name('.besar.verify');
-        });
 
         // Data Gaji: golongan & step in the Struktur Skala Upah, Tunjangan Jabatan, PTKP.
-        Route::controller(GajiController::class)->middleware('menu:data-gaji')->prefix('data-gaji')->name('gaji')->group(function () {
+        Route::controller(SalaryController::class)->middleware('menu:employee-compensation')->prefix('salaries')->name('salary')->group(function () {
             Route::get('/', 'index');
-            Route::post('/{karyawan}', 'store')->whereNumber('karyawan')->name('.store');
-            Route::delete('/riwayat/{gaji}', 'destroy')->whereNumber('gaji')->name('.destroy');
+            Route::post('/{employee}', 'store')->whereNumber('employee')->name('.store');
+            Route::delete('/history/{salary}', 'destroy')->whereNumber('salary')->name('.destroy');
         });
 
-        Route::controller(CombenMasterController::class)->middleware('menu:master-comben')->prefix('master-data')->name('master.')->group(function () {
+        Route::controller(CompensationSettingsController::class)->middleware('menu:compensation-settings')->prefix('settings')->name('master.')->group(function () {
             Route::get('/', 'index')->name('index');
-            Route::post('/golongan', 'storeGolongan')->name('golongan.store');
-            Route::put('/golongan/{golongan}', 'updateGolongan')->name('golongan.update');
-            Route::delete('/golongan/{golongan}', 'destroyGolongan')->name('golongan.destroy');
-            Route::post('/skala-upah', 'storeSkala')->name('skala.store');
-            Route::put('/skala-upah/{skalaUpah}', 'updateSkala')->name('skala.update');
-            Route::delete('/skala-upah/{skalaUpah}', 'destroySkala')->name('skala.destroy');
-            Route::post('/skala-kolom', 'storeKolom')->name('kolom.store');
-            Route::delete('/skala-kolom/{kolom}', 'destroyKolom')->name('kolom.destroy');
-            Route::post('/plafon/{jenis}', 'storePlafon')->whereIn('jenis', ['pengobatan', 'kacamata'])->name('plafon.store');
-            Route::put('/plafon/{jenis}/{id}', 'updatePlafon')->whereIn('jenis', ['pengobatan', 'kacamata'])->whereNumber('id')->name('plafon.update');
-            Route::delete('/plafon/{jenis}/{id}', 'destroyPlafon')->whereIn('jenis', ['pengobatan', 'kacamata'])->whereNumber('id')->name('plafon.destroy');
-            Route::put('/cuti-aturan', [CutiMasterController::class, 'updateAturan'])->name('cuti-aturan.update');
-            Route::post('/cuti-lapangan', [CutiMasterController::class, 'storeLapangan'])->name('cuti-lapangan.store');
-            Route::put('/cuti-lapangan/{lapangan}', [CutiMasterController::class, 'updateLapangan'])->whereNumber('lapangan')->name('cuti-lapangan.update');
-            Route::delete('/cuti-lapangan/{lapangan}', [CutiMasterController::class, 'destroyLapangan'])->whereNumber('lapangan')->name('cuti-lapangan.destroy');
-            Route::put('/lumpsum-cuti', [CutiMasterController::class, 'updateLumpsum'])->name('lumpsum-cuti.update');
-            Route::put('/tunjangan-jabatan', 'updateTunjangan')->name('tunjangan-jabatan.update');
+            Route::post('/grade', 'storeGrade')->name('grade.store');
+            Route::put('/grade/{grade}', 'updateGrade')->name('grade.update');
+            Route::delete('/grade/{grade}', 'destroyGrade')->name('grade.destroy');
+            Route::post('/salary-scale', 'storeScale')->name('scale.store');
+            Route::put('/salary-scale/{salaryScale}', 'updateScale')->name('scale.update');
+            Route::delete('/salary-scale/{salaryScale}', 'destroyScale')->name('scale.destroy');
+            Route::post('/salary-scale-periods', 'storePeriodColumn')->name('period_column.store');
+            Route::delete('/salary-scale-periods/{period_column}', 'destroyPeriodColumn')->name('period_column.destroy');
+            Route::post('/benefit-limit/{type}', 'storeBenefitLimit')->whereIn('type', ['medical', 'optical'])->name('benefit_limit.store');
+            Route::put('/benefit-limit/{type}/{id}', 'updateBenefitLimit')->whereIn('type', ['medical', 'optical'])->whereNumber('id')->name('benefit_limit.update');
+            Route::delete('/benefit-limit/{type}/{id}', 'destroyBenefitLimit')->whereIn('type', ['medical', 'optical'])->whereNumber('id')->name('benefit_limit.destroy');
+            Route::put('/leave-policy', [LeaveSettingsController::class, 'updatePolicy'])->name('leave-policy.update');
+            Route::post('/field-leave', [LeaveSettingsController::class, 'storeFieldLeave'])->name('field-leave.store');
+            Route::put('/field-leave/{field}', [LeaveSettingsController::class, 'updateFieldLeave'])->whereNumber('field')->name('field-leave.update');
+            Route::delete('/field-leave/{field}', [LeaveSettingsController::class, 'destroyFieldLeave'])->whereNumber('field')->name('field-leave.destroy');
+            Route::put('/field-leave-allowances', [LeaveSettingsController::class, 'updateFieldLeaveAllowance'])->name('field-leave-allowances.update');
+            Route::put('/position-allowances', 'updateAllowance')->name('position-allowances.update');
         });
     });
 
     // Settings → Akun & Akses: Super Admin only.
     Route::middleware('can:manage-users')->prefix('settings')->name('settings.')->controller(UserController::class)->group(function () {
-        Route::get('/akun', 'index')->name('users');
-        Route::post('/akun', 'store')->name('users.store');
-        Route::put('/akun/{user}', 'update')->whereNumber('user')->name('users.update');
-        Route::delete('/akun/{user}', 'destroy')->whereNumber('user')->name('users.destroy');
-        Route::post('/akun-karyawan', 'storeKaryawan')->name('karyawan-accounts.store');
-        Route::post('/akun-karyawan/reset-masal', 'resetKaryawanMany')->name('karyawan-accounts.reset-many');
-        Route::post('/akun-karyawan/{user}/reset', 'resetKaryawan')->whereNumber('user')->name('karyawan-accounts.reset');
-        Route::post('/akun-karyawan/{user}/status', 'toggleKaryawan')->whereNumber('user')->name('karyawan-accounts.toggle');
-        Route::delete('/akun-karyawan/{user}', 'destroyKaryawan')->whereNumber('user')->name('karyawan-accounts.destroy');
+        Route::get('/users', 'index')->name('users');
+        Route::post('/users', 'store')->name('users.store');
+        Route::put('/users/{user}', 'update')->whereNumber('user')->name('users.update');
+        Route::delete('/users/{user}', 'destroy')->whereNumber('user')->name('users.destroy');
+        Route::post('/employee-accounts', 'storeEmployee')->name('employee-accounts.store');
+        Route::post('/employee-accounts/bulk-reset', 'resetEmployeesBulk')->name('employee-accounts.reset-many');
+        Route::post('/employee-accounts/{user}/reset', 'resetEmployee')->whereNumber('user')->name('employee-accounts.reset');
+        Route::post('/employee-accounts/{user}/status', 'toggleEmployee')->whereNumber('user')->name('employee-accounts.toggle');
+        Route::delete('/employee-accounts/{user}', 'destroyEmployee')->whereNumber('user')->name('employee-accounts.destroy');
     });
     // Settings → Akun Demo: the demo requests and their workspaces (main application, Super Admin).
-    Route::middleware(['can:manage-users', 'central'])->prefix('settings/akun-demo')->name('settings.demo')->controller(DemoAccountController::class)->group(function () {
+    Route::middleware(['can:manage-users', 'central'])->prefix('settings/trial-accounts')->name('settings.demo')->controller(TrialAccountController::class)->group(function () {
         Route::get('/', 'index');
-        Route::post('/{account}/setujui', 'approve')->whereNumber('account')->name('.approve');
-        Route::post('/{account}/perpanjang', 'extend')->whereNumber('account')->name('.extend');
-        Route::put('/{account}/berakhir', 'setExpiry')->whereNumber('account')->name('.expiry');
+        Route::post('/{account}/approve', 'approve')->whereNumber('account')->name('.approve');
+        Route::post('/{account}/extend', 'extend')->whereNumber('account')->name('.extend');
+        Route::put('/{account}/ends', 'setExpiry')->whereNumber('account')->name('.expiry');
         Route::post('/{account}/status', 'toggle')->whereNumber('account')->name('.toggle');
         Route::post('/{account}/reset', 'reset')->whereNumber('account')->name('.reset');
         Route::delete('/{account}', 'destroy')->whereNumber('account')->name('.destroy');
     });
     // Settings → White Label: Super Admin only.
     Route::middleware('can:manage-users')->prefix('settings')->name('settings.')->controller(BrandingController::class)->group(function () {
-        Route::get('/white-label', 'edit')->name('branding');
-        Route::post('/white-label', 'update')->name('branding.update');
+        Route::get('/branding', 'edit')->name('branding');
+        Route::post('/branding', 'update')->name('branding.update');
     });
 
     // The bell: pengajuan from the portal waiting for this account.
-    Route::controller(NotifikasiController::class)->prefix('notifikasi')->name('notifikasi')->group(function () {
+    Route::controller(NotificationController::class)->prefix('notifications')->name('notifications')->group(function () {
         Route::get('/', 'index');
-        Route::get('/jumlah', 'count')->name('.count');
-        Route::post('/baca-semua', 'readAll')->name('.read-all');
-        Route::post('/{id}/baca', 'read')->whereUuid('id')->name('.read');
+        Route::get('/quantity', 'count')->name('.count');
+        Route::post('/read-all', 'readAll')->name('.read-all');
+        Route::post('/{id}/read', 'read')->whereUuid('id')->name('.read');
     });
 
     // A nota / signed form, for whoever may see its deklarasi or cuti / dinas.
-    Route::get('/lampiran/{lampiran}', LampiranController::class)->middleware('scoped')->whereNumber('lampiran')->name('lampiran.show');
+    Route::get('/attachment/{attachment}', AttachmentController::class)->middleware('scoped')->whereNumber('attachment')->name('attachment.show');
 
     // Portal Karyawan: an employee's own plafon and pengajuan (deklarasi, cuti, dinas).
-    Route::middleware(['can:portal', 'scoped'])->prefix('portal')->name('portal')->controller(PortalController::class)->group(function () {
+    Route::middleware(['can:self_service', 'scoped'])->prefix('self-service')->name('self_service')->controller(SelfServiceController::class)->group(function () {
         Route::get('/', 'home');
-        Route::get('/plafon', 'plafon')->name('.plafon');
-        Route::post('/deklarasi', 'storeDeklarasi')->name('.deklarasi');
-        Route::post('/cuti-dinas', 'storeTrip')->name('.trip');
-        Route::delete('/pengajuan/{jenis}/{id}', 'cancel')->whereIn('jenis', ['deklarasi', 'trip'])->whereNumber('id')->name('.cancel');
+        Route::get('/benefit-limit', 'benefitLimit')->name('.benefit_limit');
+        Route::post('/claim', 'storeClaim')->name('.claim');
+        Route::post('/leave-travel', 'storeTrip')->name('.leave_travel');
+        Route::delete('/submission/{type}/{id}', 'cancel')->whereIn('type', ['claim', 'leave-travel'])->whereNumber('id')->name('.cancel');
         // Data Saya: changes to the own data, sent to HR.
-        Route::get('/data', [PortalDataController::class, 'show'])->name('.data');
-        Route::post('/data', [PortalDataController::class, 'store'])->name('.data.store');
-        Route::delete('/data/{id}', [PortalDataController::class, 'cancel'])->whereNumber('id')->name('.data.cancel');
+        Route::get('/profile', [PortalDataController::class, 'show'])->name('.data');
+        Route::post('/profile', [PortalDataController::class, 'store'])->name('.data.store');
+        Route::delete('/profile/{id}', [PortalDataController::class, 'cancel'])->whereNumber('id')->name('.data.cancel');
         // Own leave balance for the cuti form, and the Cuti Besar choice (checked by HR).
-        Route::get('/cuti-info', 'cutiInfo')->name('.cuti-info');
-        Route::post('/cuti-besar', 'chooseBesar')->name('.cuti-besar');
+        Route::get('/leave-info', 'leaveInfo')->name('.leave-info');
+        Route::post('/long-service-leave', 'chooseLongService')->name('.long-service-leave');
     });
 });
+
+// Page URLs from before the terminology refactor: 301 to where they live now.
+foreach (array_keys(LegacyUrls::MAP) as $old) {
+    Route::get($old.'/{rest?}', LegacyRedirectController::class)->defaults('old', $old)->where('rest', '.*');
+}

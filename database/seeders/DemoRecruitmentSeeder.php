@@ -3,16 +3,16 @@
 namespace Database\Seeders;
 
 use App\Models\Applicant;
-use App\Models\ApplicationForm;
+use App\Models\JobPosting;
 use App\Models\Candidate;
-use App\Models\Jabatan;
-use App\Models\Karyawan;
+use App\Models\Position;
+use App\Models\Employee;
 use App\Models\RecruitmentStage;
-use App\Models\StatusHistory;
+use App\Models\CandidateStageHistory;
 use App\Models\User;
-use App\Support\Notifikasi\Pengajuan;
-use App\Support\Org\JabatanComposer;
-use App\Support\Recruitment\Lamaran;
+use App\Support\Notifications\RequestNotifier;
+use App\Support\Organization\PositionComposer;
+use App\Support\Recruitment\Application;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
@@ -53,8 +53,8 @@ class DemoRecruitmentSeeder extends Seeder
     private const NASIB = [
         'Rizal Fahrezi' => 10, 'Agung Wicaksono' => 'hired', 'Hendro Pakpahan' => [3, 'Tidak lolos interview manager'], 'Yusuf Maulana' => 7,
         'Dimas Prayoga' => 6, 'Bayu Firmansyah' => 5, 'Arif Rahman Hakim' => [1, 'Nilai psikotes di bawah standar'], 'Fikri Haikal' => 4,
-        'Ilham Saputra' => 'tolak', 'Rudy Kurniawan' => 3, 'Teguh Santoso' => 2, 'Wawan Setiadi' => 2, 'Nico Sembiring' => 1,
-        'Galih Pratama' => 0, 'Rahmat Hidayat' => 'baru', 'Sinta Maharani' => 'baru', 'Andre Lumbantobing' => 'baru', 'Fajar Ramadhan' => 'baru',
+        'Ilham Saputra' => 'reject', 'Rudy Kurniawan' => 3, 'Teguh Santoso' => 2, 'Wawan Setiadi' => 2, 'Nico Sembiring' => 1,
+        'Galih Pratama' => 0, 'Rahmat Hidayat' => 'new', 'Sinta Maharani' => 'new', 'Andre Lumbantobing' => 'new', 'Fajar Ramadhan' => 'new',
     ];
 
     private const CATATAN = [
@@ -68,45 +68,45 @@ class DemoRecruitmentSeeder extends Seeder
     public function run(): void
     {
         $today = CarbonImmutable::today();
-        $stages = RecruitmentStage::orderBy('order')->get()->values();
-        $forms = ApplicationForm::with('fields')->get()->keyBy('title');
+        $stages = RecruitmentStage::orderBy('sort_order')->get()->values();
+        $forms = JobPosting::with('fields')->get()->keyBy('title');
         $hr = User::where('role', User::ROLE_HR)->first() ?? User::where('role', User::ROLE_ADMIN)->first();
         if ($stages->isEmpty() || ! isset($forms['Operator Alat Berat'], $forms['Mekanik Alat Berat'])) {
             return; // not the seeded recruitment set-up
         }
 
-        foreach (self::PELAMAR as [$nama, $email, $hp, $lahir, $pendidikan, $formTitle, $khusus, $hariLalu]) {
+        foreach (self::PELAMAR as [$name, $email, $hp, $birth, $education_level, $formTitle, $khusus, $hariLalu]) {
             $form = $forms[$formTitle];
             $submitted = $today->subDays($hariLalu)->setTime(8 + $hariLalu % 10, (7 * $hariLalu) % 60);
-            $applicant = Applicant::create(['application_form_id' => $form->id, 'data' => [], 'status' => 'baru', 'submitted_at' => $submitted]);
+            $applicant = Applicant::create(['job_posting_id' => $form->id, 'data' => [], 'status' => 'new', 'submitted_at' => $submitted]);
             $applicant->forceFill(['created_at' => $submitted, 'updated_at' => $submitted])->saveQuietly();
             $data = [];
             foreach ($form->fields as $f) {
                 $value = match (true) {
-                    $f->kunci === 'nama' => $nama,
-                    $f->kunci === 'email' => $email,
-                    $f->kunci === 'no_hp' => $hp,
-                    $f->kunci === 'cv' => $this->cv($applicant->id, $nama, $email, $hp, $lahir, $pendidikan, $formTitle, $khusus),
-                    $f->label === 'Tanggal Lahir' => $lahir,
-                    $f->label === 'Pendidikan Terakhir' => $pendidikan,
-                    $f->label === 'Domisili' => ['Puruk Cahu', 'Muara Teweh', 'Banjarmasin', 'Rantau', 'Palangka Raya'][strlen($nama) % 5],
+                    $f->field_key === 'name' => $name,
+                    $f->field_key === 'email' => $email,
+                    $f->field_key === 'phone' => $hp,
+                    $f->field_key === 'cv' => $this->cv($applicant->id, $name, $email, $hp, $birth, $education_level, $formTitle, $khusus),
+                    $f->label === 'Tanggal Lahir' => $birth,
+                    $f->label === 'Pendidikan Terakhir' => $education_level,
+                    $f->label === 'Domisili' => ['Puruk Cahu', 'Muara Teweh', 'Banjarmasin', 'Rantau', 'Palangka Raya'][strlen($name) % 5],
                     $f->type === 'select' => $khusus,
-                    $f->type === 'number' => (string) (2 + strlen($nama) % 6),
-                    $f->label === 'Pengalaman Kerja Terakhir' => 'Mekanik di kontraktor tambang batubara, '.(2 + strlen($nama) % 4).' tahun.',
+                    $f->type === 'number' => (string) (2 + strlen($name) % 6),
+                    $f->label === 'Pengalaman Kerja Terakhir' => 'Mekanik di kontraktor tambang batubara, '.(2 + strlen($name) % 4).' tahun.',
                     default => null,
                 };
-                $data[(string) $f->id] = ['label' => $f->label, 'type' => $f->type, 'kunci' => $f->kunci, 'value' => $value];
+                $data[(string) $f->id] = ['label' => $f->label, 'type' => $f->type, 'field_key' => $f->field_key, 'value' => $value];
             }
             $applicant->forceFill(['data' => $data])->saveQuietly();
 
-            $nasib = self::NASIB[$nama] ?? 'baru';
-            if ($nasib === 'baru') {
-                Pengajuan::pelamar($applicant);
+            $nasib = self::NASIB[$name] ?? 'new';
+            if ($nasib === 'new') {
+                RequestNotifier::applicants($applicant);
 
                 continue;
             }
-            if ($nasib === 'tolak') {
-                $applicant->forceFill(['status' => 'ditolak', 'catatan' => 'Usia & pengalaman belum sesuai kualifikasi'])->saveQuietly();
+            if ($nasib === 'reject') {
+                $applicant->forceFill(['status' => 'rejected', 'notes' => 'Usia & pengalaman belum sesuai kualifikasi'])->saveQuietly();
 
                 continue;
             }
@@ -119,23 +119,23 @@ class DemoRecruitmentSeeder extends Seeder
         $hired = $nasib === 'hired';
         $index = $hired ? $stages->count() - 1 : (is_array($nasib) ? $nasib[0] : $nasib);
         $stage = $stages[$index];
-        $cv = Lamaran::file($a);
+        $cv = Application::file($a);
         $c = Candidate::create([
             'recruitment_stage_id' => $stage->id,
             'applicant_id' => $a->id,
-            'name' => $a->nama(),
-            'email' => (string) $a->jawaban('email'),
-            'no_hp' => $a->jawaban('no_hp'),
-            'position' => $a->form->posisi ?? $a->form->title,
+            'name' => $a->name(),
+            'email' => (string) $a->answers('email'),
+            'phone' => $a->answers('phone'),
+            'position' => $a->form->position_title ?? $a->form->title,
             'cv_path' => $cv['path'] ?? null,
-            'cv_nama' => $cv['nama'] ?? null,
+            'cv_filename' => $cv['name'] ?? null,
             'status' => $stage->title,
             'applied_date' => $submitted->toDateString(),
-            'order' => Candidate::where('recruitment_stage_id', $stage->id)->count(),
-            'ditolak_at' => is_array($nasib) ? $today->subDays(2) : null,
-            'alasan_ditolak' => is_array($nasib) ? $nasib[1] : null,
+            'sort_order' => Candidate::where('recruitment_stage_id', $stage->id)->count(),
+            'rejected_at' => is_array($nasib) ? $today->subDays(2) : null,
+            'rejection_reason' => is_array($nasib) ? $nasib[1] : null,
         ]);
-        $a->forceFill(['status' => 'diproses', 'is_processed' => true])->saveQuietly();
+        $a->forceFill(['status' => 'in_process', 'is_processed' => true])->saveQuietly();
 
         // One step every few days from the application to where it is now.
         $by = $hr?->name ?? 'HR';
@@ -143,38 +143,38 @@ class DemoRecruitmentSeeder extends Seeder
         $from = 'Pelamar';
         for ($i = 0; $i <= $index; $i++) {
             $at = $submitted->addDays((int) round($span * ($i + 1) / ($index + 2)))->setTime(10, 15);
-            StatusHistory::create(['candidate_id' => $c->id, 'from' => $from, 'to' => $stages[$i]->title, 'changed_by' => $by])->forceFill(['created_at' => $at, 'updated_at' => $at])->saveQuietly();
+            CandidateStageHistory::create(['candidate_id' => $c->id, 'from' => $from, 'to' => $stages[$i]->title, 'changed_by' => $by])->forceFill(['created_at' => $at, 'updated_at' => $at])->saveQuietly();
             if (isset(self::CATATAN[$stages[$i]->title]) && $i < $index) {
                 $c->notes()->create(['author' => $by, 'content' => self::CATATAN[$stages[$i]->title]])->forceFill(['created_at' => $at->addHours(3)])->saveQuietly();
             }
             $from = $stages[$i]->title;
         }
         if (is_array($nasib)) {
-            StatusHistory::create(['candidate_id' => $c->id, 'from' => $stage->title, 'to' => 'Tidak dilanjutkan', 'changed_by' => $by]);
+            CandidateStageHistory::create(['candidate_id' => $c->id, 'from' => $stage->title, 'to' => 'Tidak dilanjutkan', 'changed_by' => $by]);
         }
 
         if ($hired) {
-            $jabatan = Jabatan::whereHas('subGroup', fn ($q) => $q->where('nama', 'Operator'))->first();
+            $position = Position::whereHas('jobLevel', fn ($q) => $q->where('name', 'Operator'))->first();
             $prefix = '115'.$today->format('y');
-            $next = (int) Karyawan::withoutGlobalScopes()->where('nrp', 'like', "{$prefix}%")->max('nrp');
-            $nrp = $next ? (string) ($next + 1) : "{$prefix}101";
-            $k = Karyawan::create([
-                'nrp' => $nrp, 'name' => $c->name, 'email' => null, 'status' => Karyawan::STATUS_AKTIF, 'candidate_id' => $c->id,
-                ...($jabatan ? [...JabatanComposer::employeePlacementOf($jabatan), 'jabatan_id' => $jabatan->id] : []),
+            $next = (int) Employee::withoutGlobalScopes()->where('employee_number', 'like', "{$prefix}%")->max('employee_number');
+            $employee_number = $next ? (string) ($next + 1) : "{$prefix}101";
+            $k = Employee::create([
+                'employee_number' => $employee_number, 'name' => $c->name, 'email' => null, 'status' => Employee::STATUS_ACTIVE, 'candidate_id' => $c->id,
+                ...($position ? [...PositionComposer::employeePlacementOf($position), 'position_id' => $position->id] : []),
             ]);
             $k->forceFill(['created_at' => $today->subDays(5), 'updated_at' => $today->subDays(5)])->saveQuietly();
-            $k->profile()->create(['tanggal_masuk' => $today->subDays(5)->toDateString(), 'status_pegawai' => 'PKWT', 'no_hp' => $c->no_hp, 'no_whatsapp' => $c->no_hp, 'email_pribadi' => $c->email]);
-            StatusHistory::create(['candidate_id' => $c->id, 'from' => $stage->title, 'to' => "Menjadi karyawan (NRP {$nrp})", 'changed_by' => $by]);
+            $k->profile()->create(['hire_date' => $today->subDays(5)->toDateString(), 'employment_status' => 'PKWT', 'phone' => $c->phone, 'whatsapp_number' => $c->phone, 'personal_email' => $c->email]);
+            CandidateStageHistory::create(['candidate_id' => $c->id, 'from' => $stage->title, 'to' => "Menjadi karyawan (NRP {$employee_number})", 'changed_by' => $by]);
         }
     }
 
     /** A one-page PDF CV (text only), saved where an uploaded one would be. */
-    private function cv(int $applicantId, string $nama, string $email, string $hp, string $lahir, string $pendidikan, string $lowongan, string $khusus): array
+    private function cv(int $applicantId, string $name, string $email, string $hp, string $birth, string $education_level, string $careers, string $khusus): array
     {
         $lines = [
-            ['CURRICULUM VITAE', 18], ['', 12], [$nama, 15], ["{$email}  |  {$hp}", 11], ['', 12],
-            ['DATA PRIBADI', 12], ['Tanggal lahir   : '.CarbonImmutable::parse($lahir)->format('d.m.Y'), 11], ["Pendidikan      : {$pendidikan}", 11], ['', 12],
-            ['LOWONGAN DILAMAR', 12], [$lowongan, 11], ["Keahlian utama  : {$khusus}", 11], ['', 12],
+            ['CURRICULUM VITAE', 18], ['', 12], [$name, 15], ["{$email}  |  {$hp}", 11], ['', 12],
+            ['DATA PRIBADI', 12], ['Tanggal lahir   : '.CarbonImmutable::parse($birth)->format('d.m.Y'), 11], ["Pendidikan      : {$education_level}", 11], ['', 12],
+            ['LOWONGAN DILAMAR', 12], [$careers, 11], ["Keahlian utama  : {$khusus}", 11], ['', 12],
             ['PENGALAMAN', 12], ['- Kontraktor tambang batubara, Kalimantan', 11], ['- Memahami P2H, safety talk dan pelaporan unit', 11], ['', 12],
             ['Dokumen contoh - data demo', 9],
         ];
@@ -203,9 +203,9 @@ class DemoRecruitmentSeeder extends Seeder
         }
         $pdf .= 'trailer << /Size '.(count($objects) + 1)." /Root 1 0 R >>\nstartxref\n{$xref}\n%%EOF";
 
-        $path = "rekrutmen/pelamar/{$applicantId}/".Str::uuid().'.pdf';
-        Storage::disk(Lamaran::DISK)->put($path, $pdf);
+        $path = "recruitment/applicants/{$applicantId}/".Str::uuid().'.pdf';
+        Storage::disk(Application::DISK)->put($path, $pdf);
 
-        return ['path' => $path, 'nama' => 'CV-'.Str::slug($nama).'.pdf', 'mime' => 'application/pdf', 'ukuran' => strlen($pdf)];
+        return ['path' => $path, 'name' => 'CV-'.Str::slug($name).'.pdf', 'mime' => 'application/pdf', 'size' => strlen($pdf)];
     }
 }

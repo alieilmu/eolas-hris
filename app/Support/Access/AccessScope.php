@@ -40,7 +40,7 @@ class AccessScope
         }
         $user = Auth::user();
 
-        return $user && ($user->isKaryawan() || $user->hasLocationScope()) ? $user : null;
+        return $user && ($user->isEmployee() || $user->hasLocationScope()) ? $user : null;
     }
 
     /** Global scope of Karyawan. */
@@ -50,8 +50,8 @@ class AccessScope
         if (! $user) {
             return;
         }
-        if ($user->isKaryawan()) {
-            $query->where($query->qualifyColumn('id'), $user->karyawan_id ?? 0);
+        if ($user->isEmployee()) {
+            $query->where($query->qualifyColumn('id'), $user->employee_id ?? 0);
 
             return;
         }
@@ -82,14 +82,14 @@ class AccessScope
     {
         $ids = self::workLocationIds();
 
-        return WorkLocation::orderBy('order')->when($ids !== null, fn ($q) => $q->whereIn('id', $ids))->get(['id', 'name']);
+        return WorkLocation::orderBy('sort_order')->when($ids !== null, fn ($q) => $q->whereIn('id', $ids))->get(['id', 'name']);
     }
 
     /** Sub locations for a filter: of the account's work locations, or the ones chosen. */
     public static function subLocations(): array
     {
         $user = Auth::user();
-        $query = SubLocation::orderBy('work_location_id')->orderBy('order')->orderBy('name');
+        $query = SubLocation::orderBy('work_location_id')->orderBy('sort_order')->orderBy('name');
         if ($user?->hasLocationScope()) {
             $query->where(fn ($q) => $q->whereIn('work_location_id', $user->work_location_ids ?: [0])->orWhereIn('id', $user->sub_location_ids ?: [0]));
         }

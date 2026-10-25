@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Http\Controllers\Recruitment\FormController;
-use App\Models\ApplicationForm;
+use App\Http\Controllers\Recruitment\JobPostingController;
+use App\Models\JobPosting;
 use App\Models\RecruitmentStage;
 use Illuminate\Database\Seeder;
 
@@ -31,7 +31,7 @@ class RecruitmentSeeder extends Seeder
                 'title' => $stage['title'],
                 'status' => $stage['title'],
                 'color' => $stage['color'],
-                'order' => $order,
+                'sort_order' => $order,
             ]);
         }
         self::forms();
@@ -40,7 +40,7 @@ class RecruitmentSeeder extends Seeder
     /** Vacancies of a mining contractor: the standard questions, plus what each role asks. */
     public static function forms(): void
     {
-        $common = FormController::defaultFields();
+        $common = JobPostingController::defaultFields();
         foreach ([
             ['Operator Alat Berat', 'Operator Dump Truck / Excavator', 'Site Murung Raya', true,
                 'Dibutuhkan operator berpengalaman untuk unit HD785, PC2000 dan PC1250. Penempatan di site, roster 10:2.',
@@ -53,13 +53,13 @@ class RecruitmentSeeder extends Seeder
                     ['label' => 'Pengalaman Kerja Terakhir', 'type' => 'textarea', 'required' => false]]],
             ['Staff HRGA', 'Staff HRGA', 'Head Office', false,
                 'Administrasi personalia, payroll dan general affair di kantor pusat Jakarta.',
-                [['label' => 'Portofolio / LinkedIn', 'type' => 'url', 'kunci' => 'portofolio', 'required' => false]]],
-        ] as [$title, $posisi, $lokasi, $open, $description, $extra]) {
-            $form = ApplicationForm::create(['title' => $title, 'description' => $description, 'posisi' => $posisi, 'lokasi' => $lokasi, 'is_open' => $open]);
+                [['label' => 'Portofolio / LinkedIn', 'type' => 'url', 'field_key' => 'portfolio', 'required' => false]]],
+        ] as [$title, $position_title, $location, $open, $description, $extra]) {
+            $form = JobPosting::create(['title' => $title, 'description' => $description, 'position_title' => $position_title, 'location' => $location, 'is_open' => $open]);
             $cv = array_pop($common);
-            $fields = [...$common, ...array_map(fn ($f) => $f + ['kunci' => null], $extra), $cv];
+            $fields = [...$common, ...array_map(fn ($f) => $f + ['field_key' => null], $extra), $cv];
             $common[] = $cv;
-            $form->fields()->createMany(array_map(fn (array $f, int $i) => [...$f, 'order' => $i], $fields, array_keys($fields)));
+            $form->fields()->createMany(array_map(fn (array $f, int $i) => [...$f, 'sort_order' => $i], $fields, array_keys($fields)));
         }
     }
 }

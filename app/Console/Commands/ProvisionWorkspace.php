@@ -3,11 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Models\Branding;
-use App\Models\DemoAccount;
+use App\Models\TrialAccount;
 use App\Models\User;
 use App\Support\Tenancy\Tenant;
 use Database\Seeders\EolasDemoSeeder;
-use Database\Seeders\EolasKosongSeeder;
+use Database\Seeders\EolasBlankSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -27,9 +27,9 @@ class ProvisionWorkspace extends Command
 
     public function handle(): int
     {
-        $account = DemoAccount::findOrFail((int) $this->argument('account'));
+        $account = TrialAccount::findOrFail((int) $this->argument('account'));
         $database = Tenant::databaseFor($account);
-        $account->update(['status' => 'menyiapkan', 'catatan' => null]);
+        $account->update(['status' => 'provisioning', 'notes' => null]);
 
         try {
             Tenant::drop($database);
@@ -37,12 +37,12 @@ class ProvisionWorkspace extends Command
             Tenant::use($database);
 
             $this->call('migrate', ['--force' => true]);
-            $this->call('db:seed', ['--class' => $account->sumber_data === 'kosong' ? EolasKosongSeeder::class : EolasDemoSeeder::class, '--force' => true]);
+            $this->call('db:seed', ['--class' => $account->data_source === 'blank' ? EolasBlankSeeder::class : EolasDemoSeeder::class, '--force' => true]);
             $this->accounts($account);
-            Branding::query()->first()?->update(['company_name' => $account->perusahaan]);
+            Branding::query()->first()?->update(['company_name' => $account->company_name]);
         } catch (Throwable $e) {
             Tenant::central();
-            $account->update(['status' => 'gagal', 'catatan' => Str::limit($e->getMessage(), 500)]);
+            $account->update(['status' => 'failed', 'notes' => Str::limit($e->getMessage(), 500)]);
             report($e);
             $this->error($e->getMessage());
 
@@ -51,12 +51,12 @@ class ProvisionWorkspace extends Command
 
         Tenant::central();
         $account->update([
-            'status' => 'aktif',
+            'status' => 'active',
             'database' => $database,
             'provisioned_at' => now(),
             'expires_at' => $account->expires_at ?? now()->addDays((int) config('eolas.demo_days', 14))->endOfDay(),
         ]);
-        $this->info("Workspace {$database} siap ({$account->sumber_data}).");
+        $this->info("Workspace {$database} siap ({$account->data_source}).");
 
         return self::SUCCESS;
     }
@@ -64,14 +64,14 @@ class ProvisionWorkspace extends Command
     /**
      * The requester becomes the Super Admin (taking over the seeded one, whose id the demo
      * records point at); the other seeded admins keep their roles with a random password
-     * the Super Admin can reset in Settings → Akun & Akses.
+     * the Super Admin can reset in Administrasi → Pengguna & Akses.
      */
-    private function accounts(DemoAccount $account): void
+    private function accounts(TrialAccount $account): void
     {
-        $hash = DB::connection('central')->table('demo_accounts')->where('id', $account->id)->value('password');
+        $hash = DB::connection('central')->table('trial_accounts')->where('id', $account->id)->value('password');
         $admin = User::where('role', User::ROLE_ADMIN)->orderBy('id')->first() ?? new User(['role' => User::ROLE_ADMIN]);
         $admin->forceFill([
-            'name' => $account->nama, 'email' => $account->email, 'password' => $hash,
+            'name' => $account->name, 'email' => $account->email, 'password' => $hash,
             'is_active' => true, 'must_change_password' => false,
         ])->save();
 

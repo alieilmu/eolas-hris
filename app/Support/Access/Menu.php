@@ -14,62 +14,62 @@ class Menu
 
     /** module => menu key => label */
     public const MODULES = [
-        'Recruitment' => [
-            'recruitment' => 'Recruitment (Tracking, Pelamar, Form)',
+        'Rekrutmen' => [
+            'recruitment' => 'Rekrutmen (Pipeline, Pelamar, Lowongan)',
         ],
-        'Manpower' => [
-            'org-structure' => 'Struktur Organisasi',
-            'mpp' => 'Man Power Planning',
+        'Core HR' => [
+            'org-chart' => 'Struktur Organisasi',
+            'workforce-planning' => 'Man Power Planning',
             // "Ubah" = may approve the plan revisions of its locations (and change the plan straight away).
-            'mpp-approve' => 'Persetujuan Revisi MPP',
-            'karyawan' => 'Man Power (data karyawan)',
-            'update-data' => 'Pengajuan Update Data',
-            'master-personalia' => 'Master Data Personalia',
+            'workforce-planning-approval' => 'Persetujuan Revisi MPP',
+            'employees' => 'Data Karyawan',
+            'data-change-requests' => 'Pengajuan Update Data',
+            'core-hr-settings' => 'Pengaturan Core HR',
         ],
-        'Attendance' => [
-            'roster' => 'Roster',
-            'absensi' => 'Absensi',
-            'trip-leave' => 'Trip & Leave',
-            'pengajuan-dinas' => 'Pengajuan Dinas',
-            'kehadiran' => 'Kehadiran (CI/CO & mesin absen)',
+        'Waktu & Kehadiran' => [
+            'shift-schedule' => 'Jadwal Shift (Roster)',
+            'attendance-records' => 'Absensi',
+            'time-clock' => 'Kehadiran (CI/CO & mesin absen)',
             // "Ubah" = may approve or reject overtime.
-            'lembur-approve' => 'Persetujuan Lembur',
-            'master-attendance' => 'Master Data Attendance',
+            'overtime-approval' => 'Persetujuan Lembur',
+            'leave-travel' => 'Cuti & Dinas (Cuti & Dinas)',
+            'travel-requests' => 'Pengajuan Dinas',
+            'leave-balances' => 'Saldo Cuti (Tahunan & Besar)',
+            'time-settings' => 'Pengaturan Waktu & Kehadiran',
         ],
-        'Comben' => [
-            'deklarasi' => 'Deklarasi',
-            'monitoring-plafon' => 'Monitoring Plafon',
-            'cuti' => 'Cuti Tahunan & Besar',
-            'data-gaji' => 'Data Gaji (SSU, tunjangan, PTKP)',
-            'master-comben' => 'Master Data Comben',
+        'Kompensasi & Benefit' => [
+            'benefit-claims' => 'Deklarasi Benefit',
+            'benefit-balances' => 'Monitoring Plafon',
+            'employee-compensation' => 'Data Gaji (SSU, tunjangan, PTKP)',
+            'compensation-settings' => 'Pengaturan Kompensasi & Benefit',
         ],
     ];
 
     /** The page each menu opens on, in the order "/" tries them. */
     public const HOME = [
-        'recruitment' => '/recruitment/tracking',
-        'org-structure' => '/manpower/org-structure',
-        'mpp' => '/manpower/mpp',
-        'mpp-approve' => '/manpower/mpp',
-        'karyawan' => '/manpower/karyawan',
-        'update-data' => '/manpower/pengajuan-data',
-        'master-personalia' => '/manpower/master-data',
-        'roster' => '/attendance/roster',
-        'absensi' => '/attendance/absensi',
-        'trip-leave' => '/attendance/trip-leave',
-        'pengajuan-dinas' => '/attendance/pengajuan-dinas',
-        'kehadiran' => '/attendance/kehadiran',
-        'lembur-approve' => '/attendance/kehadiran?tab=lembur',
-        'master-attendance' => '/attendance/master-data',
-        'deklarasi' => '/comben/deklarasi',
-        'monitoring-plafon' => '/comben/monitoring',
-        'cuti' => '/comben/cuti',
-        'data-gaji' => '/comben/data-gaji',
-        'master-comben' => '/comben/master-data',
+        'recruitment' => '/recruitment/pipeline',
+        'org-chart' => '/core-hr/org-chart',
+        'workforce-planning' => '/core-hr/workforce-planning',
+        'workforce-planning-approval' => '/core-hr/workforce-planning',
+        'employees' => '/core-hr/employees',
+        'data-change-requests' => '/core-hr/change-requests',
+        'core-hr-settings' => '/core-hr/settings',
+        'shift-schedule' => '/time/shift-schedule',
+        'attendance-records' => '/time/attendance',
+        'time-clock' => '/time/clock',
+        'overtime-approval' => '/time/overtime',
+        'leave-travel' => '/time/leave-travel',
+        'travel-requests' => '/time/travel-requests',
+        'leave-balances' => '/time/leave-balances',
+        'time-settings' => '/time/settings',
+        'benefit-claims' => '/compensation/claims',
+        'benefit-balances' => '/compensation/benefit-balances',
+        'employee-compensation' => '/compensation/salaries',
+        'compensation-settings' => '/compensation/settings',
     ];
 
     /** Menus whose pages list employees: they only show the account's locations. */
-    public const SCOPED = ['org-structure', 'mpp', 'karyawan', 'update-data', 'roster', 'absensi', 'trip-leave', 'pengajuan-dinas', 'deklarasi', 'monitoring-plafon', 'cuti', 'kehadiran', 'lembur-approve', 'data-gaji'];
+    public const SCOPED = ['org-chart', 'workforce-planning', 'employees', 'data-change-requests', 'shift-schedule', 'attendance-records', 'leave-travel', 'travel-requests', 'benefit-claims', 'benefit-balances', 'leave-balances', 'time-clock', 'overtime-approval', 'employee-compensation'];
 
     /** @return list<string> */
     public static function keys(): array

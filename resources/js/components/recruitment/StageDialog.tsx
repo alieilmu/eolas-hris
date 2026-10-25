@@ -1,6 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import { Check, Loader2, Save } from 'lucide-react';
-import { Modal, ghostButton, inputClass, primaryButton } from '@/components/attendance/ui';
+import { Modal, ghostButton, inputClass, primaryButton } from '@/components/time/ui';
 
 /** A new stage, or the name and colour of one. */
 export function StageDialog({
@@ -15,8 +15,8 @@ export function StageDialog({
     const form = useForm({ title: stage?.title ?? '', color: stage?.color ?? colors[(Math.random() * colors.length) | 0] });
     const submit = () => {
         const options = { preserveScroll: true, preserveState: true, onSuccess: onClose };
-        if (stage) form.put(`/recruitment/tahap/${stage.id}`, options);
-        else form.post('/recruitment/tahap', options);
+        if (stage) form.put(`/recruitment/stage/${stage.id}`, options);
+        else form.post('/recruitment/stage', options);
     };
 
     return (

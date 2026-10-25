@@ -2,11 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Models\JenisKaryawan;
-use App\Models\LokasiPenerimaan;
+use App\Models\EmployeeCategory;
+use App\Models\PointOfHire;
 use App\Models\WorkLocation;
-use App\Support\Karyawan\MasterOptions;
-use App\Support\Karyawan\Nrp;
+use App\Support\Employees\LookupValues;
+use App\Support\Employees\EmployeeNumber;
 use Illuminate\Database\Seeder;
 
 /** NRP codes and the default choice lists. Runs after OrgStructureSeeder (needs the work locations). */
@@ -30,19 +30,19 @@ class MasterDataSeeder extends Seeder
 
     public function run(): void
     {
-        foreach (self::JENIS as $kode => $nama) {
-            JenisKaryawan::firstOrCreate(['kode' => $kode], ['nama' => $nama]);
+        foreach (self::JENIS as $code => $name) {
+            EmployeeCategory::firstOrCreate(['code' => $code], ['name' => $name]);
         }
 
         $locationIds = WorkLocation::pluck('id', 'name');
-        foreach (self::LOKASI as $kode => [$nama, $workLocation]) {
-            LokasiPenerimaan::firstOrCreate(['kode' => $kode], ['nama' => $nama, 'work_location_id' => $locationIds[$workLocation] ?? null]);
+        foreach (self::LOKASI as $code => [$name, $workLocation]) {
+            PointOfHire::firstOrCreate(['code' => $code], ['name' => $name, 'work_location_id' => $locationIds[$workLocation] ?? null]);
         }
 
-        MasterOptions::seedDefaults();
+        LookupValues::seedDefaults();
 
         // Seeding runs without model events, so the lookup caches are cleared by hand.
-        Nrp::flush();
-        MasterOptions::flush();
+        EmployeeNumber::flush();
+        LookupValues::flush();
     }
 }

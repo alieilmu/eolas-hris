@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import { Check, KeyRound, Loader2, MapPin, Pencil, Plus, Power, Search, ShieldCheck, Trash2, UserPlus, Users as UsersIcon } from 'lucide-react';
-import { AttendanceHeader, Modal, ghostButton, primaryButton, secondaryButton, smallInput } from '@/components/attendance/ui';
+import { AttendanceHeader, Modal, ghostButton, primaryButton, secondaryButton, smallInput } from '@/components/time/ui';
 import type { MenuLevel } from '@/types';
 
 interface AdminRow {
     id: number;
     name: string;
     email: string;
-    role: 'Admin' | 'HR';
+    role: 'super_admin' | 'admin';
     permissions: Record<string, MenuLevel>;
     work_location_ids: number[];
     sub_location_ids: number[];
@@ -16,16 +16,16 @@ interface AdminRow {
     last_login_at: string | null;
 }
 
-interface KaryawanRow {
+interface EmployeeRow {
     id: number;
-    nrp: string;
+    employee_number: string;
     name: string;
-    jabatan: string | null;
+    position: string | null;
     work_location_id: number | null;
     work_location: string | null;
     sub_location: string | null;
     sub_location_id: number | null;
-    has_tanggal_lahir: boolean;
+    has_birth_date: boolean;
     account: { id: number; is_active: boolean; must_change_password: boolean; last_login_at: string | null } | null;
 }
 
@@ -36,7 +36,7 @@ interface MenuGroup {
 
 interface Props {
     admins: AdminRow[];
-    karyawans: KaryawanRow[];
+    employees: EmployeeRow[];
     menus: MenuGroup[];
     locations: { id: number; name: string }[];
     sub_locations: { id: number; name: string; work_location_id: number }[];
@@ -46,25 +46,25 @@ interface Props {
 const visit = { preserveScroll: true, preserveState: true } as const;
 const th = 'px-3 py-2.5 text-[10px] font-bold tracking-wide text-slate-500 uppercase';
 
-/** Settings → Akun & Akses: admin accounts (menus and locations) and employee accounts for the portal. */
+/** Administrasi → Pengguna & Akses: admin accounts (menus and locations) and employee accounts for the portal. */
 export default function Users(props: Props) {
-    const [tab, setTab] = useState<'admin' | 'karyawan'>(() =>
-        new URLSearchParams(window.location.search).get('tab') === 'karyawan' ? 'karyawan' : 'admin',
+    const [tab, setTab] = useState<'admin' | 'employee'>(() =>
+        new URLSearchParams(window.location.search).get('tab') === 'employee' ? 'employee' : 'admin',
     );
-    const go = (t: 'admin' | 'karyawan') => {
+    const go = (t: 'admin' | 'employee') => {
         setTab(t);
-        window.history.replaceState(window.history.state, '', `/settings/akun${t === 'karyawan' ? '?tab=karyawan' : ''}`);
+        window.history.replaceState(window.history.state, '', `/settings/users${t === 'employee' ? '?tab=employee' : ''}`);
     };
 
     return (
         <>
-            <Head title="Akun & Akses" />
-            <AttendanceHeader title="Akun & Akses" subtitle="Akun admin dengan hak menu & lingkup lokasi, dan akun karyawan untuk Portal Karyawan">
+            <Head title="Pengguna & Akses" />
+            <AttendanceHeader title="Pengguna & Akses" subtitle="Akun admin dengan hak menu & lingkup lokasi, dan akun karyawan untuk Portal Karyawan">
                 <div className="flex rounded-xl bg-slate-100 p-1">
                     {(
                         [
                             ['admin', 'Akun Admin', ShieldCheck],
-                            ['karyawan', 'Akun Karyawan', UsersIcon],
+                            ['employee', 'Akun Karyawan', UsersIcon],
                         ] as const
                     ).map(([value, label, Icon]) => (
                         <button
@@ -79,7 +79,7 @@ export default function Users(props: Props) {
                 </div>
             </AttendanceHeader>
             <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-6">
-                {tab === 'admin' ? <AdminTab {...props} /> : <KaryawanTab {...props} />}
+                {tab === 'admin' ? <AdminTab {...props} /> : <EmployeeTab {...props} />}
             </div>
         </>
     );
@@ -136,13 +136,13 @@ function AdminTab({ admins, menus, locations, sub_locations, roles }: Props) {
                                     </td>
                                     <td className="px-3 py-3">
                                         <span
-                                            className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${a.role === 'Admin' ? 'bg-brand-600 text-white' : 'bg-brand-50 text-brand-700'}`}
+                                            className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${a.role === 'super_admin' ? 'bg-brand-600 text-white' : 'bg-brand-50 text-brand-700'}`}
                                         >
                                             {roles[a.role]}
                                         </span>
                                     </td>
                                     <td className="max-w-64 px-3 py-3 text-xs text-slate-600">
-                                        {a.role === 'Admin' || !places.length ? (
+                                        {a.role === 'super_admin' || !places.length ? (
                                             <span className="text-slate-400">Semua lokasi</span>
                                         ) : (
                                             <div className="flex flex-wrap gap-1">
@@ -155,7 +155,7 @@ function AdminTab({ admins, menus, locations, sub_locations, roles }: Props) {
                                         )}
                                     </td>
                                     <td className="px-3 py-3 text-xs text-slate-600">
-                                        {a.role === 'Admin'
+                                        {a.role === 'super_admin'
                                             ? 'Semua menu (lihat & ubah)'
                                             : `${levels.length} dari ${menuCount} menu · ${levels.filter((l) => l === 'edit').length} bisa ubah`}
                                     </td>
@@ -176,7 +176,7 @@ function AdminTab({ admins, menus, locations, sub_locations, roles }: Props) {
                                             </button>
                                             <button
                                                 disabled={a.id === me}
-                                                onClick={() => confirm(`Hapus akun ${a.name}?`) && router.delete(`/settings/akun/${a.id}`, visit)}
+                                                onClick={() => confirm(`Hapus akun ${a.name}?`) && router.delete(`/settings/users/${a.id}`, visit)}
                                                 title={a.id === me ? 'Akun Anda sendiri' : 'Hapus'}
                                                 className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-30"
                                             >
@@ -219,9 +219,9 @@ function AdminEditor({
     const [name, setName] = useState(admin?.name ?? '');
     const [email, setEmail] = useState(admin?.email ?? '');
     const [password, setPassword] = useState('');
-    const [role, setRole] = useState<'Admin' | 'HR'>(admin?.role ?? 'HR');
+    const [role, setRole] = useState<'super_admin' | 'admin'>(admin?.role ?? 'admin');
     const [active, setActive] = useState(admin?.is_active ?? true);
-    const [permissions, setPermissions] = useState<Record<string, MenuLevel>>(admin?.role === 'HR' ? admin.permissions : {});
+    const [permissions, setPermissions] = useState<Record<string, MenuLevel>>(admin?.role === 'admin' ? admin.permissions : {});
     const [allLocations, setAllLocations] = useState(!admin || (!admin.work_location_ids.length && !admin.sub_location_ids.length));
     const [locationIds, setLocationIds] = useState<Set<number>>(new Set(admin?.work_location_ids ?? []));
     const [subIds, setSubIds] = useState<Set<number>>(new Set(admin?.sub_location_ids ?? []));
@@ -270,8 +270,8 @@ function AdminEditor({
             onSuccess: onClose,
             onError: (e: Record<string, string>) => setErrors(Object.values(e)),
         };
-        if (admin) router.put(`/settings/akun/${admin.id}`, data, options);
-        else router.post('/settings/akun', data, options);
+        if (admin) router.put(`/settings/users/${admin.id}`, data, options);
+        else router.post('/settings/users', data, options);
     };
 
     const input = `${smallInput} w-full`;
@@ -318,8 +318,8 @@ function AdminEditor({
                     <span className="text-[11px] font-bold text-slate-500">Jenis akun</span>
                     {(
                         [
-                            ['HR', 'Admin', 'menu & lokasi sesuai pilihan'],
-                            ['Admin', 'Super Admin', 'semua modul & lokasi + Settings'],
+                            ['admin', 'Admin', 'menu & lokasi sesuai pilihan'],
+                            ['super_admin', 'Super Admin', 'semua modul & lokasi + Settings'],
                         ] as const
                     ).map(([value, label, hint]) => (
                         <label
@@ -337,7 +337,7 @@ function AdminEditor({
                     </label>
                 </div>
 
-                {role === 'HR' && (
+                {role === 'admin' && (
                     <>
                         {/* Locations */}
                         <div className="space-y-2 rounded-2xl border border-slate-200 p-4">
@@ -405,7 +405,7 @@ function AdminEditor({
                                 </div>
                             )}
                             <p className="text-[11px] text-slate-400">
-                                Berlaku untuk data karyawan di Man Power, Struktur Organisasi, Roster, Absensi, Trip & Leave, Deklarasi dan
+                                Berlaku untuk data karyawan di Man Power, Struktur Organisasi, Roster, Absensi, Cuti & Dinas, Deklarasi dan
                                 Monitoring. Master data tetap global.
                             </p>
                         </div>
@@ -489,21 +489,21 @@ function AdminEditor({
 
 // --- employee accounts --------------------------------------------------------------------------
 
-function KaryawanTab({ karyawans, locations }: Props) {
+function EmployeeTab({ employees, locations }: Props) {
     const [q, setQ] = useState('');
-    const [lokasi, setLokasi] = useState('');
-    const [akun, setAkun] = useState<'' | 'belum' | 'aktif' | 'nonaktif'>('');
+    const [location, setLokasi] = useState('');
+    const [account, setAkun] = useState<'' | 'not_yet' | 'active' | 'inactive'>('');
     const [selected, setSelected] = useState<Set<number>>(new Set());
 
     const rows = useMemo(() => {
         const s = q.trim().toLowerCase();
-        return karyawans.filter(
+        return employees.filter(
             (k) =>
-                (!s || k.name.toLowerCase().includes(s) || k.nrp.includes(s)) &&
-                (!lokasi || String(k.work_location_id) === lokasi) &&
-                (!akun || (akun === 'belum' ? !k.account : akun === 'aktif' ? k.account?.is_active : k.account && !k.account.is_active)),
+                (!s || k.name.toLowerCase().includes(s) || k.employee_number.includes(s)) &&
+                (!location || String(k.work_location_id) === location) &&
+                (!account || (account === 'not_yet' ? !k.account : account === 'active' ? k.account?.is_active : k.account && !k.account.is_active)),
         );
-    }, [karyawans, q, lokasi, akun]);
+    }, [employees, q, location, account]);
     const withoutAccount = rows.filter((k) => !k.account);
     const ticked = rows.filter((k) => selected.has(k.id));
     const chosen = ticked.filter((k) => !k.account);
@@ -512,7 +512,7 @@ function KaryawanTab({ karyawans, locations }: Props) {
 
     const create = (ids: number[]) => {
         if (!ids.length || !confirm(`Buat ${ids.length} akun karyawan? Login dengan NRP, password awal tanggal lahir (ddmmyyyy).`)) return;
-        router.post('/settings/akun-karyawan', { karyawan_ids: ids }, { ...visit, onSuccess: () => setSelected(new Set()) });
+        router.post('/settings/employee-accounts', { employee_ids: ids }, { ...visit, onSuccess: () => setSelected(new Set()) });
     };
     const resetMany = () => {
         const ids = chosenAccounts.map((k) => k.account!.id);
@@ -523,7 +523,7 @@ function KaryawanTab({ karyawans, locations }: Props) {
             )
         )
             return;
-        router.post('/settings/akun-karyawan/reset-masal', { user_ids: ids }, { ...visit, onSuccess: () => setSelected(new Set()) });
+        router.post('/settings/employee-accounts/bulk-reset', { user_ids: ids }, { ...visit, onSuccess: () => setSelected(new Set()) });
     };
 
     return (
@@ -533,7 +533,7 @@ function KaryawanTab({ karyawans, locations }: Props) {
                     <Search size={15} className="absolute top-1/2 left-2.5 -translate-y-1/2 text-slate-400" />
                     <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama / NRP" className={`${smallInput} w-52 pl-8`} />
                 </div>
-                <select value={lokasi} onChange={(e) => setLokasi(e.target.value)} className={smallInput} aria-label="Lokasi kerja">
+                <select value={location} onChange={(e) => setLokasi(e.target.value)} className={smallInput} aria-label="Lokasi kerja">
                     <option value="">Semua lokasi</option>
                     {locations.map((l) => (
                         <option key={l.id} value={l.id}>
@@ -541,11 +541,11 @@ function KaryawanTab({ karyawans, locations }: Props) {
                         </option>
                     ))}
                 </select>
-                <select value={akun} onChange={(e) => setAkun(e.target.value as typeof akun)} className={smallInput} aria-label="Status akun">
+                <select value={account} onChange={(e) => setAkun(e.target.value as typeof account)} className={smallInput} aria-label="Status akun">
                     <option value="">Semua status akun</option>
-                    <option value="belum">Belum punya akun</option>
-                    <option value="aktif">Akun aktif</option>
-                    <option value="nonaktif">Akun nonaktif</option>
+                    <option value="not_yet">Belum punya akun</option>
+                    <option value="active">Akun aktif</option>
+                    <option value="inactive">Akun nonaktif</option>
                 </select>
                 <div className="ml-auto flex flex-wrap gap-2">
                     <button onClick={resetMany} disabled={!chosenAccounts.length} className={secondaryButton}>
@@ -601,10 +601,10 @@ function KaryawanTab({ karyawans, locations }: Props) {
                                         className="accent-brand-600"
                                     />
                                 </td>
-                                <td className="px-3 py-2 font-mono text-xs text-slate-500">{k.nrp}</td>
+                                <td className="px-3 py-2 font-mono text-xs text-slate-500">{k.employee_number}</td>
                                 <td className="px-3 py-2">
                                     <p className="font-bold text-slate-700">{k.name}</p>
-                                    <p className="max-w-72 truncate text-[11px] text-slate-400">{k.jabatan ?? 'Belum ditempatkan'}</p>
+                                    <p className="max-w-72 truncate text-[11px] text-slate-400">{k.position ?? 'Belum ditempatkan'}</p>
                                 </td>
                                 <td className="px-3 py-2 text-xs text-slate-600">
                                     {k.work_location ?? '-'}
@@ -612,7 +612,7 @@ function KaryawanTab({ karyawans, locations }: Props) {
                                 </td>
                                 <td className="px-3 py-2">
                                     {!k.account ? (
-                                        <span className="text-xs text-slate-400">Belum ada{!k.has_tanggal_lahir && ' (tgl lahir kosong)'}</span>
+                                        <span className="text-xs text-slate-400">Belum ada{!k.has_birth_date && ' (tgl lahir kosong)'}</span>
                                     ) : (
                                         <span className="flex flex-wrap gap-1">
                                             <span
@@ -635,7 +635,7 @@ function KaryawanTab({ karyawans, locations }: Props) {
                                             <button
                                                 onClick={() =>
                                                     confirm(`Kembalikan password ${k.name} ke password awal?`) &&
-                                                    router.post(`/settings/akun-karyawan/${k.account!.id}/reset`, {}, visit)
+                                                    router.post(`/settings/employee-accounts/${k.account!.id}/reset`, {}, visit)
                                                 }
                                                 title="Reset password"
                                                 className="rounded-lg p-1.5 text-slate-400 hover:bg-brand-50 hover:text-brand-600"
@@ -643,7 +643,7 @@ function KaryawanTab({ karyawans, locations }: Props) {
                                                 <KeyRound size={15} />
                                             </button>
                                             <button
-                                                onClick={() => router.post(`/settings/akun-karyawan/${k.account!.id}/status`, {}, visit)}
+                                                onClick={() => router.post(`/settings/employee-accounts/${k.account!.id}/status`, {}, visit)}
                                                 title={k.account.is_active ? 'Nonaktifkan' : 'Aktifkan'}
                                                 className={`rounded-lg p-1.5 hover:bg-slate-100 ${k.account.is_active ? 'text-slate-400' : 'text-emerald-600'}`}
                                             >
@@ -652,7 +652,7 @@ function KaryawanTab({ karyawans, locations }: Props) {
                                             <button
                                                 onClick={() =>
                                                     confirm(`Hapus akun karyawan ${k.name}? Riwayat pengajuannya tetap tersimpan.`) &&
-                                                    router.delete(`/settings/akun-karyawan/${k.account!.id}`, visit)
+                                                    router.delete(`/settings/employee-accounts/${k.account!.id}`, visit)
                                                 }
                                                 title="Hapus akun"
                                                 className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"

@@ -19,8 +19,8 @@ class DatabaseSeeder extends Seeder
             RecruitmentSeeder::class,
             OrgStructureSeeder::class,
             MasterDataSeeder::class,
-            CombenSeeder::class,
-            KaryawanSeeder::class,
+            CompensationSeeder::class,
+            EmployeeSeeder::class,
         ]);
     }
 }

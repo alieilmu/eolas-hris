@@ -6,42 +6,46 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'kode', 'type', 'order', 'skema_kerja', 'jam_kerja_harian'])]
+#[Fillable(['name', 'code', 'type', 'sort_order', 'work_schedule_scheme', 'daily_normal_hours'])]
 class WorkLocation extends Model
 {
-    public const TYPE_HEAD_OFFICE = 'Head Office';
+    public const TYPE_HEAD_OFFICE = 'head_office';
+
+    public const TYPE_SITE = 'site';
+
+    public const TYPE_LABELS = [self::TYPE_HEAD_OFFICE => 'Head Office', self::TYPE_SITE => 'Site'];
 
     /** Working-time schemes: the basis of normal hours and overtime (Attendance → Lembur). */
     public const SKEMA_KERJA = [
-        '5_hari' => '5 hari kerja · 8 jam/hari (PP 35/2021)',
-        '6_hari' => '6 hari kerja · 7 jam/hari (PP 35/2021)',
-        'esdm' => 'Waktu kerja tertentu ESDM · roster (Kepmenakertrans 234/2003)',
+        'five_day' => '5 hari kerja · 8 jam/hari (PP 35/2021)',
+        'six_day' => '6 hari kerja · 7 jam/hari (PP 35/2021)',
+        'mining_roster' => 'Waktu kerja tertentu ESDM · roster (Kepmenakertrans 234/2003)',
     ];
 
     protected function casts(): array
     {
-        return ['jam_kerja_harian' => 'float'];
+        return ['daily_normal_hours' => 'float'];
     }
 
-    public function karyawans(): HasMany
+    public function employees(): HasMany
     {
-        return $this->hasMany(Karyawan::class);
+        return $this->hasMany(Employee::class);
     }
 
     public function subLocations(): HasMany
     {
-        return $this->hasMany(SubLocation::class)->orderBy('order')->orderBy('name');
+        return $this->hasMany(SubLocation::class)->orderBy('sort_order')->orderBy('name');
     }
 
-    public function jabatans(): HasMany
+    public function positions(): HasMany
     {
-        return $this->hasMany(Jabatan::class);
+        return $this->hasMany(Position::class);
     }
 
     /** NRP location codes that stand for this place (decides Lokal / Kiriman). */
-    public function lokasiPenerimaans(): HasMany
+    public function pointsOfHire(): HasMany
     {
-        return $this->hasMany(LokasiPenerimaan::class);
+        return $this->hasMany(PointOfHire::class);
     }
 
     public function isHeadOffice(): bool
@@ -52,6 +56,6 @@ class WorkLocation extends Model
     /** How the place appears in a title: its short code (RMTU) or else its name. */
     public function titleName(): string
     {
-        return $this->kode ?: $this->name;
+        return $this->code ?: $this->name;
     }
 }

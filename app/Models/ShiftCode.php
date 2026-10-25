@@ -10,18 +10,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * A code used in Roster and Absensi (D, N, OFF, ...). Its DWS is what an export
  * for payroll carries; its jenis says what kind of day it is.
  */
-#[Fillable(['kode', 'dws', 'keterangan', 'jenis', 'order', 'jam_masuk', 'jam_keluar', 'istirahat_mulai', 'istirahat_selesai'])]
+#[Fillable(['code', 'daily_work_schedule', 'description', 'type', 'sort_order', 'start_time', 'end_time', 'break_start', 'break_end'])]
 class ShiftCode extends Model
 {
     /** What kind of day a code means; drives % Kehadiran and Man Onsite. */
     public const JENIS = [
-        'hadir' => 'Hadir (kerja di lokasi)',
-        'dinas' => 'Dinas luar',
+        'work' => 'Hadir (kerja di lokasi)',
+        'business_trip' => 'Dinas luar',
         'off' => 'Off',
-        'cuti' => 'Cuti',
-        'sakit' => 'Sakit',
-        'izin' => 'Izin',
-        'mangkir' => 'Mangkir',
+        'leave' => 'Cuti',
+        'sick' => 'Sakit',
+        'permission' => 'Izin',
+        'absent' => 'Mangkir',
     ];
 
     /** "07:00", without seconds, for the pages. */
@@ -31,24 +31,24 @@ class ShiftCode extends Model
     }
 
     /** Has working hours set (a work shift with a schedule). */
-    public function terjadwal(): bool
+    public function scheduled(): bool
     {
-        return $this->jam_masuk !== null && $this->jam_keluar !== null;
+        return $this->start_time !== null && $this->end_time !== null;
     }
 
-    public function rosters(): HasMany
+    public function shift_schedules(): HasMany
     {
-        return $this->hasMany(Roster::class);
+        return $this->hasMany(ShiftSchedule::class);
     }
 
-    public function absensis(): HasMany
+    public function attendance_records(): HasMany
     {
-        return $this->hasMany(Absensi::class);
+        return $this->hasMany(AttendanceRecord::class);
     }
 
-    /** The code a Trip & Leave entry writes into Absensi: the first one of that jenis. */
-    public static function forJenis(string $jenis): ?self
+    /** The code a Cuti & Dinas entry writes into Absensi: the first one of that jenis. */
+    public static function forType(string $type): ?self
     {
-        return self::where('jenis', $jenis)->orderBy('order')->orderBy('id')->first();
+        return self::where('type', $type)->orderBy('sort_order')->orderBy('id')->first();
     }
 }

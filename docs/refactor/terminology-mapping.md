@@ -1,6 +1,6 @@
 # Kamus Pemetaan Terminologi HRIS — Eolas
 
-> Status: **DRAF untuk review** (25 Okt 2026). Belum ada kode atau database yang diubah.
+> Status: **SELESAI DIIMPLEMENTASIKAN** (25 Okt 2026). Bagian A–G adalah draf yang direview; bagian **H** adalah hasil akhir yang benar-benar diterapkan (dibuat dari log migrasi `schema_rename_log` uji coba MySQL).
 > Cakupan: 59 tabel aplikasi (8 tabel bawaan framework tidak diubah), ±690 kolom, modul/submodul/menu, URL, kunci hak akses, nilai status, serta nama kelas & folder kode.
 > Frontend: **React + TypeScript (Inertia)**, bukan Vue.
 
@@ -396,5 +396,232 @@ Hanya nilai yang **ditentukan sistem**. Isi master data buatan pengguna tidak di
    - URL di `notifications.data`;
    - kategori `lookup_values`.
 4. **Foreign key.** Ada 84 foreign key. Urutannya: lepas FK → rename tabel/kolom → pasang ulang FK. Semuanya dalam satu migration per modul, dengan backup sebelum dijalankan.
-5. **File Excel.** Template import/export (karyawan, jabatan, roster, trip, MPP) memakai judul kolom Indonesia. **Judul kolom Excel tetap Bahasa Indonesia** (untuk pengguna); hanya pemetaan internalnya yang berubah.
+5. **File Excel.** Sesuai keputusan review no. 5, **judul kolom Excel kini Bahasa Inggris** (Employee Number, Name, Birth Date, ...). Import tetap menerima file lama berjudul Indonesia.
 6. **Ukuran pekerjaan.** Sekitar 49 ribu baris di `app/`, `resources/`, dan `database/`. Dikerjakan per modul, tiap modul diuji (halaman, simpan, import/export, workspace) sebelum lanjut ke modul berikutnya.
+
+---
+
+## H. Hasil akhir implementasi
+
+### H.1 Perbedaan dari draf
+
+| Draf | Diterapkan |
+|---|---|
+| `order` → `sort_order` | Diterapkan di semua tabel (11 tabel `order` + `urutan`). |
+| Judul kolom Excel tetap Indonesia | Judul kolom Excel Bahasa Inggris; file lama tetap bisa di-import. Teks petunjuk di file tetap Indonesia. |
+| URL Time Clock `/time/clock`, lembur `/time/overtime` | `/time/clock`; `/time/overtime` mengarah ke tab Lembur. |
+| Leave di `/time/leave` | Saldo cuti di `/time/leave-balances` (menu Waktu & Kehadiran). |
+| Redirect URL lama | Semua URL halaman lama → 301 ke URL baru (`App\Support\LegacyUrls`). |
+| Label menu | Rekrutmen · Core HR · Waktu & Kehadiran · Kompensasi & Benefit · Administrasi. Label halaman tetap Bahasa Indonesia. |
+
+### H.2 Tabel (48)
+
+| Lama | Baru |
+|---|---|
+| `absen_logs` | `attendance_logs` |
+| `absensis` | `attendance_records` |
+| `application_forms` | `job_postings` |
+| `bods` | `directorates` |
+| `cuti_aturans` | `leave_policies` |
+| `cuti_besars` | `long_service_leaves` |
+| `cuti_lapangans` | `field_leave_entitlements` |
+| `cuti_pengambilans` | `leave_transactions` |
+| `deklarasi_items` | `benefit_claim_items` |
+| `deklarasis` | `benefit_claims` |
+| `demo_accounts` | `trial_accounts` |
+| `departemens` | `departments` |
+| `divisis` | `divisions` |
+| `form_fields` | `job_posting_fields` |
+| `golongans` | `grades` |
+| `holidays` | `public_holidays` |
+| `jabatans` | `positions` |
+| `jenis_karyawans` | `employee_categories` |
+| `karyawan_anak` | `employee_children` |
+| `karyawan_gajis` | `employee_salaries` |
+| `karyawan_profiles` | `employee_profiles` |
+| `karyawans` | `employees` |
+| `lampirans` | `attachments` |
+| `lembur_aturans` | `overtime_policies` |
+| `lemburs` | `overtime_records` |
+| `lokasi_penerimaans` | `points_of_hire` |
+| `lumpsum_cutis` | `field_leave_allowances` |
+| `master_options` | `lookup_values` |
+| `mesin_absen_routes` | `attendance_device_routes` |
+| `mesin_absens` | `attendance_devices` |
+| `mpp_aturans` | `workforce_plan_settings` |
+| `mpp_plan_items` | `workforce_plan_items` |
+| `mpp_plans` | `workforce_plans` |
+| `mpp_revisis` | `workforce_plan_revisions` |
+| `pengajuan_update_datas` | `employee_change_requests` |
+| `pkwt_periods` | `employment_contracts` |
+| `plafon_kacamatas` | `optical_benefit_limits` |
+| `plafon_pengobatans` | `medical_benefit_limits` |
+| `roster_patterns` | `shift_patterns` |
+| `rosters` | `shift_schedules` |
+| `skala_upah_kolom` | `salary_scale_periods` |
+| `skala_upah_nilai` | `salary_scale_amounts` |
+| `skala_upahs` | `salary_scales` |
+| `status_histories` | `candidate_stage_histories` |
+| `sub_group_lembur` | `overtime_eligibilities` |
+| `sub_groups` | `job_levels` |
+| `trips` | `leave_travel_requests` |
+| `tunjangan_jabatans` | `job_level_allowances` |
+
+### H.3 Kolom (346 kolom di 54 tabel; nama tabel baru)
+
+**`applicants`**: application_form_id → job_posting_id · catatan → notes
+
+**`attachments`**: lampirable_type → attachable_type · lampirable_id → attachable_id · nama → name · ukuran → size · halaman → page_count
+
+**`attendance_devices`**: nama → name · merek → brand · catatan → notes
+
+**`attendance_logs`**: mesin_absen_id → attendance_device_id · karyawan_id → employee_id · waktu → punched_at · sumber → source · catatan → notes
+
+**`attendance_records`**: karyawan_id → employee_id · tanggal → date · sumber → source · trip_id → leave_travel_request_id
+
+**`benefit_claim_items`**: deklarasi_id → benefit_claim_id · jenis → type · penerima → beneficiary · karyawan_anak_id → employee_child_id · nominal → amount
+
+**`benefit_claims`**: nomor → claim_number · karyawan_id → employee_id · tanggal → date · tempat → provider_name · jumlah_kwitansi → receipt_count · bulan_buku → accounting_month · tahun_plafon → benefit_year · keterangan → description · sumber → source · catatan_verifikasi → verification_notes
+
+**`candidates`**: no_hp → phone · cv_nama → cv_filename · order → sort_order · ditolak_at → rejected_at · alasan_ditolak → rejection_reason
+
+**`departments`**: divisi_id → division_id · order → sort_order
+
+**`directorates`**: order → sort_order
+
+**`divisions`**: bod_id → directorate_id · order → sort_order
+
+**`employee_categories`**: kode → code · nama → name
+
+**`employee_change_requests`**: karyawan_id → employee_id · perubahan → changes · anak → children · catatan → notes · catatan_verifikasi → verification_notes
+
+**`employee_children`**: karyawan_profile_id → employee_profile_id · urutan → sort_order · nama → name · tanggal_lahir → birth_date · pendidikan → education_level · status_bekerja → employment_status · status_menikah → marital_status
+
+**`employee_profiles`**: karyawan_id → employee_id · no_urut → sequence_no · nrp_sap → sap_employee_number · klasifikasi → employee_class · klasifikasi_teknis → technical_class · tempat_lahir → birth_place · tanggal_lahir → birth_date · tanggal_masuk → hire_date · status_pegawai → employment_status · status_perkawinan → marital_status · tanggal_perkawinan → marriage_date · golongan → grade · status_pegawai_tetap → is_permanent · nomor_sk → appointment_letter_number · tanggal_sk → appointment_letter_date · ukuran_baju → shirt_size · ukuran_celana → pants_size · ukuran_sepatu → shoe_size · ukuran_apd → ppe_size · nik → national_id_number · nik_provinsi → national_id_province · nik_kabupaten_kota → national_id_city · npwp → tax_id_number · npwp_tanggal_daftar → tax_id_registered_date · bpjs_tk → bpjs_employment_number · bpjs_tk_tanggal_daftar → bpjs_employment_registered_date · bpjs_kesehatan → bpjs_health_number · no_rekening → bank_account_number · nama_bank → bank_name · nama_pemilik_rekening → bank_account_holder · agama → religion · jenis_kelamin → gender · suku_bangsa → ethnicity · pendidikan_terakhir → education_level · jurusan → education_major · asal_sekolah → education_institution · tahun_lulus → graduation_year · alamat_tinggal → residential_address · alamat_tinggal_rt → residential_rt · alamat_tinggal_rw → residential_rw · alamat_tinggal_kab_kota → residential_city · alamat_tinggal_provinsi → residential_province · alamat_tinggal_kode_pos → residential_postal_code · alamat_surat → mailing_address · alamat_surat_rt → mailing_rt · alamat_surat_rw → mailing_rw · alamat_surat_kab_kota → mailing_city · alamat_surat_kode_pos → mailing_postal_code · alamat_surat_telepon → mailing_phone · alamat_surat_hp → mailing_mobile · emergency_telepon → emergency_contact_phone · emergency_nama → emergency_contact_name · emergency_hubungan → emergency_contact_relationship · no_hp → phone · no_whatsapp → whatsapp_number · email_pribadi → personal_email · nama_pasangan → spouse_name · tanggal_lahir_pasangan → spouse_birth_date · pekerjaan_pasangan → spouse_occupation · nama_ayah → father_name · tanggal_lahir_ayah → father_birth_date · nama_ibu → mother_name · tanggal_lahir_ibu → mother_birth_date · ortu_alamat_rt → parents_rt · ortu_alamat_rw → parents_rw · ortu_alamat_kab_kota → parents_city · ortu_alamat_kode_pos → parents_postal_code · ortu_telepon → parents_phone · ortu_hp → parents_mobile · nama_ayah_mertua → father_in_law_name · tanggal_lahir_ayah_mertua → father_in_law_birth_date · nama_ibu_mertua → mother_in_law_name · tanggal_lahir_ibu_mertua → mother_in_law_birth_date · mertua_alamat_rt → in_laws_rt · mertua_alamat_rw → in_laws_rw · mertua_alamat_kab_kota → in_laws_city · mertua_alamat_kode_pos → in_laws_postal_code · mertua_hp → in_laws_mobile · sakit_mulai → long_sick_start_date · sakit_selesai → long_sick_end_date · sakit_keterangan → long_sick_notes
+
+**`employee_salaries`**: karyawan_id → employee_id · skala_upah_id → salary_scale_id · berlaku_mulai → effective_date · alasan → reason · catatan → notes
+
+**`employees`**: nrp → employee_number · pin_absen → attendance_pin · jabatan_id → position_id · sub_group_id → job_level_id · bod_id → directorate_id · divisi_id → division_id · departemen_id → department_id · bidang → discipline · tanggal_keluar → termination_date · alasan_keluar → termination_reason · keterangan_keluar → termination_notes
+
+**`employment_contracts`**: karyawan_profile_id → employee_profile_id · periode_ke → sequence_no · tanggal_kontrak → start_date · tanggal_berakhir → end_date
+
+**`field_leave_allowances`**: lokasi_penerimaan_id → point_of_hire_id · klasifikasi → employee_class · nominal → amount
+
+**`field_leave_entitlements`**: hari_cuti → leave_days · hari_berangkat → outbound_travel_days · hari_kembali → return_travel_days
+
+**`grades`**: grup → grade_group · kode → code · urutan → sort_order
+
+**`job_level_allowances`**: sub_group_id → job_level_id · nominal → amount
+
+**`job_levels`**: nama → name · sumber → source · gelar → title_prefix · gelar_ho → title_prefix_head_office
+
+**`job_posting_fields`**: application_form_id → job_posting_id · kunci → field_key · order → sort_order
+
+**`job_postings`**: posisi → position_title · lokasi → location · jabatan_id → position_id · batas_lamaran → closing_date
+
+**`leave_policies`**: jatah_tahunan → annual_entitlement_days · masa_aktif_tahun → annual_validity_years · besar_interval_tahun → long_service_interval_years · besar_hari → long_service_days · besar_gapok_diambil → long_service_taken_salary_multiplier · besar_gapok_diuangkan → long_service_cashout_salary_multiplier · besar_batas_bulan → long_service_decision_months
+
+**`leave_transactions`**: karyawan_id → employee_id · jenis → type · tahun → year · tanggal_awal → start_date · tanggal_akhir → end_date · keterangan_tanggal → date_notes · hari → days · sumber → source · catatan → notes
+
+**`leave_travel_requests`**: karyawan_id → employee_id · jenis → type · kategori_cuti → leave_category · hari_cuti → leave_days · potong_tahunan → annual_leave_deducted · potong_besar → long_service_leave_deducted · cuti_besar_periode → long_service_period · lumpsum → field_leave_allowance · tanggal_awal → start_date · tanggal_akhir → end_date · kota_asal → origin_city · kota_tujuan → destination_city · keterangan → description · tiket_pesawat → needs_flight · bandara_asal → departure_airport · bandara_tujuan → arrival_airport · pesawat_pp → is_round_trip · pulang_tanggal → return_date · pulang_bandara_asal → return_departure_airport · pulang_bandara_tujuan → return_arrival_airport · tiket_kereta → needs_train · uang_muka → needs_cash_advance · uang_muka_nominal → cash_advance_amount · tiket_pergi_dibeli_at → outbound_ticket_issued_at · tiket_pergi_dibeli_by → outbound_ticket_issued_by · tiket_pulang_dibeli_at → return_ticket_issued_at · tiket_pulang_dibeli_by → return_ticket_issued_by · status_uang → cash_advance_status · sumber → source · catatan_verifikasi → verification_notes
+
+**`long_service_leaves`**: karyawan_id → employee_id · periode_ke → sequence_no · keputusan → decision · sumber → source · catatan → notes
+
+**`lookup_values`**: kategori → category · nilai → value · urutan → sort_order · sistem → is_system
+
+**`medical_benefit_limits`**: golongan_ids → grade_ids · sub_group_ids → job_level_ids · jabatan_ho → position_label_head_office · jabatan_site → position_label_site · lajang → single · keluarga → family · urutan → sort_order
+
+**`optical_benefit_limits`**: golongan_ids → grade_ids · sub_group_ids → job_level_ids · jabatan_ho → position_label_head_office · jabatan_site → position_label_site · bingkai → frame · lensa → lens · urutan → sort_order
+
+**`overtime_eligibilities`**: sub_group_id → job_level_id · tipe_lokasi → location_type · berhak → is_eligible
+
+**`overtime_policies`**: pembulatan_menit → rounding_minutes · minimal_menit → minimum_minutes · hitung_sebelum_jadwal → count_before_shift · batas_harian_jam → daily_limit_hours · batas_mingguan_jam → weekly_limit_hours
+
+**`overtime_records`**: karyawan_id → employee_id · tanggal → date · jenis_hari → day_type · mulai → start_date · selesai → end_date · menit_kerja → worked_minutes · menit_lembur → overtime_minutes · jam_dibayar → paid_hours · jam_terhitung → weighted_hours · sumber → source · catatan → notes · catatan_verifikasi → verification_notes
+
+**`points_of_hire`**: kode → code · nama → name
+
+**`positions`**: sub_group_id → job_level_id · bod_id → directorate_id · divisi_id → division_id · departemen_id → department_id · bidang → discipline · parent_jabatan_id → parent_position_id · order → sort_order
+
+**`public_holidays`**: tanggal → date · nama → name
+
+**`recruitment_stages`**: order → sort_order
+
+**`salary_scale_amounts`**: skala_upah_id → salary_scale_id · kolom_id → salary_scale_period_id · nominal → amount
+
+**`salary_scale_periods`**: tahun → year · urutan → sort_order
+
+**`salary_scales`**: golongan_id → grade_id · urutan → sort_order
+
+**`sections`**: departemen_id → department_id · order → sort_order
+
+**`shift_codes`**: kode → code · dws → daily_work_schedule · keterangan → description · jenis → type · jam_masuk → start_time · jam_keluar → end_time · istirahat_mulai → break_start · istirahat_selesai → break_end · order → sort_order
+
+**`shift_patterns`**: nama → name · langkah → steps
+
+**`shift_schedules`**: karyawan_id → employee_id · tanggal → date
+
+**`sub_locations`**: parent_jabatan_id → parent_position_id · order → sort_order
+
+**`trial_accounts`**: kode → code · nama → name · perusahaan → company_name · jabatan → position · no_hp → phone · jumlah_karyawan → company_size · kebutuhan → requirements · sumber_data → data_source · catatan → notes
+
+**`users`**: karyawan_id → employee_id
+
+**`work_locations`**: kode → code · skema_kerja → work_schedule_scheme · jam_kerja_harian → daily_normal_hours · order → sort_order
+
+**`workforce_plan_items`**: mpp_plan_id → workforce_plan_id · jabatan_id → position_id · promosi → promotions · rotasi → rotations · demosi → demotions · keluar → termination · pensiun → retirements · sakit → sick · bulan_pindah → movement_month · bulan_penuhi → fulfilment_month · sumber → source · golongan_id → grade_id · keterangan → description
+
+**`workforce_plan_revisions`**: mpp_plan_id → workforce_plan_id · perubahan → changes · langsung → is_direct · catatan → notes · catatan_verifikasi → verification_notes
+
+**`workforce_plan_settings`**: periode → period · golongan_sub_group → grade_by_job_level
+
+**`workforce_plans`**: jenis → type · tahun → year · ke → period_number · mulai → start_date · selesai → end_date · dari_plan_id → source_plan_id
+
+### H.4 Nilai sistem (38 kolom)
+
+| Kolom | Lama → Baru |
+|---|---|
+| `employees.status` | Aktif → active, Keluar → terminated |
+| `users.role` | Admin → super_admin, HR → admin, Karyawan → employee |
+| `work_locations.type` | Head Office → head_office, Site → site |
+| `overtime_eligibilities.location_type` | Head Office → head_office, Site → site |
+| `work_locations.work_schedule_scheme` | 5_hari → five_day, esdm → mining_roster |
+| `employee_change_requests.status` | diajukan → pending, disetujui → approved |
+| `leave_travel_requests.status` | diajukan → pending, disetujui → approved |
+| `leave_travel_requests.type` | dinas → business_trip, cuti → leave |
+| `leave_travel_requests.leave_category` | lapangan → field, besar → long_service, tahunan → annual |
+| `leave_travel_requests.source` | portal → self_service |
+| `benefit_claims.status` | diajukan → pending, disetujui → approved |
+| `benefit_claims.source` | portal → self_service |
+| `benefit_claim_items.type` | perawatan → treatment, pengobatan → medical, bingkai → frame, lensa → lens |
+| `benefit_claim_items.beneficiary` | pasangan → spouse, karyawan → employee, anak → children |
+| `long_service_leaves.status` | disetujui → approved, diajukan → pending |
+| `long_service_leaves.source` | portal → self_service |
+| `long_service_leaves.decision` | diuangkan → cashed_out, diambil → taken |
+| `leave_transactions.type` | tahunan → annual |
+| `workforce_plan_revisions.status` | disetujui → approved |
+| `workforce_plans.type` | kuartal → quarterly |
+| `workforce_plan_settings.period` | kuartal → quarterly |
+| `workforce_plan_items.source` | eksternal → external |
+| `job_levels.source` | bod → directorate, divisi → division, departemen → department, bidang → discipline |
+| `shift_codes.type` | hadir → work, cuti → leave, dinas → business_trip, sakit → sick, izin → permission, mangkir → absent |
+| `attendance_records.source` | mesin → device, trip → leave_travel, roster → schedule |
+| `attendance_logs.source` | mesin → device |
+| `attendance_devices.status` | aktif → active, baru → new |
+| `overtime_records.status` | disetujui → approved, ditolak → rejected, menunggu → pending |
+| `overtime_records.source` | mesin → device |
+| `overtime_records.day_type` | kerja → workday, libur → public_holiday, istirahat → rest_day |
+| `applicants.status` | baru → new, diproses → in_process, ditolak → rejected |
+| `employee_salaries.reason` | awal → initial |
+| `lookup_values.category` | agama → religion, alasan_keluar → termination_reason, bidang_jabatan → position_discipline, klasifikasi → employee_class, klasifikasi_teknis → technical_class, pendidikan → education_level, pendidikan_anak → child_education_level, status_perkawinan → marital_status, status_uang → cash_advance_status, ukuran_apd → ppe_size, ukuran_baju → shirt_size, ukuran_celana → pants_size, ukuran_sepatu → shoe_size |
+| `trial_accounts.status` | nonaktif → inactive |
+| `job_posting_fields.field_key` | nama → name, no_hp → phone, portofolio → portfolio |
+| `attachments.attachable_type` | App\Models\Deklarasi → App\Models\BenefitClaim, App\Models\Trip → App\Models\LeaveTravelRequest |
+| `notifications.type` | App\Notifications\PengajuanMasuk → App\Notifications\RequestReceived |
+| `notifications.ref` | cuti-besar:6 → long-service-leave:6, deklarasi:64 → claim:64, deklarasi:65 → claim:65, deklarasi:66 → claim:66, pelamar:15 → applicants:15, pelamar:16 → applicants:16, pelamar:17 → applicants:17, pelamar:18 → applicants:18, trip:13 → leave_travel:13, trip:14 → leave_travel:14, trip:15 → leave_travel:15, trip:16 → leave_travel:16, update-data:1 → data-change-requests:1, update-data:2 → data-change-requests:2 |
+
+### H.5 Lain-lain
+
+- 84 foreign key dilepas lalu dipasang ulang; 113 index diberi nama baru; 21 kolom nilai diperlebar / default-nya ikut diterjemahkan.
+- JSON ikut dimigrasi: `users.permissions` (kunci menu), `notifications.data` (termasuk URL), `applicants.data` (`field_key`), perubahan MPP & update data, pola roster.
+- Uji coba di salinan MySQL (DB utama + workspace demo): jumlah baris setiap tabel sama, 168 foreign key utuh, rollback (`down`) mengembalikan skema dan data persis sama dengan aslinya.

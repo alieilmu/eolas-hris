@@ -1,7 +1,7 @@
 import { useForm } from '@inertiajs/react';
 import { FileUp, Loader2, Save } from 'lucide-react';
 import { DateInput } from '@/components/DateInput';
-import { Modal, ghostButton, inputClass, primaryButton } from '@/components/attendance/ui';
+import { Modal, ghostButton, inputClass, primaryButton } from '@/components/time/ui';
 import type { CandidateDetail } from '@/lib/recruitment';
 
 /** A candidate typed in by HR (referral, walk-in), or the details of one on the board. */
@@ -9,14 +9,14 @@ export function CandidateFormDialog({
     candidate,
     stages,
     stageId,
-    posisiOptions,
+    positionTitleOptions,
     onClose,
     onSaved,
 }: {
     candidate?: CandidateDetail;
     stages: { id: number; title: string }[];
     stageId?: number;
-    posisiOptions: string[];
+    positionTitleOptions: string[];
     onClose: () => void;
     onSaved?: () => void;
 }) {
@@ -24,7 +24,7 @@ export function CandidateFormDialog({
         stage_id: String(stageId ?? stages[0]?.id ?? ''),
         name: candidate?.name ?? '',
         email: candidate?.email ?? '',
-        no_hp: candidate?.no_hp ?? '',
+        phone: candidate?.phone ?? '',
         position: candidate?.position ?? '',
         portfolio_url: candidate?.portfolio_url ?? '',
         applied_date: candidate?.applied_date ?? new Date().toISOString().slice(0, 10),
@@ -44,9 +44,9 @@ export function CandidateFormDialog({
         };
         if (candidate) {
             form.transform((d) => ({ ...d, _method: 'put' }));
-            form.post(`/recruitment/kandidat/${candidate.id}`, options);
+            form.post(`/recruitment/candidate/${candidate.id}`, options);
         } else {
-            form.post('/recruitment/kandidat', options);
+            form.post('/recruitment/candidate', options);
         }
     };
 
@@ -85,11 +85,11 @@ export function CandidateFormDialog({
                     <input
                         value={form.data.position}
                         onChange={(e) => form.setData('position', e.target.value)}
-                        list="posisi-options"
+                        list="position_title-options"
                         className={inputClass}
                     />
-                    <datalist id="posisi-options">
-                        {posisiOptions.map((p) => (
+                    <datalist id="position_title-options">
+                        {positionTitleOptions.map((p) => (
                             <option key={p} value={p} />
                         ))}
                     </datalist>
@@ -116,8 +116,8 @@ export function CandidateFormDialog({
                 </label>
                 <label className="block">
                     <span className="mb-1.5 block text-xs font-bold text-slate-500">Nomor HP</span>
-                    <input value={form.data.no_hp} onChange={(e) => form.setData('no_hp', e.target.value)} inputMode="tel" className={inputClass} />
-                    {err('no_hp')}
+                    <input value={form.data.phone} onChange={(e) => form.setData('phone', e.target.value)} inputMode="tel" className={inputClass} />
+                    {err('phone')}
                 </label>
                 <label className="block">
                     <span className="mb-1.5 block text-xs font-bold text-slate-500">Tanggal melamar *</span>
@@ -139,7 +139,7 @@ export function CandidateFormDialog({
                     <span className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-sm text-slate-500 hover:border-brand-300">
                         <FileUp size={18} className="text-slate-400" />
                         <span className="min-w-0 flex-1 truncate">
-                            {form.data.cv?.name ?? candidate?.cv?.nama ?? 'Pilih file PDF / Word / gambar'}
+                            {form.data.cv?.name ?? candidate?.cv?.name ?? 'Pilih file PDF / Word / gambar'}
                         </span>
                         <input
                             type="file"

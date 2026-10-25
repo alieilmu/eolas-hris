@@ -6,27 +6,27 @@
 
 export interface Holder {
     id: number;
-    nrp: string;
+    employee_number: string;
     name: string;
 }
 
 export interface JabatanData {
-    kind: 'jabatan';
+    kind: 'position';
     key: string;
     id: number;
     name: string;
-    sub_group_id: number | null;
-    sub_group: string | null;
+    job_level_id: number | null;
+    job_level: string | null;
     layer: number | null;
-    sumber: string | null;
+    source: string | null;
     work_location_id: number;
     sub_location_id: number | null;
-    parent_jabatan_id: number | null;
+    parent_position_id: number | null;
     /** "section:5" or "none". */
     unit: string;
     /** e.g. "Section WORKSHOP · MAINTENANCE"; null when not in a unit. */
     unit_label: string | null;
-    departemen_id: number | null;
+    department_id: number | null;
     section_id: number | null;
     single_holder: boolean;
     holders: Holder[];
@@ -41,17 +41,17 @@ export interface SubLocationNode {
     key: string;
     id: number;
     name: string;
-    parent_jabatan_id: number | null;
+    parent_position_id: number | null;
     children: OrgNode[];
 }
 
 export interface SiteNode {
     kind: 'site';
     key: string;
-    work_location: { id: number; name: string; kode: string | null };
+    work_location: { id: number; name: string; code: string | null };
     /** The site's Project Manager; null while the site is not set up. */
-    jabatan: JabatanData | null;
-    jabatan_count: number;
+    position: JabatanData | null;
+    position_count: number;
     children: OrgNode[];
 }
 
@@ -60,15 +60,15 @@ export type OrgNode = JabatanNode | SubLocationNode | SiteNode;
 export interface LocationTab {
     id: number;
     name: string;
-    kode: string | null;
+    code: string | null;
     type: string;
-    jabatan_count: number;
+    position_count: number;
     people_count: number;
     waiting_count: number;
     needs_setup: boolean;
 }
 
-export const HEAD_OFFICE = 'Head Office';
+export const HEAD_OFFICE = 'head_office';
 
 /** An organisation unit in a picker (App\Support\Org\OrgChart::unitOptions). */
 export interface UnitOption {
@@ -77,7 +77,7 @@ export interface UnitOption {
     label: string;
     /** Without indentation, e.g. "Section · Workshop (Maintenance)". */
     display: string;
-    level: 'bod' | 'divisi' | 'departemen' | 'section';
+    level: 'directorate' | 'division' | 'department' | 'section';
     name: string;
 }
 
@@ -93,7 +93,7 @@ export function eachNode(nodes: OrgNode[], visit: (n: OrgNode, parent: OrgNode |
 export function findJabatan(nodes: OrgNode[], id: number): JabatanNode | null {
     let found: JabatanNode | null = null;
     eachNode(nodes, (n) => {
-        if (n.kind === 'jabatan' && n.id === id) found = n;
+        if (n.kind === 'position' && n.id === id) found = n;
     });
     return found;
 }
@@ -104,7 +104,7 @@ export function isWithin(nodes: OrgNode[], ancestorId: number, candidate: number
     if (!start) return false;
     let hit = false;
     eachNode([start], (n) => {
-        if (n.kind === 'jabatan' && n.id === candidate) hit = true;
+        if (n.kind === 'position' && n.id === candidate) hit = true;
     });
     return hit;
 }
@@ -128,7 +128,7 @@ export interface LayerBand {
     top: number;
     bottom: number;
     /** The SubGroups shown in the band. */
-    subGroups: string[];
+    jobLevels: string[];
 }
 
 export interface TreeLayout {
@@ -158,8 +158,8 @@ const BAND_GAP = 44;
 
 /** The layer a card is drawn in: a position's SubGroup layer; a site by its Project Manager. */
 export function layerOf(n: OrgNode): number | null {
-    if (n.kind === 'jabatan') return n.layer;
-    if (n.kind === 'site') return n.jabatan?.layer ?? 4;
+    if (n.kind === 'position') return n.layer;
+    if (n.kind === 'site') return n.position?.layer ?? 4;
     return null;
 }
 
@@ -266,11 +266,11 @@ export function layoutTree(roots: OrgNode[], { heightOf, byLayer = false }: Layo
         layer: b.layer,
         top: rowTop[b.first] - BAND_GAP / 2,
         bottom: rowTop[b.last] + (rowHeight[b.last] ?? 0) + BAND_GAP / 2,
-        subGroups: [
+        jobLevels: [
             ...new Set(
                 nodes
-                    .filter((n) => effective.get(n.node.key) === b.layer && n.node.kind === 'jabatan')
-                    .map((n) => (n.node as JabatanNode).sub_group)
+                    .filter((n) => effective.get(n.node.key) === b.layer && n.node.kind === 'position')
+                    .map((n) => (n.node as JabatanNode).job_level)
                     .filter((g): g is string => !!g),
             ),
         ],

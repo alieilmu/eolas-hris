@@ -28,51 +28,51 @@ import { GUIDE_MODULES, type GuideFeature } from '@/constants/guide';
 
 interface Props {
     today: string;
-    lokasi: number | null;
+    location: number | null;
     locations: { id: number; name: string }[];
     people: {
-        aktif: number;
-        keluar_tahun_ini: number;
-        baru_90_hari: number;
-        pkwt_30_hari: number;
-        per_lokasi: Slice[];
+        active: number;
+        terminated_this_year: number;
+        new_90_days: number;
+        contracts_30_days: number;
+        per_location: Slice[];
         gender: Slice[];
-        status_pegawai: Slice[];
-        klasifikasi: Slice[];
-        usia: Slice[];
-        masa_kerja: Slice[];
+        employment_status: Slice[];
+        employee_class: Slice[];
+        age: Slice[];
+        years_of_service: Slice[];
     };
     onsite: OnsiteDay[];
-    kehadiran: { per_jenis: (Slice & { key: string })[]; rate: number | null };
-    pengajuan: { key: string; label: string; value: number; href: string; menu: string }[];
-    perjalanan: {
-        dinas_hari_ini: number;
-        cuti_hari_ini: number;
-        akan_datang: { name: string; jenis: string; kategori_cuti: string | null; tanggal_awal: string; tanggal_akhir: string; kota_tujuan: string | null }[] | null;
+    time_clock: { per_type: (Slice & { key: string })[]; rate: number | null };
+    submission: { key: string; label: string; value: number; href: string; menu: string }[];
+    travel: {
+        business_trips_today: number;
+        leaves_today: number;
+        upcoming: { name: string; type: string; leave_category: string | null; start_date: string; end_date: string; destination_city: string | null }[] | null;
     };
-    comben: { total: number; jumlah: number; per_bulan: Slice[]; per_jenis: Slice[] };
-    recruitment: { stages: (Slice & { color: string })[]; pelamar_baru: number; pelamar_30_hari: number; lowongan_buka: number };
-    mpp: { label: string; plan: number; actual: number; gap: number }[];
-    ulang_tahun: { name: string; jabatan: string | null; tanggal: string; usia: number; hari: number }[] | null;
+    compensation: { total: number; quantity: number; per_month: Slice[]; per_type: Slice[] };
+    recruitment: { stages: (Slice & { color: string })[]; new_applicants: number; applicants_30_days: number; open_postings: number };
+    workforce_planning: { label: string; plan: number; actual: number; gap: number }[];
+    birthdays: { name: string; position: string | null; date: string; age: number; days: number }[] | null;
 }
 
 const KOMPOSISI = [
-    { key: 'per_lokasi', label: 'Lokasi' },
-    { key: 'status_pegawai', label: 'Status' },
-    { key: 'klasifikasi', label: 'Klasifikasi' },
+    { key: 'per_location', label: 'Lokasi' },
+    { key: 'employment_status', label: 'Status' },
+    { key: 'employee_class', label: 'Klasifikasi' },
     { key: 'gender', label: 'Gender' },
-    { key: 'usia', label: 'Usia' },
-    { key: 'masa_kerja', label: 'Masa kerja' },
+    { key: 'age', label: 'Usia' },
+    { key: 'years_of_service', label: 'Masa kerja' },
 ] as const;
 
 const KEHADIRAN_COLOR: Record<string, string> = {
-    hadir: '#15803d',
-    dinas: '#0d9488',
-    cuti: '#86efac',
+    work: '#15803d',
+    business_trip: '#0d9488',
+    leave: '#86efac',
     off: '#d9f99d',
-    sakit: '#f59e0b',
-    izin: '#fbbf24',
-    mangkir: '#ef4444',
+    sick: '#f59e0b',
+    permission: '#fbbf24',
+    absent: '#ef4444',
 };
 
 const dmy = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
@@ -110,18 +110,18 @@ function OpenLink({ href, show = true }: { href: string; show?: boolean }) {
 export default function Dashboard(props: Props) {
     const { auth, workspace } = usePage().props;
     const can = (menu?: string) => !menu || (menu === 'settings' ? auth.can.manageUsers : auth.menus?.[menu] !== undefined);
-    const [komposisi, setKomposisi] = useState<(typeof KOMPOSISI)[number]['key']>('per_lokasi');
+    const [komposisi, setKomposisi] = useState<(typeof KOMPOSISI)[number]['key']>('per_location');
     const [openModule, setOpenModule] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [switchTo, setSwitchTo] = useState<'demo' | 'kosong' | null>(null);
+    const [switchTo, setSwitchTo] = useState<'demo' | 'blank' | null>(null);
 
     const hour = new Date().getHours();
     const sapa = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 18 ? 'Selamat sore' : 'Selamat malam';
     const todayRow = props.onsite.find((d) => d.date === props.today);
     const onsitePct = todayRow && todayRow.total ? Math.round((todayRow.onsite / todayRow.total) * 100) : null;
-    const pengajuanTotal = props.pengajuan.reduce((s, p) => s + p.value, 0);
+    const pengajuanTotal = props.submission.reduce((s, p) => s + p.value, 0);
     const pilihLokasi = (id: number | null) =>
-        router.get('/dashboard', id ? { lokasi: id } : {}, {
+        router.get('/dashboard', id ? { location: id } : {}, {
             preserveScroll: true,
             preserveState: true,
             onStart: () => setLoading(true),
@@ -129,18 +129,18 @@ export default function Dashboard(props: Props) {
         });
 
     const kpis = [
-        { label: 'Karyawan aktif', value: props.people.aktif, icon: Users, href: '/manpower/karyawan', menu: 'karyawan', note: `${num(props.people.per_lokasi.length)} lokasi` },
-        { label: 'Onsite hari ini', value: todayRow?.onsite ?? 0, icon: MapPin, href: '/attendance/absensi', menu: 'absensi', note: onsitePct !== null ? `${onsitePct}% dari roll` : '–' },
-        { label: 'Pengajuan menunggu', value: pengajuanTotal, icon: ClipboardCheck, href: '#pengajuan', note: 'dari portal karyawan' },
-        { label: 'Karyawan baru', value: props.people.baru_90_hari, icon: UserPlus, href: '/manpower/karyawan', menu: 'karyawan', note: '90 hari terakhir' },
-        { label: 'PKWT berakhir', value: props.people.pkwt_30_hari, icon: CalendarClock, href: '/manpower/karyawan', menu: 'karyawan', note: '30 hari ke depan' },
-        { label: 'Keluar tahun ini', value: props.people.keluar_tahun_ini, icon: UserMinus, href: '/manpower/karyawan/keluar', menu: 'karyawan', note: String(new Date(props.today).getFullYear()) },
+        { label: 'Karyawan aktif', value: props.people.active, icon: Users, href: '/core-hr/employees', menu: 'employees', note: `${num(props.people.per_location.length)} lokasi` },
+        { label: 'Onsite hari ini', value: todayRow?.onsite ?? 0, icon: MapPin, href: '/time/attendance', menu: 'attendance-records', note: onsitePct !== null ? `${onsitePct}% dari roll` : '–' },
+        { label: 'Pengajuan menunggu', value: pengajuanTotal, icon: ClipboardCheck, href: '#submission', note: 'dari portal karyawan' },
+        { label: 'Karyawan baru', value: props.people.new_90_days, icon: UserPlus, href: '/core-hr/employees', menu: 'employees', note: '90 hari terakhir' },
+        { label: 'PKWT berakhir', value: props.people.contracts_30_days, icon: CalendarClock, href: '/core-hr/employees', menu: 'employees', note: '30 hari ke depan' },
+        { label: 'Keluar tahun ini', value: props.people.terminated_this_year, icon: UserMinus, href: '/core-hr/employees/termination', menu: 'employees', note: String(new Date(props.today).getFullYear()) },
     ];
 
     const komposisiData = props.people[komposisi];
-    const kehadiran = useMemo(
-        () => props.kehadiran.per_jenis.map((k) => ({ ...k, color: KEHADIRAN_COLOR[k.key] ?? '#94a3b8' })).sort((a, b) => b.value - a.value),
-        [props.kehadiran],
+    const time_clock = useMemo(
+        () => props.time_clock.per_type.map((k) => ({ ...k, color: KEHADIRAN_COLOR[k.key] ?? '#94a3b8' })).sort((a, b) => b.value - a.value),
+        [props.time_clock],
     );
 
     return (
@@ -170,7 +170,7 @@ export default function Dashboard(props: Props) {
                                     {sapa}, {auth.user?.name.split(' ')[0]} 👋
                                 </h2>
                                 <p className="mt-2 max-w-xl text-sm text-brand-100">
-                                    Ringkasan seluruh modul Eolas HRIS{props.lokasi ? ` untuk ${props.locations.find((l) => l.id === props.lokasi)?.name}` : ''}. Arahkan
+                                    Ringkasan seluruh modul Eolas HRIS{props.location ? ` untuk ${props.locations.find((l) => l.id === props.location)?.name}` : ''}. Arahkan
                                     kursor ke grafik untuk detail, klik kartu untuk membuka modulnya.
                                 </p>
                             </div>
@@ -178,13 +178,13 @@ export default function Dashboard(props: Props) {
                                 <div className="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
                                     <p className="text-[11px] font-semibold text-brand-100">Dinas hari ini</p>
                                     <p className="flex items-center gap-1.5 text-xl font-black">
-                                        <Plane size={16} /> {props.perjalanan.dinas_hari_ini}
+                                        <Plane size={16} /> {props.travel.business_trips_today}
                                     </p>
                                 </div>
                                 <div className="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
                                     <p className="text-[11px] font-semibold text-brand-100">Cuti hari ini</p>
                                     <p className="flex items-center gap-1.5 text-xl font-black">
-                                        <Palmtree size={16} /> {props.perjalanan.cuti_hari_ini}
+                                        <Palmtree size={16} /> {props.travel.leaves_today}
                                     </p>
                                 </div>
                             </div>
@@ -196,7 +196,7 @@ export default function Dashboard(props: Props) {
                                         key={l.id ?? 'all'}
                                         onClick={() => pilihLokasi(l.id)}
                                         className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-bold transition ${
-                                            props.lokasi === l.id ? 'bg-white text-brand-800 shadow' : 'bg-white/10 text-white hover:bg-white/20'
+                                            props.location === l.id ? 'bg-white text-brand-800 shadow' : 'bg-white/10 text-white hover:bg-white/20'
                                         }`}
                                     >
                                         {l.name}
@@ -214,11 +214,11 @@ export default function Dashboard(props: Props) {
                             </span>
                             <div className="min-w-0 flex-1">
                                 <p className="text-sm font-black text-slate-800">
-                                    Workspace demo {workspace.perusahaan}{' '}
-                                    <span className="ml-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">{workspace.sumber_label}</span>
+                                    Workspace demo {workspace.company_name}{' '}
+                                    <span className="ml-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">{workspace.source_label}</span>
                                 </p>
                                 <p className="mt-0.5 text-xs text-slate-500">
-                                    Kode workspace <b className="font-mono text-brand-700">{workspace.kode}</b> (untuk login karyawan dengan NRP)
+                                    Kode workspace <b className="font-mono text-brand-700">{workspace.code}</b> (untuk login karyawan dengan NRP)
                                     {workspace.days_left !== null && (
                                         <>
                                             {' · '}masa demo tersisa <b className="text-slate-700">{workspace.days_left} hari</b>
@@ -232,28 +232,28 @@ export default function Dashboard(props: Props) {
                                         onClick={() => setSwitchTo('demo')}
                                         className="flex items-center gap-1.5 rounded-xl border border-brand-200 px-3 py-2 text-xs font-bold text-brand-700 hover:bg-brand-50"
                                     >
-                                        <RefreshCw size={14} /> {workspace.sumber_data === 'demo' ? 'Reset data demo' : 'Pakai data demo sistem'}
+                                        <RefreshCw size={14} /> {workspace.data_source === 'demo' ? 'Reset data demo' : 'Pakai data demo sistem'}
                                     </button>
                                     <button
-                                        onClick={() => setSwitchTo('kosong')}
+                                        onClick={() => setSwitchTo('blank')}
                                         className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
                                     >
-                                        <Database size={14} /> {workspace.sumber_data === 'kosong' ? 'Kosongkan lagi' : 'Pakai data sendiri'}
+                                        <Database size={14} /> {workspace.data_source === 'blank' ? 'Kosongkan lagi' : 'Pakai data sendiri'}
                                     </button>
                                 </div>
                             )}
                         </div>
                     )}
 
-                    {workspace?.sumber_data === 'kosong' && props.people.aktif === 0 && (
+                    {workspace?.data_source === 'blank' && props.people.active === 0 && (
                         <div className="rounded-3xl border-2 border-dashed border-brand-200 bg-white p-6">
                             <h3 className="font-black text-slate-800">Mulai dengan data Anda sendiri</h3>
                             <ol className="mt-3 grid gap-3 text-sm text-slate-600 md:grid-cols-4">
                                 {[
-                                    ['Master Data Personalia', 'Buat lokasi kerja, divisi, departemen, section, dan SubGroup.', '/manpower/master-data'],
-                                    ['Struktur Organisasi', 'Susun plan jabatan per lokasi kerja.', '/manpower/org-structure/plan'],
-                                    ['Man Power', 'Tambah karyawan satu per satu atau import dari template Excel.', '/manpower/karyawan'],
-                                    ['Master Comben & Attendance', 'Atur plafon, golongan, pola roster, dan hari libur.', '/comben/master-data'],
+                                    ['Pengaturan Core HR', 'Buat lokasi kerja, divisi, departemen, section, dan SubGroup.', '/core-hr/settings'],
+                                    ['Struktur Organisasi', 'Susun plan jabatan per lokasi kerja.', '/core-hr/org-chart/plan'],
+                                    ['Man Power', 'Tambah karyawan satu per satu atau import dari template Excel.', '/core-hr/employees'],
+                                    ['Master Comben & Attendance', 'Atur plafon, golongan, pola roster, dan hari libur.', '/compensation/settings'],
                                 ].map(([t, d, href], i) => (
                                     <li key={t}>
                                         <Link href={href} className="block h-full rounded-2xl bg-brand-50/60 p-4 hover:bg-brand-50">
@@ -302,14 +302,14 @@ export default function Dashboard(props: Props) {
 
                     {/* Onsite + kehadiran */}
                     <div className="grid gap-6 xl:grid-cols-3">
-                        <Card title="Man Onsite (20 hari lalu – 9 hari ke depan)" icon={<MapPin size={15} />} className="xl:col-span-2" action={<OpenLink href="/attendance/roster" show={can('roster')} />}>
+                        <Card title="Man Onsite (20 hari lalu – 9 hari ke depan)" icon={<MapPin size={15} />} className="xl:col-span-2" action={<OpenLink href="/time/shift-schedule" show={can('schedule')} />}>
                             {props.onsite.length ? <OnsiteChart days={props.onsite} today={props.today} /> : <p className="text-sm text-slate-400">Belum ada data roster / absensi.</p>}
                         </Card>
-                        <Card title="Kehadiran 30 hari" icon={<TrendingUp size={15} />} action={<OpenLink href="/attendance/absensi" show={can('absensi')} />}>
+                        <Card title="Kehadiran 30 hari" icon={<TrendingUp size={15} />} action={<OpenLink href="/time/attendance" show={can('attendance')} />}>
                             <div className="flex flex-col items-center gap-4">
-                                <Gauge value={props.kehadiran.rate} label="tingkat hadir" />
+                                <Gauge value={props.time_clock.rate} label="tingkat hadir" />
                                 <div className="w-full">
-                                    <HBars data={kehadiran} />
+                                    <HBars data={time_clock} />
                                 </div>
                             </div>
                         </Card>
@@ -333,7 +333,7 @@ export default function Dashboard(props: Props) {
                             </div>
                             <AnimatePresence mode="wait">
                                 <motion.div key={komposisi} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-                                    {komposisi === 'usia' || komposisi === 'masa_kerja' ? (
+                                    {komposisi === 'age' || komposisi === 'years_of_service' ? (
                                         <VBars data={komposisiData} height={180} />
                                     ) : (
                                         <Donut data={komposisiData} center="Karyawan" />
@@ -341,10 +341,10 @@ export default function Dashboard(props: Props) {
                                 </motion.div>
                             </AnimatePresence>
                         </Card>
-                        <div id="pengajuan" className="scroll-mt-6">
+                        <div id="submission" className="scroll-mt-6">
                             <Card title="Pengajuan menunggu verifikasi" icon={<ClipboardCheck size={15} />} className="h-full">
                                 <ul className="space-y-2">
-                                    {props.pengajuan.map((p) => {
+                                    {props.submission.map((p) => {
                                         const row = (
                                             <>
                                                 <span className="flex-1 text-sm font-semibold text-slate-600">{p.label}</span>
@@ -380,28 +380,28 @@ export default function Dashboard(props: Props) {
 
                     {/* Comben + recruitment */}
                     <div className="grid gap-6 xl:grid-cols-2">
-                        <Card title={`Deklarasi Comben ${new Date(props.today).getFullYear()}`} icon={<HandCoins size={15} />} action={<OpenLink href="/comben/monitoring" show={can('monitoring-plafon')} />}>
+                        <Card title={`Deklarasi Comben ${new Date(props.today).getFullYear()}`} icon={<HandCoins size={15} />} action={<OpenLink href="/compensation/benefit-balances" show={can('benefit-balances')} />}>
                             <div className="mb-4 flex flex-wrap gap-6">
                                 <div>
                                     <p className="text-[11px] font-semibold text-slate-400">Total disetujui</p>
-                                    <CountUp value={props.comben.total} format={compactRupiah} className="text-2xl font-black text-brand-700" />
+                                    <CountUp value={props.compensation.total} format={compactRupiah} className="text-2xl font-black text-brand-700" />
                                 </div>
                                 <div>
                                     <p className="text-[11px] font-semibold text-slate-400">Jumlah deklarasi</p>
-                                    <p className="text-2xl font-black text-slate-800">{num(props.comben.jumlah)}</p>
+                                    <p className="text-2xl font-black text-slate-800">{num(props.compensation.quantity)}</p>
                                 </div>
                             </div>
-                            <VBars data={props.comben.per_bulan} format={rupiah} highlight={new Date(props.today).getMonth()} />
+                            <VBars data={props.compensation.per_month} format={rupiah} highlight={new Date(props.today).getMonth()} />
                             <div className="mt-5 border-t border-slate-100 pt-4">
-                                <HBars data={props.comben.per_jenis} format={compactRupiah} />
+                                <HBars data={props.compensation.per_type} format={compactRupiah} />
                             </div>
                         </Card>
-                        <Card title="Pipeline recruitment" icon={<Briefcase size={15} />} action={<OpenLink href="/recruitment/tracking" show={can('recruitment')} />}>
+                        <Card title="Pipeline recruitment" icon={<Briefcase size={15} />} action={<OpenLink href="/recruitment/pipeline" show={can('recruitment')} />}>
                             <div className="mb-5 grid grid-cols-3 gap-3">
                                 {[
-                                    ['Lowongan dibuka', props.recruitment.lowongan_buka],
-                                    ['Pelamar baru', props.recruitment.pelamar_baru],
-                                    ['Pelamar 30 hari', props.recruitment.pelamar_30_hari],
+                                    ['Lowongan dibuka', props.recruitment.open_postings],
+                                    ['Pelamar baru', props.recruitment.new_applicants],
+                                    ['Pelamar 30 hari', props.recruitment.applicants_30_days],
                                 ].map(([l, v]) => (
                                     <div key={l} className="rounded-2xl bg-slate-50 p-3">
                                         <p className="text-[11px] font-semibold text-slate-400">{l}</p>
@@ -415,13 +415,13 @@ export default function Dashboard(props: Props) {
 
                     {/* MPP + agenda */}
                     <div className="grid gap-6 xl:grid-cols-3">
-                        <Card title="Man Power Planning: plan vs actual" icon={<TrendingUp size={15} />} className="xl:col-span-2" action={<OpenLink href="/manpower/mpp" show={can('mpp')} />}>
-                            {props.mpp.length === 0 ? (
+                        <Card title="Man Power Planning: plan vs actual" icon={<TrendingUp size={15} />} className="xl:col-span-2" action={<OpenLink href="/core-hr/workforce-planning" show={can('workforce_planning')} />}>
+                            {props.workforce_planning.length === 0 ? (
                                 <p className="text-sm text-slate-400">Belum ada rencana MPP.</p>
                             ) : (
                                 <div className="space-y-4">
-                                    {props.mpp.map((m, i) => {
-                                        const max = Math.max(1, ...props.mpp.flatMap((x) => [x.plan, x.actual]));
+                                    {props.workforce_planning.map((m, i) => {
+                                        const max = Math.max(1, ...props.workforce_planning.flatMap((x) => [x.plan, x.actual]));
                                         return (
                                             <div key={m.label}>
                                                 <div className="mb-1.5 flex items-center justify-between text-xs">
@@ -454,50 +454,50 @@ export default function Dashboard(props: Props) {
                             )}
                         </Card>
                         <div className="space-y-6">
-                            {props.perjalanan.akan_datang && (
-                                <Card title="Dinas & cuti 14 hari ke depan" icon={<Plane size={15} />} action={<OpenLink href="/attendance/trip-leave" show={can('trip-leave')} />}>
+                            {props.travel.upcoming && (
+                                <Card title="Dinas & cuti 14 hari ke depan" icon={<Plane size={15} />} action={<OpenLink href="/time/leave-travel" show={can('leave-travel')} />}>
                                     <ul className="space-y-2">
-                                        {props.perjalanan.akan_datang.map((t) => (
-                                            <li key={`${t.name}${t.tanggal_awal}`} className="flex items-center gap-3">
+                                        {props.travel.upcoming.map((t) => (
+                                            <li key={`${t.name}${t.start_date}`} className="flex items-center gap-3">
                                                 <span
-                                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${t.jenis === 'dinas' ? 'bg-teal-50 text-teal-600' : 'bg-brand-50 text-brand-600'}`}
+                                                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${t.type === 'business_trip' ? 'bg-teal-50 text-teal-600' : 'bg-brand-50 text-brand-600'}`}
                                                 >
-                                                    {t.jenis === 'dinas' ? <Plane size={15} /> : <Palmtree size={15} />}
+                                                    {t.type === 'business_trip' ? <Plane size={15} /> : <Palmtree size={15} />}
                                                 </span>
                                                 <div className="min-w-0 flex-1">
                                                     <p className="truncate text-sm font-bold text-slate-700">{t.name}</p>
                                                     <p className="truncate text-[11px] text-slate-400">
-                                                        {t.jenis === 'dinas' ? 'Dinas' : `Cuti ${t.kategori_cuti ?? ''}`} · {t.kota_tujuan ?? '-'}
+                                                        {t.type === 'business_trip' ? 'Dinas' : `Cuti ${t.leave_category ?? ''}`} · {t.destination_city ?? '-'}
                                                     </p>
                                                 </div>
                                                 <span className="text-[11px] font-bold whitespace-nowrap text-slate-500">
-                                                    {dmy(t.tanggal_awal)} – {dmy(t.tanggal_akhir)}
+                                                    {dmy(t.start_date)} – {dmy(t.end_date)}
                                                 </span>
                                             </li>
                                         ))}
-                                        {props.perjalanan.akan_datang.length === 0 && <li className="text-sm text-slate-400">Tidak ada jadwal.</li>}
+                                        {props.travel.upcoming.length === 0 && <li className="text-sm text-slate-400">Tidak ada jadwal.</li>}
                                     </ul>
                                 </Card>
                             )}
-                            {props.ulang_tahun && (
+                            {props.birthdays && (
                                 <Card title="Ulang tahun 30 hari ke depan" icon={<Cake size={15} />}>
                                     <ul className="space-y-2">
-                                        {props.ulang_tahun.map((b) => (
+                                        {props.birthdays.map((b) => (
                                             <li key={b.name} className="flex items-center gap-3">
                                                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent-100 text-sm font-black text-brand-800">
                                                     {b.name.charAt(0)}
                                                 </span>
                                                 <div className="min-w-0 flex-1">
                                                     <p className="truncate text-sm font-bold text-slate-700">{b.name}</p>
-                                                    <p className="truncate text-[11px] text-slate-400">{b.jabatan ?? '-'}</p>
+                                                    <p className="truncate text-[11px] text-slate-400">{b.position ?? '-'}</p>
                                                 </div>
                                                 <span className="text-right text-[11px] font-bold text-slate-500">
-                                                    {b.hari === 0 ? '🎉 Hari ini' : dmy(b.tanggal)}
-                                                    <span className="block font-normal text-slate-400">{b.usia} th</span>
+                                                    {b.days === 0 ? '🎉 Hari ini' : dmy(b.date)}
+                                                    <span className="block font-normal text-slate-400">{b.age} th</span>
                                                 </span>
                                             </li>
                                         ))}
-                                        {props.ulang_tahun.length === 0 && <li className="text-sm text-slate-400">Tidak ada.</li>}
+                                        {props.birthdays.length === 0 && <li className="text-sm text-slate-400">Tidak ada.</li>}
                                     </ul>
                                 </Card>
                             )}
@@ -567,14 +567,14 @@ export default function Dashboard(props: Props) {
 }
 
 /** Confirms rebuilding the demo workspace with the chosen data. */
-function SwitchDataModal({ to, onClose }: { to: 'demo' | 'kosong'; onClose: () => void }) {
-    const [konfirmasi, setKonfirmasi] = useState('');
+function SwitchDataModal({ to, onClose }: { to: 'demo' | 'blank'; onClose: () => void }) {
+    const [confirmation, setKonfirmasi] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const submit = () =>
         router.post(
             '/workspace/data',
-            { sumber_data: to, konfirmasi },
+            { data_source: to, confirmation },
             {
                 onStart: () => setBusy(true),
                 onFinish: () => setBusy(false),
@@ -607,7 +607,7 @@ function SwitchDataModal({ to, onClose }: { to: 'demo' | 'kosong'; onClose: () =
                 <label className="mt-4 block text-xs font-bold text-slate-600">
                     Ketik <span className="font-mono text-rose-600">SETUJU</span> untuk melanjutkan
                     <input
-                        value={konfirmasi}
+                        value={confirmation}
                         onChange={(e) => setKonfirmasi(e.target.value)}
                         className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-4 focus:ring-brand-100"
                         autoFocus
@@ -620,7 +620,7 @@ function SwitchDataModal({ to, onClose }: { to: 'demo' | 'kosong'; onClose: () =
                     </button>
                     <button
                         onClick={submit}
-                        disabled={konfirmasi !== 'SETUJU' || busy}
+                        disabled={confirmation !== 'SETUJU' || busy}
                         className="flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-40"
                     >
                         {busy && <Loader2 size={15} className="animate-spin" />} Siapkan ulang

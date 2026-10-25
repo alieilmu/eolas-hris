@@ -13,7 +13,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 #[Fillable([
-    'name', 'email', 'password', 'role', 'karyawan_id', 'permissions', 'work_location_ids', 'sub_location_ids',
+    'name', 'email', 'password', 'role', 'employee_id', 'permissions', 'work_location_ids', 'sub_location_ids',
     'is_active', 'must_change_password', 'last_login_at',
 ])]
 #[Hidden(['password', 'remember_token'])]
@@ -23,15 +23,15 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     /** Super Admin: every module and location, and Settings (accounts). */
-    public const ROLE_ADMIN = 'Admin';
+    public const ROLE_ADMIN = 'super_admin';
 
     /** Admin: the menus ticked in Settings, for the locations chosen there. */
-    public const ROLE_HR = 'HR';
+    public const ROLE_HR = 'admin';
 
     /** An employee: the employee portal only (their own plafon, deklarasi, cuti and dinas). */
-    public const ROLE_KARYAWAN = 'Karyawan';
+    public const ROLE_EMPLOYEE = 'employee';
 
-    public const ROLE_LABELS = [self::ROLE_ADMIN => 'Super Admin', self::ROLE_HR => 'Admin', self::ROLE_KARYAWAN => 'Karyawan'];
+    public const ROLE_LABELS = [self::ROLE_ADMIN => 'Super Admin', self::ROLE_HR => 'Admin', self::ROLE_EMPLOYEE => 'Karyawan'];
 
     /** A new account is active and keeps its password unless created with a first-time one. */
     protected $attributes = ['is_active' => true, 'must_change_password' => false];
@@ -55,9 +55,9 @@ class User extends Authenticatable
         ];
     }
 
-    public function karyawan(): BelongsTo
+    public function employee(): BelongsTo
     {
-        return $this->belongsTo(Karyawan::class);
+        return $this->belongsTo(Employee::class);
     }
 
     /** The Super Admin. */
@@ -66,9 +66,9 @@ class User extends Authenticatable
         return $this->role === self::ROLE_ADMIN;
     }
 
-    public function isKaryawan(): bool
+    public function isEmployee(): bool
     {
-        return $this->role === self::ROLE_KARYAWAN;
+        return $this->role === self::ROLE_EMPLOYEE;
     }
 
     /** "edit", "view" or null for a menu (see Menu). */
@@ -120,6 +120,6 @@ class User extends Authenticatable
     /** NIK, NPWP, BPJS, bank accounts and family data: who may see Man Power. */
     public function canAccessSensitiveData(): bool
     {
-        return $this->canView('karyawan');
+        return $this->canView('employees');
     }
 }

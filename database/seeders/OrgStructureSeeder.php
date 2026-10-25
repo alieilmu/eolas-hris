@@ -2,13 +2,13 @@
 
 namespace Database\Seeders;
 
-use App\Models\Bod;
-use App\Models\Jabatan;
-use App\Models\MasterOption;
-use App\Models\SubGroup;
+use App\Models\Directorate;
+use App\Models\Position;
+use App\Models\LookupValue;
+use App\Models\JobLevel;
 use App\Models\WorkLocation;
-use App\Support\Karyawan\MasterOptions;
-use App\Support\Org\JabatanComposer;
+use App\Support\Employees\LookupValues;
+use App\Support\Organization\PositionComposer;
 use Illuminate\Database\Seeder;
 use RuntimeException;
 
@@ -19,21 +19,21 @@ class OrgStructureSeeder extends Seeder
      * nama => [layer, sumber, gelar, gelar at Head Office]. Superiors are arranged in the chart.
      */
     public const SUB_GROUPS = [
-        'BOD' => [6, 'bod', null, null],
-        'General Manager' => [5, 'divisi', 'GENERAL MANAGER', null],
-        'Manager' => [4, 'departemen', 'MANAGER', null],
+        'BOD' => [6, 'directorate', null, null],
+        'General Manager' => [5, 'division', 'GENERAL MANAGER', null],
+        'Manager' => [4, 'department', 'MANAGER', null],
         'Project Manager' => [4, 'work_location', 'PROJECT MANAGER', null],
         'Deputy Project Manager' => [4, 'work_location', 'DEPUTY PROJECT MANAGER', null],
         'Section Head HO' => [3, 'section', 'SECTION HEAD', null],
         'Section Head Site' => [3, 'section', 'SECTION HEAD', null],
-        'Departement Head' => [3, 'departemen', 'DEPT HEAD', null],
-        'Officer HO/ Group Leader' => [2, 'bidang', 'GROUP LEADER', 'OFFICER'],
-        'Junior Staff' => [2, 'bidang', 'JUNIOR STAFF', null],
-        'FGDP' => [2, 'bidang', 'FGDP', null],
-        'Operator' => [1, 'bidang', null, null],
-        'Mekanik' => [1, 'bidang', null, null],
-        'Nonom' => [1, 'bidang', null, null],
-        'Welder' => [1, 'bidang', null, null],
+        'Departement Head' => [3, 'department', 'DEPT HEAD', null],
+        'Officer HO/ Group Leader' => [2, 'discipline', 'GROUP LEADER', 'OFFICER'],
+        'Junior Staff' => [2, 'discipline', 'JUNIOR STAFF', null],
+        'FGDP' => [2, 'discipline', 'FGDP', null],
+        'Operator' => [1, 'discipline', null, null],
+        'Mekanik' => [1, 'discipline', null, null],
+        'Nonom' => [1, 'discipline', null, null],
+        'Welder' => [1, 'discipline', null, null],
     ];
 
     /** Divisi => departemen => its sections. */
@@ -44,9 +44,9 @@ class OrgStructureSeeder extends Seeder
 
     /** name => [kode, type] */
     private const WORK_LOCATIONS = [
-        'Head Office' => ['HO', 'Head Office'],
-        'Site Murung Raya' => ['MRY', 'Site'],
-        'Site Rantau' => ['RTU', 'Site'],
+        'Head Office' => ['HO', WorkLocation::TYPE_HEAD_OFFICE],
+        'Site Murung Raya' => ['MRY', WorkLocation::TYPE_SITE],
+        'Site Rantau' => ['RTU', WorkLocation::TYPE_SITE],
     ];
 
     /** Sample of the "Nama Jabatan" master list (the bidang half of composed names). */
@@ -58,12 +58,12 @@ class OrgStructureSeeder extends Seeder
      * e.g. MANAGER HRGA, SECTION HEAD WORKSHOP, OFFICER EMPLOYEE ADMINISTRATION.
      */
     public const JABATANS = [
-        ['KDV-OPS', 'General Manager', 'Site Murung Raya', 'divisi', 'OPERASIONAL', null],
-        ['KDV-UMK', 'General Manager', 'Head Office', 'divisi', 'UMUM & KEUANGAN', null],
-        ['KDP-PRD', 'Departement Head', 'Site Murung Raya', 'departemen', 'PRODUKSI', null],
-        ['KDP-MTC', 'Departement Head', 'Site Rantau', 'departemen', 'MAINTENANCE', null],
-        ['KDP-HRG', 'Manager', 'Head Office', 'departemen', 'HRGA', null],
-        ['KDP-FIN', 'Manager', 'Head Office', 'departemen', 'FINANCE', null],
+        ['KDV-OPS', 'General Manager', 'Site Murung Raya', 'division', 'OPERASIONAL', null],
+        ['KDV-UMK', 'General Manager', 'Head Office', 'division', 'UMUM & KEUANGAN', null],
+        ['KDP-PRD', 'Departement Head', 'Site Murung Raya', 'department', 'PRODUKSI', null],
+        ['KDP-MTC', 'Departement Head', 'Site Rantau', 'department', 'MAINTENANCE', null],
+        ['KDP-HRG', 'Manager', 'Head Office', 'department', 'HRGA', null],
+        ['KDP-FIN', 'Manager', 'Head Office', 'department', 'FINANCE', null],
         ['SPV-MTC', 'Section Head Site', 'Site Rantau', 'section', 'WORKSHOP', null],
         ['STF-HRG', 'Officer HO/ Group Leader', 'Head Office', 'section', 'PERSONALIA', 'EMPLOYEE ADMINISTRATION'],
         ['STF-FIN', 'Junior Staff', 'Head Office', 'section', 'AKUNTANSI', 'ACCOUNTING'],
@@ -76,18 +76,18 @@ class OrgStructureSeeder extends Seeder
 
     public function run(): void
     {
-        $bod = Bod::create(['name' => 'Direktur Utama', 'order' => 0]);
+        $directorate = Directorate::create(['name' => 'Direktur Utama', 'sort_order' => 0]);
 
         // unit level => name => id
-        $units = ['divisi' => [], 'departemen' => [], 'section' => []];
-        foreach (self::UNITS as $divisiName => $departemens) {
-            $divisi = $bod->divisis()->create(['name' => $divisiName, 'order' => count($units['divisi'])]);
-            $units['divisi'][$divisiName] = $divisi->id;
-            foreach ($departemens as $deptName => $sections) {
-                $departemen = $divisi->departemens()->create(['name' => $deptName, 'order' => count($units['departemen'])]);
-                $units['departemen'][$deptName] = $departemen->id;
+        $units = ['division' => [], 'department' => [], 'section' => []];
+        foreach (self::UNITS as $divisiName => $departments) {
+            $division = $directorate->divisions()->create(['name' => $divisiName, 'sort_order' => count($units['division'])]);
+            $units['division'][$divisiName] = $division->id;
+            foreach ($departments as $deptName => $sections) {
+                $department = $division->departments()->create(['name' => $deptName, 'sort_order' => count($units['department'])]);
+                $units['department'][$deptName] = $department->id;
                 foreach ($sections as $order => $sectionName) {
-                    $units['section'][$sectionName] = $departemen->sections()->create(['name' => $sectionName, 'order' => $order])->id;
+                    $units['section'][$sectionName] = $department->sections()->create(['name' => $sectionName, 'sort_order' => $order])->id;
                 }
             }
         }
@@ -95,32 +95,32 @@ class OrgStructureSeeder extends Seeder
         self::seedSubGroups();
 
         // Where people work; each position (and so each employee) belongs to one.
-        foreach (self::WORK_LOCATIONS as $name => [$kode, $type]) {
-            WorkLocation::create(['name' => $name, 'kode' => $kode, 'type' => $type, 'order' => WorkLocation::count()]);
+        foreach (self::WORK_LOCATIONS as $name => [$code, $type]) {
+            WorkLocation::create(['name' => $name, 'code' => $code, 'type' => $type, 'sort_order' => WorkLocation::count()]);
         }
 
-        foreach (self::BIDANG as $urutan => $nilai) {
-            MasterOption::firstOrCreate(['kategori' => JabatanComposer::BIDANG, 'nilai' => $nilai], ['urutan' => $urutan]);
+        foreach (self::BIDANG as $sort_order => $value) {
+            LookupValue::firstOrCreate(['category' => PositionComposer::BIDANG, 'value' => $value], ['sort_order' => $sort_order]);
         }
-        MasterOptions::flush();
+        LookupValues::flush();
 
         self::$created = [];
-        foreach (self::JABATANS as [$key, $subGroup, $location, $unitLevel, $unitName, $bidang]) {
-            [$jabatan, $error] = JabatanComposer::findOrCreate([
+        foreach (self::JABATANS as [$key, $jobLevel, $location, $unitLevel, $unitName, $discipline]) {
+            [$position, $error] = PositionComposer::findOrCreate([
                 'work_location_id' => WorkLocation::where('name', $location)->value('id'),
-                'sub_group_id' => SubGroup::where('nama', $subGroup)->value('id'),
-                Jabatan::UNIT_COLUMNS[$unitLevel] => $units[$unitLevel][$unitName],
-                'bidang' => $bidang,
+                'job_level_id' => JobLevel::where('name', $jobLevel)->value('id'),
+                Position::UNIT_COLUMNS[$unitLevel] => $units[$unitLevel][$unitName],
+                'discipline' => $discipline,
             ]);
-            self::$created[$key] = $jabatan?->id ?? throw new RuntimeException("Demo jabatan {$key}: {$error}");
+            self::$created[$key] = $position?->id ?? throw new RuntimeException("Demo jabatan {$key}: {$error}");
         }
     }
 
     /** Creates or updates the SubGroups and their naming rules (also used to set up an existing database). */
     public static function seedSubGroups(): void
     {
-        foreach (self::SUB_GROUPS as $nama => [$layer, $sumber, $gelar, $gelarHo]) {
-            SubGroup::updateOrCreate(['nama' => $nama], ['layer' => $layer, 'sumber' => $sumber, 'gelar' => $gelar, 'gelar_ho' => $gelarHo]);
+        foreach (self::SUB_GROUPS as $nama => [$layer, $source, $title_prefix, $gelarHo]) {
+            JobLevel::updateOrCreate(['name' => $nama], ['layer' => $layer, 'source' => $source, 'title_prefix' => $title_prefix, 'title_prefix_head_office' => $gelarHo]);
         }
     }
 }

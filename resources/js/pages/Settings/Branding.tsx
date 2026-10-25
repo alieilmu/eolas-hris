@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import { ImageUp, Loader2, LogIn, RotateCcw, Save, Trash2, Users } from 'lucide-react';
-import { AttendanceHeader, primaryButton, secondaryButton, smallInput } from '@/components/attendance/ui';
+import { AttendanceHeader, primaryButton, secondaryButton, smallInput } from '@/components/time/ui';
 import { BrandLogo, LoginMark } from '@/components/BrandLogo';
 import { isHex, paletteVars } from '@/lib/branding';
 import type { Branding } from '@/types';
@@ -15,21 +15,21 @@ interface Props {
     defaults: { app_name: string; brand_color: string; accent_color: string };
 }
 
-const FILES: { jenis: Jenis; label: string; hint: string; accept: string }[] = [
+const FILES: { type: Jenis; label: string; hint: string; accept: string }[] = [
     {
-        jenis: 'logo',
+        type: 'logo',
         label: 'Logo',
         hint: 'Di sidebar, Portal Karyawan dan form Deklarasi. Sebaiknya persegi / mendatar, latar transparan. PNG, JPG, WEBP maks. 2 MB.',
         accept: 'image/png,image/jpeg,image/webp',
     },
     {
-        jenis: 'logo-full',
+        type: 'logo-full',
         label: 'Logo lengkap (halaman login)',
         hint: 'Logo dengan nama perusahaan. Bila kosong, login memakai Logo + nama perusahaan. Maks. 2 MB.',
         accept: 'image/png,image/jpeg,image/webp',
     },
     {
-        jenis: 'favicon',
+        type: 'favicon',
         label: 'Favicon (ikon tab browser)',
         hint: 'PNG / ICO persegi, mis. 64×64, maks. 512 KB. Bila kosong, dibuat otomatis dari huruf pertama nama aplikasi.',
         accept: 'image/png,image/x-icon,image/vnd.microsoft.icon,.ico,image/webp',
@@ -53,22 +53,22 @@ export default function BrandingPage({ values, files, defaults }: Props) {
         logo: null as File | null,
         'logo-full': null as File | null,
         favicon: null as File | null,
-        hapus: [] as Jenis[],
+        delete: [] as Jenis[],
     });
     const d = form.data;
 
     // Local previews of the files picked but not saved yet.
     const [previews, setPreviews] = useState<Partial<Record<Jenis, string>>>({});
     useEffect(() => () => Object.values(previews).forEach((u) => u && URL.revokeObjectURL(u)), [previews]);
-    const pick = (jenis: Jenis, file: File | null) => {
-        form.setData((data) => ({ ...data, [jenis]: file, hapus: data.hapus.filter((j) => j !== jenis) }));
-        setPreviews((p) => ({ ...p, [jenis]: file ? URL.createObjectURL(file) : undefined }));
+    const pick = (type: Jenis, file: File | null) => {
+        form.setData((data) => ({ ...data, [type]: file, delete: data.delete.filter((j) => j !== type) }));
+        setPreviews((p) => ({ ...p, [type]: file ? URL.createObjectURL(file) : undefined }));
     };
-    const remove = (jenis: Jenis) => {
-        form.setData((data) => ({ ...data, [jenis]: null, hapus: [...new Set([...data.hapus, jenis])] }));
-        setPreviews((p) => ({ ...p, [jenis]: undefined }));
+    const remove = (type: Jenis) => {
+        form.setData((data) => ({ ...data, [type]: null, delete: [...new Set([...data.delete, type])] }));
+        setPreviews((p) => ({ ...p, [type]: undefined }));
     };
-    const current = (jenis: Jenis) => previews[jenis] ?? (d.hapus.includes(jenis) ? null : files[jenis]);
+    const current = (type: Jenis) => previews[type] ?? (d.delete.includes(type) ? null : files[type]);
 
     const preview: Branding = useMemo(
         () => ({
@@ -86,7 +86,7 @@ export default function BrandingPage({ values, files, defaults }: Props) {
     );
 
     const submit = () =>
-        form.post('/settings/white-label', {
+        form.post('/settings/branding', {
             forceFormData: true,
             preserveScroll: true,
             // The colours and the favicon sit in the page head: load it again to see them everywhere.
@@ -97,9 +97,9 @@ export default function BrandingPage({ values, files, defaults }: Props) {
 
     return (
         <>
-            <Head title="White Label" />
+            <Head title="Branding" />
             <AttendanceHeader
-                title="White Label"
+                title="Branding"
                 subtitle="Nama, logo, favicon dan warna aplikasi — untuk dipakai perusahaan lain tanpa mengubah kode"
             >
                 <button onClick={submit} disabled={form.processing || !colorsOk} className={primaryButton}>
@@ -199,13 +199,13 @@ export default function BrandingPage({ values, files, defaults }: Props) {
                             <div className="divide-y divide-slate-100">
                                 {FILES.map((f) => (
                                     <FileRow
-                                        key={f.jenis}
+                                        key={f.type}
                                         {...f}
-                                        url={current(f.jenis)}
-                                        dark={f.jenis === 'favicon'}
-                                        error={form.errors[f.jenis]}
-                                        onPick={(file) => pick(f.jenis, file)}
-                                        onRemove={() => remove(f.jenis)}
+                                        url={current(f.type)}
+                                        dark={f.type === 'favicon'}
+                                        error={form.errors[f.type]}
+                                        onPick={(file) => pick(f.type, file)}
+                                        onRemove={() => remove(f.type)}
                                     />
                                 ))}
                             </div>
@@ -373,7 +373,7 @@ function Preview({ b }: { b: Branding }) {
                             </p>
                             <p className="rounded-md bg-accent-400 px-2 py-1 text-brand-950">Data Karyawan</p>
                             <p className="px-2 py-1 text-brand-200">Struktur Organisasi</p>
-                            <p className="px-2 py-1 text-brand-200">Trip &amp; Leave</p>
+                            <p className="px-2 py-1 text-brand-200">Cuti &amp; Dinas</p>
                         </div>
                     </div>
                     <div className="min-w-0 flex-1">

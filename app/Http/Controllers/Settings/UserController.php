@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
-use App\Models\Karyawan;
+use App\Models\Employee;
 use App\Models\SubLocation;
 use App\Models\User;
 use App\Models\WorkLocation;
@@ -19,14 +19,14 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Settings → Akun & Akses (Super Admin only): admin accounts with their menus
+ * Administrasi → Pengguna & Akses (Super Admin only): admin accounts with their menus
  * (lihat / ubah) and locations, and employee accounts for the portal.
  */
 class UserController extends Controller
 {
     public function index(): Response
     {
-        $accounts = User::where('role', User::ROLE_KARYAWAN)->get()->keyBy('karyawan_id');
+        $accounts = User::where('role', User::ROLE_EMPLOYEE)->get()->keyBy('employee_id');
 
         return Inertia::render('Settings/Users', [
             'admins' => User::whereIn('role', [User::ROLE_ADMIN, User::ROLE_HR])->orderBy('role')->orderBy('name')->get()->map(fn (User $u) => [
@@ -40,23 +40,23 @@ class UserController extends Controller
                 'is_active' => $u->is_active,
                 'last_login_at' => $u->last_login_at?->format('d.m.Y H:i'),
             ]),
-            'karyawans' => Karyawan::with(['jabatan:id,name', 'workLocation:id,name', 'subLocation:id,name', 'profile:id,karyawan_id,tanggal_lahir'])
-                ->where('status', '!=', Karyawan::STATUS_KELUAR)
-                ->orderBy('nrp')
+            'employees' => Employee::with(['position:id,name', 'workLocation:id,name', 'subLocation:id,name', 'profile:id,employee_id,birth_date'])
+                ->where('status', '!=', Employee::STATUS_TERMINATED)
+                ->orderBy('employee_number')
                 ->get()
-                ->map(function (Karyawan $k) use ($accounts) {
+                ->map(function (Employee $k) use ($accounts) {
                     $account = $accounts[$k->id] ?? null;
 
                     return [
                         'id' => $k->id,
-                        'nrp' => $k->nrp,
+                        'employee_number' => $k->employee_number,
                         'name' => $k->name,
-                        'jabatan' => $k->jabatan?->name,
+                        'position' => $k->position?->name,
                         'work_location_id' => $k->work_location_id,
                         'work_location' => $k->workLocation?->name,
                         'sub_location' => $k->subLocation?->name,
                         'sub_location_id' => $k->sub_location_id,
-                        'has_tanggal_lahir' => (bool) $k->profile?->tanggal_lahir,
+                        'has_birth_date' => (bool) $k->profile?->birth_date,
                         'account' => $account ? [
                             'id' => $account->id,
                             'is_active' => $account->is_active,
@@ -69,8 +69,8 @@ class UserController extends Controller
                 'module' => $module,
                 'menus' => collect($menus)->map(fn (string $label, string $key) => ['key' => $key, 'label' => $label])->values(),
             ])->values(),
-            'locations' => WorkLocation::orderBy('order')->get(['id', 'name']),
-            'sub_locations' => SubLocation::orderBy('work_location_id')->orderBy('order')->orderBy('name')->get(['id', 'name', 'work_location_id']),
+            'locations' => WorkLocation::orderBy('sort_order')->get(['id', 'name']),
+            'sub_locations' => SubLocation::orderBy('work_location_id')->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'work_location_id']),
             'roles' => User::ROLE_LABELS,
         ]);
     }
@@ -88,7 +88,7 @@ class UserController extends Controller
 
     public function update(Request $request, User $user): RedirectResponse
     {
-        abort_if($user->isKaryawan(), 404);
+        abort_if($user->isEmployee(), 404);
         $data = $this->adminData($request, $user);
         $demoted = $user->isAdmin() && $data['role'] !== User::ROLE_ADMIN;
         if (($demoted || ! $data['is_active']) && $user->isAdmin() && User::where('role', User::ROLE_ADMIN)->where('is_active', true)->count() <= 1) {
@@ -160,11 +160,11 @@ class UserController extends Controller
     // --- employee accounts -------------------------------------------------------------------
 
     /** Accounts for the chosen employees; the first password is their birth date (ddmmyyyy). */
-    public function storeKaryawan(Request $request): RedirectResponse
+    public function storeEmployee(Request $request): RedirectResponse
     {
-        $ids = $request->validate(['karyawan_ids' => ['required', 'array', 'min:1'], 'karyawan_ids.*' => ['integer']])['karyawan_ids'];
-        $existing = User::whereIn('karyawan_id', $ids)->pluck('karyawan_id')->flip();
-        $people = Karyawan::with('profile:id,karyawan_id,tanggal_lahir')->whereIn('id', $ids)->where('status', '!=', Karyawan::STATUS_KELUAR)->get();
+        $ids = $request->validate(['employee_ids' => ['required', 'array', 'min:1'], 'employee_ids.*' => ['integer']])['employee_ids'];
+        $existing = User::whereIn('employee_id', $ids)->pluck('employee_id')->flip();
+        $people = Employee::with('profile:id,employee_id,birth_date')->whereIn('id', $ids)->where('status', '!=', Employee::STATUS_TERMINATED)->get();
 
         // Bulk: one insert per 500 rows, with the cheap first-time hash (see initialPasswordHash).
         $now = now();
@@ -174,15 +174,15 @@ class UserController extends Controller
             if ($existing->has($k->id)) {
                 continue;
             }
-            if (! $k->profile?->tanggal_lahir) {
+            if (! $k->profile?->birth_date) {
                 $withoutBirthDate++;
             }
             $rows[] = [
                 'name' => $k->name,
                 'email' => null,
                 'password' => self::initialPasswordHash($k),
-                'role' => User::ROLE_KARYAWAN,
-                'karyawan_id' => $k->id,
+                'role' => User::ROLE_EMPLOYEE,
+                'employee_id' => $k->id,
                 'is_active' => true,
                 'must_change_password' => true,
                 'created_at' => $now,
@@ -199,46 +199,46 @@ class UserController extends Controller
     }
 
     /** Back to the first password (birth date), to be changed again at the next sign-in. */
-    public function resetKaryawan(User $user): RedirectResponse
+    public function resetEmployee(User $user): RedirectResponse
     {
-        abort_unless($user->isKaryawan() && $user->karyawan, 404);
-        $user->update(['password' => self::initialPasswordHash($user->karyawan), 'must_change_password' => true]);
+        abort_unless($user->isEmployee() && $user->employee, 404);
+        $user->update(['password' => self::initialPasswordHash($user->employee), 'must_change_password' => true]);
         Inertia::flash('success', "Password {$user->name} dikembalikan ke password awal.");
 
         return back();
     }
 
     /** The same for many accounts at once (the ones ticked, or all shown). */
-    public function resetKaryawanMany(Request $request): RedirectResponse
+    public function resetEmployeesBulk(Request $request): RedirectResponse
     {
         $ids = $request->validate(['user_ids' => ['required', 'array', 'min:1'], 'user_ids.*' => ['integer']], ['user_ids.required' => 'Centang minimal satu akun.'])['user_ids'];
-        $users = User::with('karyawan.profile:id,karyawan_id,tanggal_lahir')->where('role', User::ROLE_KARYAWAN)->whereIn('id', $ids)->get()->filter(fn (User $u) => $u->karyawan);
+        $users = User::with('employee.profile:id,employee_id,birth_date')->where('role', User::ROLE_EMPLOYEE)->whereIn('id', $ids)->get()->filter(fn (User $u) => $u->employee);
 
         DB::transaction(function () use ($users) {
             foreach ($users as $u) {
                 // Straight to the table: one query per account, the cheap first-time hash.
-                User::whereKey($u->id)->update(['password' => self::initialPasswordHash($u->karyawan), 'must_change_password' => true]);
+                User::whereKey($u->id)->update(['password' => self::initialPasswordHash($u->employee), 'must_change_password' => true]);
             }
         });
-        $withoutBirthDate = $users->filter(fn (User $u) => ! $u->karyawan->profile?->tanggal_lahir)->count();
+        $withoutBirthDate = $users->filter(fn (User $u) => ! $u->employee->profile?->birth_date)->count();
         Inertia::flash('success', "Password {$users->count()} akun karyawan dikembalikan ke password awal (tanggal lahir ddmmyyyy)"
             .($withoutBirthDate ? "; {$withoutBirthDate} tanpa tanggal lahir memakai NRP." : '.'));
 
         return back();
     }
 
-    public function toggleKaryawan(User $user): RedirectResponse
+    public function toggleEmployee(User $user): RedirectResponse
     {
-        abort_unless($user->isKaryawan(), 404);
+        abort_unless($user->isEmployee(), 404);
         $user->update(['is_active' => ! $user->is_active]);
         Inertia::flash('success', "Akun {$user->name} ".($user->is_active ? 'diaktifkan.' : 'dinonaktifkan.'));
 
         return back();
     }
 
-    public function destroyKaryawan(User $user): RedirectResponse
+    public function destroyEmployee(User $user): RedirectResponse
     {
-        abort_unless($user->isKaryawan(), 404);
+        abort_unless($user->isEmployee(), 404);
         $user->delete();
         Inertia::flash('success', "Akun karyawan {$user->name} dihapus.");
 
@@ -246,11 +246,11 @@ class UserController extends Controller
     }
 
     /** Birth date as ddmmyyyy, or the NRP when it is not filled in. */
-    public static function initialPassword(Karyawan $k): string
+    public static function initialPassword(Employee $k): string
     {
         $k->loadMissing('profile');
 
-        return $k->profile?->tanggal_lahir?->format('dmY') ?? $k->nrp;
+        return $k->profile?->birth_date?->format('dmY') ?? $k->employee_number;
     }
 
     /**
@@ -258,7 +258,7 @@ class UserController extends Controller
      * first sign-in, so a high bcrypt cost adds nothing there and makes creating hundreds of
      * accounts time out. The password the employee picks afterwards gets the normal cost.
      */
-    public static function initialPasswordHash(Karyawan $k): string
+    public static function initialPasswordHash(Employee $k): string
     {
         return Hash::make(self::initialPassword($k), ['rounds' => 4]);
     }
