@@ -313,8 +313,9 @@ class EmployeeSeeder extends Seeder
         $noHp = sprintf('0812%08d', 54120300 + $i * 1117);
         $ayah = self::AYAH[$i % count(self::AYAH)];
         $ibu = self::IBU[$i % count(self::IBU)];
-        $isStaff = $level <= 4 || str_starts_with($this->keyOf[$position->id], 'STF');
-        $isMekanik = in_array($this->keyOf[$position->id], ['KDP-MTC', 'SPV-MTC', 'MKN-MTC'], true);
+        $key = $this->keyOf[$position->id];
+        $isStaff = $level <= 4 || str_starts_with($key, 'STF') || str_starts_with($key, 'GL-');
+        $isMekanik = str_contains($key, 'MTC') || str_starts_with($key, 'MKN');
         $baju = $female ? ['S', 'M', 'L'][$i % 3] : ['M', 'L', 'XL'][$i % 3];
 
         return [

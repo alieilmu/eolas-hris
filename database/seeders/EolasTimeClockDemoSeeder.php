@@ -122,11 +122,15 @@ class EolasTimeClockDemoSeeder extends Seeder
 
         // Older overtime decided: most approved, a few rejected.
         $admin = User::where('role', User::ROLE_ADMIN)->orderBy('id')->value('id');
-        OvertimeRecord::where('status', 'pending')->where('date', '<', $today->subDays(7)->toDateString())->get()
-            ->each(function (OvertimeRecord $l) use ($admin) {
-                $reject = mt_rand(1, 100) <= 6;
-                $l->update(['status' => $reject ? 'rejected' : 'approved', 'verified_by' => $admin, 'verified_at' => now(),
-                    'verification_notes' => $reject ? 'Tanpa surat perintah lembur' : null]);
-            });
+        $decided = ['approved' => [], 'rejected' => []];
+        foreach (OvertimeRecord::where('status', 'pending')->where('date', '<', $today->subDays(7)->toDateString())->orderBy('id')->pluck('id') as $id) {
+            $decided[mt_rand(1, 100) <= 6 ? 'rejected' : 'approved'][] = $id;
+        }
+        foreach ($decided as $status => $ids) {
+            foreach (array_chunk($ids, 500) as $part) {
+                OvertimeRecord::whereIn('id', $part)->update(['status' => $status, 'verified_by' => $admin, 'verified_at' => now(),
+                    'verification_notes' => $status === 'rejected' ? 'Tanpa surat perintah lembur' : null]);
+            }
+        }
     }
 }

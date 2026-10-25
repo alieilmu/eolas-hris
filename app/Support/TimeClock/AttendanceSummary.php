@@ -126,8 +126,28 @@ class AttendanceSummary
                 $shift_window[$d->toDateString()] = $j;
             }
         }
+        // Logs and windows are both in time order, so one pointer walks the logs (as plain
+        // timestamps): linear instead of every log against every day.
+        $at = array_map(fn ($log) => $log->punched_at->getTimestamp(), $logs);
+        $count = count($logs);
         $used = [];
         $days = [];
+        // Windows of one pass only move forward: logs before a window's start are never in a later one.
+        $first = 0;
+        $take = function (int $start, int $end, bool $endInclusive) use (&$used, &$first, $at, $logs, $count): array {
+            while ($first < $count && $at[$first] < $start) {
+                $first++;
+            }
+            $mine = [];
+            for ($n = $first; $n < $count && $at[$n] <= $end; $n++) {
+                if (! isset($used[$n]) && $at[$n] >= $start && ($endInclusive || $at[$n] < $end)) {
+                    $mine[] = $logs[$n];
+                    $used[$n] = true;
+                }
+            }
+
+            return $mine;
+        };
         $keys = array_keys($shift_window);
         foreach ($keys as $i => $key) {
             $j = $shift_window[$key];
@@ -139,31 +159,17 @@ class AttendanceSummary
             if (isset($keys[$i + 1])) {
                 $end = $end->min($shift_window[$keys[$i + 1]]->start->subHours(2));
             }
-            $mine = [];
-            foreach ($logs as $n => $log) {
-                if (! isset($used[$n]) && $log->punched_at->gte($start) && $log->punched_at->lte($end)) {
-                    $mine[] = $log;
-                    $used[$n] = true;
-                }
-            }
-            $days[$key] = ['logs' => $mine, 'shift_window' => $j];
+            $days[$key] = ['logs' => $take($start->getTimestamp(), $end->getTimestamp(), true), 'shift_window' => $j];
         }
         // Days without a schedule: the logs left over, 04:00 to 04:00.
+        $first = 0;
         for ($d = $from; $d->lte($to); $d = $d->addDay()) {
             $key = $d->toDateString();
             if (isset($shift_window[$key])) {
                 continue;
             }
             $start = $d->setTime(4, 0);
-            $end = $start->addDay();
-            $mine = [];
-            foreach ($logs as $n => $log) {
-                if (! isset($used[$n]) && $log->punched_at->gte($start) && $log->punched_at->lt($end)) {
-                    $mine[] = $log;
-                    $used[$n] = true;
-                }
-            }
-            $days[$key] = ['logs' => $mine, 'shift_window' => null];
+            $days[$key] = ['logs' => $take($start->getTimestamp(), $start->addDay()->getTimestamp(), false), 'shift_window' => null];
         }
 
         return $days;

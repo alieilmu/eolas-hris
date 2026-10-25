@@ -49,7 +49,7 @@ export default function DemoStatus({ account }: { account: Account }) {
                         </span>
                         <h1 className="mt-5 text-xl font-black text-slate-900">Workspace sedang disiapkan…</h1>
                         <p className="mt-2 text-sm text-slate-500">
-                            {account.company_name} · {account.source_label}{account.industry_label ? ` (${account.industry_label})` : ''}. Biasanya selesai kurang dari satu menit.
+                            {account.company_name} · {account.source_label}{account.industry_label ? ` (${account.industry_label})` : ''}. Biasanya selesai sekitar 1–2 menit.
                         </p>
                         <ul className="mx-auto mt-6 max-w-xs space-y-2 text-left text-sm">
                             {STEPS.map((s, i) => (

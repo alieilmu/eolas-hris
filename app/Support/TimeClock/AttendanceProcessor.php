@@ -50,6 +50,8 @@ class AttendanceProcessor
                 ->keyBy(fn (OvertimeRecord $l) => $l->employee_id.'|'.$l->date->toDateString());
 
             $write = [];
+            $overtime = [];
+            $drop = [];
             foreach ($rows as $r) {
                 $key = $r['employee_id'].'|'.$r['date'];
                 $source = $existing[$key]->source ?? null;
@@ -74,18 +76,26 @@ class AttendanceProcessor
                 }
                 if (! $ot || $ot['overtime_minutes'] <= 0) {
                     if ($l && $l->source === 'device') {
-                        $l->delete();
+                        $drop[] = $l->id;
                     }
 
                     continue;
                 }
-                OvertimeRecord::updateOrCreate(['employee_id' => $r['employee_id'], 'date' => $r['date']], [
+                $overtime[] = [
+                    'employee_id' => $r['employee_id'], 'date' => $r['date'],
                     'day_type' => $r['day_type'], 'start_date' => $r['ci_at'], 'end_date' => $r['co_at'],
                     'worked_minutes' => $r['worked_minutes'], 'overtime_minutes' => $ot['overtime_minutes'],
                     'paid_hours' => $ot['paid_hours'], 'weighted_hours' => $ot['weighted_hours'],
-                    'status' => 'pending', 'source' => 'device',
-                ]);
+                    'status' => 'pending', 'source' => 'device', 'created_at' => $now, 'updated_at' => $now,
+                ];
                 $lemburCount++;
+            }
+            // In bulk: a company of hundreds has thousands of overtime days in a period.
+            foreach (array_chunk($drop, 500) as $part) {
+                OvertimeRecord::whereIn('id', $part)->delete();
+            }
+            foreach (array_chunk($overtime, 500) as $part) {
+                OvertimeRecord::upsert($part, ['employee_id', 'date'], ['day_type', 'start_date', 'end_date', 'worked_minutes', 'overtime_minutes', 'paid_hours', 'weighted_hours', 'status', 'source', 'updated_at']);
             }
             foreach (array_chunk($write, 500) as $part) {
                 DB::table('attendance_records')->upsert($part, ['employee_id', 'date'], ['shift_code_id', 'source', 'leave_travel_request_id', 'updated_at']);

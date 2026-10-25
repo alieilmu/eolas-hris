@@ -51,7 +51,7 @@ class DemoSeeder extends Seeder
 
     public function run(): void
     {
-        $this->call([DatabaseSeeder::class, DemoEmployeeSeeder::class]);
+        $this->call([DatabaseSeeder::class, DemoEmployeeSeeder::class, DemoOrganizationSeeder::class]);
 
         mt_srand(2026);
         $this->today = CarbonImmutable::today();
