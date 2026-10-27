@@ -154,6 +154,7 @@ class PayrollRunController extends Controller
         abort_unless($run->status === 'submitted', 422);
         abort_unless($this->mayApprove($run, $request->user()), 403, 'Proses gaji tidak bisa disetujui oleh yang menghitung atau mengajukannya.');
         $run->update(['status' => 'approved', 'approved_by' => $request->user()->id, 'approved_at' => now()]);
+        PayrollRunner::settle($run);
         Audit::log('payroll.run_approved', $run, $run->label(), ['take_home_pay' => $run->totals['all']['take_home_pay'] ?? null]);
         Inertia::flash('success', 'Proses gaji disetujui. Slip sudah terlihat di portal karyawan.');
 

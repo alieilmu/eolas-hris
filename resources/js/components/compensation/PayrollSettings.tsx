@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Check, ChevronDown, Loader2, Plus } from 'lucide-react';
 import { Field, primaryButton, secondaryButton, smallInput } from '@/components/time/ui';
 import { MoneyInput } from '@/components/compensation/MoneyInput';
@@ -24,8 +24,30 @@ export interface PayrollRateRow {
     no_tax_id_surcharge: number;
 }
 
+export interface PayrollComponentRow {
+    id: number;
+    code: string;
+    name: string;
+    kind: 'earning' | 'deduction';
+    nature: string;
+    taxable: boolean;
+    sort_order: number;
+    is_active: boolean;
+    is_system: boolean;
+}
+
 export interface PayrollData {
-    settings: { cutoff_day: number; default_tax_method: string; absence_divisor_mode: string; absence_divisor_days: number; payslip_password: boolean };
+    settings: {
+        cutoff_day: number;
+        default_tax_method: string;
+        absence_divisor_mode: string;
+        absence_divisor_days: number;
+        payslip_password: boolean;
+        loan_max_ratio: number;
+    };
+    components: PayrollComponentRow[];
+    component_kinds: Record<string, string>;
+    component_natures: Record<string, string>;
     tax_methods: Record<string, string>;
     divisor_modes: Record<string, string>;
     rates: PayrollRateRow[];
@@ -59,6 +81,7 @@ export function PayrollSection({ data }: { data: PayrollData }) {
     return (
         <div className="space-y-8">
             <PeriodForm data={data} />
+            <ComponentsForm data={data} />
             <RatesForm rates={data.rates} />
             <TerTable ter={data.ter} />
         </div>
@@ -93,6 +116,16 @@ function PeriodForm({ data }: { data: PayrollData }) {
                             </option>
                         ))}
                     </select>
+                </Field>
+                <Field label="Batas angsuran pinjaman (% gaji bersih)" hint="Dicek saat pinjaman diajukan atau disetujui.">
+                    <input
+                        type="number"
+                        min={10}
+                        max={100}
+                        value={form.loan_max_ratio}
+                        onChange={(e) => set('loan_max_ratio', Number(e.target.value))}
+                        className={`${smallInput} w-24`}
+                    />
                 </Field>
                 <Field label="Pembagi potong gapok" hint="Potongan per hari ALPA / Izin Potong Gapok = gaji pokok ÷ pembagi ini.">
                     <select value={form.absence_divisor_mode} onChange={(e) => set('absence_divisor_mode', e.target.value)} className={`${smallInput} w-full`}>
@@ -281,6 +314,117 @@ function TerTable({ ter }: { ter: PayrollData['ter'] }) {
                             </tbody>
                         </table>
                     ))}
+                </div>
+            )}
+        </section>
+    );
+}
+
+/** Komponen Input Variabel: what can be paid or deducted besides the fixed pay. */
+function ComponentsForm({ data }: { data: PayrollData }) {
+    const blank = { id: 0, code: '', name: '', kind: 'earning' as const, nature: 'variable', taxable: true, sort_order: 100, is_active: true, is_system: false };
+    const [editing, setEditing] = useState<PayrollComponentRow | null>(null);
+    const [busy, setBusy] = useState(false);
+    const errors = usePage().props.errors as Record<string, string>;
+    const save = () => {
+        if (!editing) return;
+        const opts = { ...visit, onStart: () => setBusy(true), onFinish: () => setBusy(false), onSuccess: () => setEditing(null) };
+        if (editing.id) router.put(`/compensation/settings/payroll-components/${editing.id}`, editing as never, opts);
+        else router.post('/compensation/settings/payroll-components', editing as never, opts);
+    };
+
+    return (
+        <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-bold text-slate-700">Komponen Input Variabel</h3>
+                <button onClick={() => setEditing(blank)} className={secondaryButton}>
+                    <Plus size={15} /> Komponen
+                </button>
+            </div>
+            <table className="w-full max-w-3xl text-sm">
+                <thead className="text-left text-xs text-slate-400">
+                    <tr>
+                        <th className="py-1 font-semibold">Nama</th>
+                        <th className="py-1 font-semibold">Kode (Excel)</th>
+                        <th className="py-1 font-semibold">Jenis</th>
+                        <th className="py-1 font-semibold">PPh21</th>
+                        <th />
+                    </tr>
+                </thead>
+                <tbody>
+                    {data.components.map((c) => (
+                        <tr key={c.id} className={`border-t border-slate-100 ${c.is_active ? '' : 'opacity-50'}`}>
+                            <td className="py-2 font-semibold text-slate-700">
+                                {c.name}
+                                {!c.is_active && <span className="ml-1.5 text-xs font-normal text-slate-400">(nonaktif)</span>}
+                            </td>
+                            <td className="py-2 font-mono text-xs text-slate-500">{c.code}</td>
+                            <td className="py-2 text-xs text-slate-600">{data.component_kinds[c.kind]}</td>
+                            <td className="py-2 text-xs text-slate-600">
+                                {c.kind === 'earning' ? (c.taxable ? 'Kena pajak' : 'Tidak kena pajak') : c.taxable ? 'Dipotong sebelum pajak' : 'Dipotong setelah pajak'}
+                            </td>
+                            <td className="py-2 text-right">
+                                <button onClick={() => setEditing(c)} className="text-xs font-bold text-brand-600 hover:underline">
+                                    Ubah
+                                </button>
+                                {c.is_active && (
+                                    <button
+                                        onClick={() => confirm(`Hapus / nonaktifkan ${c.name}?`) && router.delete(`/compensation/settings/payroll-components/${c.id}`, visit)}
+                                        className="ml-3 text-xs font-bold text-rose-600 hover:underline"
+                                    >
+                                        {c.is_system ? 'Nonaktifkan' : 'Hapus'}
+                                    </button>
+                                )}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            {editing && (
+                <div className="grid max-w-3xl gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+                    <Field label="Nama (tampil di slip)">
+                        <input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className={`${smallInput} w-full`} />
+                    </Field>
+                    <Field label="Kode untuk Excel" hint="Huruf kecil, angka, garis bawah.">
+                        <input value={editing.code} onChange={(e) => setEditing({ ...editing, code: e.target.value.toLowerCase() })} className={`${smallInput} w-full font-mono`} />
+                    </Field>
+                    <Field label="Jenis">
+                        <select value={editing.kind} onChange={(e) => setEditing({ ...editing, kind: e.target.value as 'earning' | 'deduction' })} className={`${smallInput} w-full`}>
+                            {Object.entries(data.component_kinds).map(([v, l]) => (
+                                <option key={v} value={v}>
+                                    {l}
+                                </option>
+                            ))}
+                        </select>
+                    </Field>
+                    <Field label="Sifat">
+                        <select value={editing.nature} onChange={(e) => setEditing({ ...editing, nature: e.target.value })} className={`${smallInput} w-full`}>
+                            {Object.entries(data.component_natures).map(([v, l]) => (
+                                <option key={v} value={v}>
+                                    {l}
+                                </option>
+                            ))}
+                        </select>
+                    </Field>
+                    <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-2">
+                        <input type="checkbox" checked={editing.taxable} onChange={(e) => setEditing({ ...editing, taxable: e.target.checked })} />
+                        {editing.kind === 'earning' ? 'Kena PPh21 (masuk penghasilan bruto)' : 'Dipotong sebelum pajak (mengurangi penghasilan bruto)'}
+                    </label>
+                    {editing.id > 0 && (
+                        <label className="flex items-center gap-2 text-sm text-slate-600 sm:col-span-2">
+                            <input type="checkbox" checked={editing.is_active} onChange={(e) => setEditing({ ...editing, is_active: e.target.checked })} />
+                            Aktif
+                        </label>
+                    )}
+                    {(errors.code || errors.name) && <p className="text-xs font-semibold text-rose-600 sm:col-span-2">{errors.code || errors.name}</p>}
+                    <div className="flex gap-2 sm:col-span-2">
+                        <button onClick={save} disabled={busy || !editing.name || !editing.code} className={primaryButton}>
+                            {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Simpan komponen
+                        </button>
+                        <button onClick={() => setEditing(null)} className="rounded-xl px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100">
+                            Batal
+                        </button>
+                    </div>
                 </div>
             )}
         </section>

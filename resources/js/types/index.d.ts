@@ -64,6 +64,8 @@ export interface NavItem {
     centralOnly?: boolean;
     /** Only in a workspace that has a first-run setup (sesi awal). */
     setupOnly?: boolean;
+    /** Only in a client installation (the license). */
+    clientOnly?: boolean;
 }
 
 export interface NavModule {
@@ -81,6 +83,7 @@ declare module '@inertiajs/core' {
             workspace: Workspace | null;
             /** Sesi awal of this workspace (Super Admin only): pending | completed | dismissed, or null when there is none. */
             setup: 'pending' | 'completed' | 'dismissed' | null;
+            edition: 'saas' | 'client';
         };
         /** One-off messages set with Inertia::flash() before a redirect. */
         flashDataType: {

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Account\PasswordController;
 use App\Http\Controllers\Account\TwoFactorController;
 use App\Http\Controllers\Settings\AuditLogController;
+use App\Http\Controllers\Settings\LicenseController;
 use App\Http\Controllers\Time\TimeSettingsController;
 use App\Http\Controllers\Time\TimeClockController;
 use App\Http\Controllers\Time\SheetController;
@@ -14,6 +15,9 @@ use App\Http\Controllers\Compensation\LeaveSettingsController;
 use App\Http\Controllers\Compensation\BenefitClaimController;
 use App\Http\Controllers\Compensation\PayrollSimulationController;
 use App\Http\Controllers\Compensation\PayrollRunController;
+use App\Http\Controllers\Compensation\PayrollInputController;
+use App\Http\Controllers\Compensation\LoanController;
+use App\Http\Controllers\Compensation\PayrollComponentController;
 use App\Http\Controllers\Compensation\SalaryController;
 use App\Http\Controllers\Compensation\BenefitBalanceController;
 use App\Http\Controllers\DashboardController;
@@ -53,6 +57,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SelfService\ProfileController as PortalDataController;
 use App\Http\Controllers\SelfService\SelfServiceController;
 use App\Http\Controllers\SelfService\PayslipController as PortalPayslipController;
+use App\Http\Controllers\SelfService\LoanController as PortalLoanController;
 use App\Http\Controllers\Recruitment\ApplicantController;
 use App\Http\Controllers\Recruitment\JobPostingController;
 use App\Http\Controllers\Recruitment\ReportController;
@@ -76,7 +81,7 @@ Route::controller(CareersController::class)->prefix('careers')->name('careers')-
 // Eolas: the landing page for visitors ("/" leads signed-in accounts on, see HomeController),
 // and Pengajuan Akun Demo with the page that follows its workspace being prepared.
 Route::get('/', HomeController::class)->name('home');
-Route::controller(TrialRequestController::class)->prefix('demo')->name('demo')->group(function () {
+Route::controller(TrialRequestController::class)->prefix('demo')->name('demo')->middleware('saas')->group(function () {
     Route::get('/', 'create');
     Route::post('/', 'store')->middleware('throttle:demo')->name('.store');
     Route::get('/status/{code}', 'status')->where('code', '[a-z0-9]{6}')->name('.status');
@@ -92,14 +97,14 @@ Route::middleware('guest')->group(function () {
  * "lihat" and change its data with "ubah"; menus listing employees only show the
  * account's locations. The Super Admin has every menu.
  */
-Route::middleware(['auth', 'two-factor', 'account.ready'])->group(function () {
+Route::middleware(['auth', 'two-factor', 'account.ready', 'licensed'])->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
     // Dashboard: an overview of every module for the account's locations.
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     // Inside a demo workspace: switch its data (demo data again, or empty for one's own).
-    Route::post('/workspace/data', [WorkspaceController::class, 'data'])->middleware('can:manage-users')->name('workspace.data');
+    Route::post('/workspace/data', [WorkspaceController::class, 'data'])->middleware(['saas', 'can:manage-users'])->name('workspace.data');
 
     // Own password; a first-time password must be changed before anything else.
     Route::get('/account/password', [PasswordController::class, 'edit'])->name('account.password');
@@ -395,6 +400,41 @@ Route::middleware(['auth', 'two-factor', 'account.ready'])->group(function () {
             });
         });
 
+        // Input Variabel: amounts per period, entered ("payroll-inputs") and approved ("payroll-approval").
+        Route::controller(PayrollInputController::class)->prefix('payroll-inputs')->name('payroll-inputs')->middleware('two-factor.required')->group(function () {
+            Route::middleware('menu:payroll-inputs,payroll-approval')->get('/', 'index');
+            Route::middleware('menu:payroll-inputs')->group(function () {
+                Route::get('/template', 'template')->name('.template');
+                Route::post('/', 'store')->name('.store');
+                Route::post('/import', 'import')->name('.import');
+                Route::put('/{input}', 'update')->whereNumber('input')->name('.update');
+                Route::delete('/{input}', 'destroy')->whereNumber('input')->name('.destroy');
+            });
+            Route::middleware('menu:payroll-approval')->post('/decide', 'decide')->name('.decide');
+        });
+
+        // Pinjaman Karyawan: recorded ("loans"), approved ("payroll-approval"), repaid through Proses Gaji.
+        Route::controller(LoanController::class)->prefix('loans')->name('loans')->middleware('two-factor.required')->group(function () {
+            Route::middleware('menu:loans,payroll-approval')->get('/', 'index');
+            Route::middleware('menu:loans')->group(function () {
+                Route::post('/', 'store')->name('.store');
+                Route::put('/{loan}', 'update')->whereNumber('loan')->name('.update');
+                Route::delete('/{loan}', 'destroy')->whereNumber('loan')->name('.destroy');
+                Route::post('/installments/{installment}/postpone', 'postpone')->whereNumber('installment')->name('.postpone');
+                Route::post('/{loan}/pay-off', 'payOff')->whereNumber('loan')->name('.pay-off');
+            });
+            Route::middleware('menu:payroll-approval')->group(function () {
+                Route::post('/{loan}/approve', 'approve')->whereNumber('loan')->name('.approve');
+                Route::post('/{loan}/reject', 'reject')->whereNumber('loan')->name('.reject');
+            });
+        });
+
+        Route::controller(PayrollComponentController::class)->middleware('menu:compensation-settings')->prefix('settings/payroll-components')->name('payroll-components')->group(function () {
+            Route::post('/', 'store')->name('.store');
+            Route::put('/{component}', 'update')->whereNumber('component')->name('.update');
+            Route::delete('/{component}', 'destroy')->whereNumber('component')->name('.destroy');
+        });
+
         Route::controller(CompensationSettingsController::class)->middleware('menu:compensation-settings')->prefix('settings')->name('master.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/grade', 'storeGrade')->name('grade.store');
@@ -426,6 +466,8 @@ Route::middleware(['auth', 'two-factor', 'account.ready'])->group(function () {
         Route::put('/users/{user}', 'update')->whereNumber('user')->name('users.update');
         Route::post('/users/{user}/two-factor-reset', [TwoFactorController::class, 'reset'])->whereNumber('user')->name('users.two-factor-reset');
         Route::get('/audit-log', [AuditLogController::class, 'index'])->name('audit-log');
+        Route::get('/license', [LicenseController::class, 'show'])->name('license');
+        Route::post('/license', [LicenseController::class, 'store'])->name('license.store');
         Route::delete('/users/{user}', 'destroy')->whereNumber('user')->name('users.destroy');
         Route::post('/employee-accounts', 'storeEmployee')->name('employee-accounts.store');
         Route::post('/employee-accounts/bulk-reset', 'resetEmployeesBulk')->name('employee-accounts.reset-many');
@@ -442,7 +484,7 @@ Route::middleware(['auth', 'two-factor', 'account.ready'])->group(function () {
         Route::post('/dismiss', 'dismiss')->name('setup.dismiss');
     });
     // Settings → Akun Demo: the demo requests and their workspaces (main application, Super Admin).
-    Route::middleware(['can:manage-users', 'central'])->prefix('settings/trial-accounts')->name('settings.demo')->controller(TrialAccountController::class)->group(function () {
+    Route::middleware(['saas', 'can:manage-users', 'central'])->prefix('settings/trial-accounts')->name('settings.demo')->controller(TrialAccountController::class)->group(function () {
         Route::get('/', 'index');
         Route::post('/{account}/approve', 'approve')->whereNumber('account')->name('.approve');
         Route::post('/{account}/extend', 'extend')->whereNumber('account')->name('.extend');
@@ -485,6 +527,10 @@ Route::middleware(['auth', 'two-factor', 'account.ready'])->group(function () {
         // Slip Gaji: own payslips of approved payroll runs.
         Route::get('/payslips', [PortalPayslipController::class, 'index'])->name('.payslips');
         Route::get('/payslips/{payslip}/pdf', [PortalPayslipController::class, 'pdf'])->whereNumber('payslip')->name('.payslips.pdf');
+        // Pinjaman: own loans, asking for one.
+        Route::get('/loans', [PortalLoanController::class, 'index'])->name('.loans');
+        Route::post('/loans', [PortalLoanController::class, 'store'])->name('.loans.store');
+        Route::delete('/loans/{loan}', [PortalLoanController::class, 'cancel'])->whereNumber('loan')->name('.loans.cancel');
     });
 });
 

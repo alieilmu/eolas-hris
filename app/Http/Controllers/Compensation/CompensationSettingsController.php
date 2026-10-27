@@ -98,7 +98,10 @@ class CompensationSettingsController extends Controller
             'employee_class' => LookupValues::values('employee_class'),
             // Payroll: periods, tax method, potong gapok, BPJS / PPh21 figures per year, JKK per location.
             'payroll' => [
-                'settings' => PayrollSetting::current()->only(['cutoff_day', 'default_tax_method', 'absence_divisor_mode', 'absence_divisor_days', 'payslip_password']),
+                'settings' => PayrollSetting::current()->only(['cutoff_day', 'default_tax_method', 'absence_divisor_mode', 'absence_divisor_days', 'payslip_password', 'loan_max_ratio']),
+                'components' => \App\Models\PayrollComponent::orderBy('sort_order')->get(['id', 'code', 'name', 'kind', 'nature', 'taxable', 'sort_order', 'is_active', 'is_system']),
+                'component_kinds' => \App\Models\PayrollComponent::KINDS,
+                'component_natures' => \App\Models\PayrollComponent::NATURES,
                 'tax_methods' => PayrollSetting::TAX_METHODS,
                 'divisor_modes' => PayrollSetting::DIVISOR_MODES,
                 'rates' => PayrollRate::orderByDesc('year')->get()->map(fn (PayrollRate $r) => $r->only(['year', ...PayrollRate::RATES, ...PayrollRate::AMOUNTS])),
@@ -122,6 +125,7 @@ class CompensationSettingsController extends Controller
             'umk' => ['sometimes', 'array'],
             'umk.*' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
             'payslip_password' => ['sometimes', 'boolean'],
+            'loan_max_ratio' => ['sometimes', 'integer', 'min:10', 'max:100'],
         ], [], ['cutoff_day' => 'Tanggal cutoff', 'absence_divisor_days' => 'Pembagi potong gapok', 'jkk.*' => 'Tarif JKK', 'umk.*' => 'UMK']);
         PayrollSetting::current()->update(collect($data)->except(['jkk', 'umk'])->all());
         foreach ($data['jkk'] as $id => $rate) {

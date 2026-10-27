@@ -1,6 +1,12 @@
 <?php
 
 return [
+    // "saas": the hosted demo service. "client": one company on its own server, under a license.
+    'edition' => env('EOLAS_EDITION', 'saas'),
+
+    // Client edition: where the license file is (default storage/app/license.json).
+    'license_path' => env('EOLAS_LICENSE_PATH'),
+
     // Pengajuan akun demo: active at once (true) or after the Super Admin approves it (false).
     'demo_auto_approve' => (bool) env('DEMO_AUTO_APPROVE', true),
 

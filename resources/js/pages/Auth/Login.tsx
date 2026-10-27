@@ -6,7 +6,15 @@ import { Turnstile } from '@/components/Turnstile';
 
 const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500';
 
-export default function Login({ workspace, turnstile_site_key }: { workspace: string | null; turnstile_site_key: string | null }) {
+export default function Login({
+    workspace,
+    turnstile_site_key,
+    client_edition,
+}: {
+    workspace: string | null;
+    turnstile_site_key: string | null;
+    client_edition: boolean;
+}) {
     const branding = useBranding();
     const [showWorkspace, setShowWorkspace] = useState(!!workspace);
     const [captcha, setCaptcha] = useState('');
@@ -86,7 +94,7 @@ export default function Login({ workspace, turnstile_site_key }: { workspace: st
                                 />
                             </div>
 
-                            {showWorkspace ? (
+                            {client_edition ? null : showWorkspace ? (
                                 <div>
                                     <label htmlFor="workspace" className="mb-1.5 block text-xs font-bold text-slate-500">
                                         Kode workspace demo
@@ -131,21 +139,25 @@ export default function Login({ workspace, turnstile_site_key }: { workspace: st
                         </>
                     )}
                 </Form>
-                <Link
-                    href="/demo"
-                    className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-brand-200 bg-white px-4 py-3 text-sm font-bold text-brand-700 shadow-sm hover:bg-brand-50"
-                >
-                    <FlaskConical size={16} /> Belum punya akun? Ajukan akun demo
-                </Link>
+                {!client_edition && (
+                    <Link
+                        href="/demo"
+                        className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-brand-200 bg-white px-4 py-3 text-sm font-bold text-brand-700 shadow-sm hover:bg-brand-50"
+                    >
+                        <FlaskConical size={16} /> Belum punya akun? Ajukan akun demo
+                    </Link>
+                )}
                 <a
                     href="/careers"
                     className="mt-4 flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-brand-700 hover:bg-white/70"
                 >
                     <Briefcase size={16} /> Melamar kerja? Lihat lowongan
                 </a>
-                <Link href="/" className="flex items-center justify-center gap-2 px-4 py-1 text-xs font-bold text-slate-400 hover:text-brand-700">
-                    <ArrowLeft size={14} /> Kembali ke beranda
-                </Link>
+                {!client_edition && (
+                    <Link href="/" className="flex items-center justify-center gap-2 px-4 py-1 text-xs font-bold text-slate-400 hover:text-brand-700">
+                        <ArrowLeft size={14} /> Kembali ke beranda
+                    </Link>
+                )}
             </div>
         </div>
     );

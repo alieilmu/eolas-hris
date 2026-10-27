@@ -23,6 +23,7 @@ class LoginController extends Controller
         return Inertia::render('Auth/Login', [
             'workspace' => $request->string('ws')->limit(16, '')->toString() ?: null,
             'turnstile_site_key' => Turnstile::enabled() ? config('services.turnstile.site_key') : null,
+            'client_edition' => \App\Support\Edition::client(),
         ]);
     }
 

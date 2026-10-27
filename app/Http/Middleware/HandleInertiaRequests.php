@@ -49,6 +49,8 @@ class HandleInertiaRequests extends Middleware
             'workspace' => fn () => ($a = Tenant::account()) ? collect($a->toShare())->only(['code', 'company_name', 'data_source', 'source_label', 'expires_at', 'days_left'])->all() : null,
             // Sesi awal of a workspace for the company's own data (Super Admin only).
             'setup' => fn () => $user?->isAdmin() ? WorkspaceSetup::current()?->status : null,
+            // "client": a company's own installation (license page, no demo pages).
+            'edition' => config('eolas.edition'),
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,

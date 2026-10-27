@@ -30,7 +30,10 @@ import {
     Wallet,
     Calculator,
     Banknote,
+    ListPlus,
+    Landmark,
     ScrollText,
+    BadgeCheck,
     Rocket,
 } from 'lucide-react';
 import type { NavModule } from '@/types';
@@ -90,6 +93,8 @@ export const APP_MODULES: NavModule[] = [
             { id: 'benefit-balances', label: 'Monitoring Plafon', icon: Gauge, href: '/compensation/benefit-balances', menu: 'benefit-balances' },
             { id: 'employee-compensation', label: 'Data Gaji', icon: Wallet, href: '/compensation/salaries', menu: 'employee-compensation' },
             { id: 'payroll-simulation', label: 'Simulasi Gaji', icon: Calculator, href: '/compensation/payroll-simulation', menu: 'employee-compensation' },
+            { id: 'payroll-inputs', label: 'Input Variabel', icon: ListPlus, href: '/compensation/payroll-inputs', menu: ['payroll-inputs', 'payroll-approval'] },
+            { id: 'loans', label: 'Pinjaman Karyawan', icon: Landmark, href: '/compensation/loans', menu: ['loans', 'payroll-approval'] },
             { id: 'payroll', label: 'Proses Gaji', icon: Banknote, href: '/compensation/payroll', menu: ['payroll-run', 'payroll-approval'] },
             { id: 'compensation-master', label: 'Pengaturan Kompensasi', icon: Database, href: '/compensation/settings', menu: 'compensation-settings' },
         ],
@@ -103,6 +108,7 @@ export const APP_MODULES: NavModule[] = [
             { id: 'users', label: 'Pengguna & Akses', icon: ShieldCheck, href: '/settings/users', menu: 'settings' },
             { id: 'branding', label: 'Branding', icon: Palette, href: '/settings/branding', menu: 'settings' },
             { id: 'audit-log', label: 'Audit Log', icon: ScrollText, href: '/settings/audit-log', menu: 'settings' },
+            { id: 'license', label: 'Lisensi', icon: BadgeCheck, href: '/settings/license', menu: 'settings', clientOnly: true },
             { id: 'trial-accounts', label: 'Akun Demo', icon: FlaskConical, href: '/settings/trial-accounts', menu: 'settings', centralOnly: true },
         ],
     },

@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Http\Controllers\SelfService;
+
+use App\Http\Controllers\Compensation\LoanController as HrLoanController;
+use App\Http\Controllers\Controller;
+use App\Models\Employee;
+use App\Models\Loan;
+use App\Models\PayrollSetting;
+use App\Support\Audit\Audit;
+use App\Support\Notifications\RequestNotifier;
+use App\Support\Payroll\Loans;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+/** Portal Karyawan → Pinjaman: the own loans and their installments, and asking for a new one. */
+class LoanController extends Controller
+{
+    public function index(Request $request): Response
+    {
+        $settings = PayrollSetting::current();
+        $loans = Loan::with('installments')->where('employee_id', $request->user()->employee_id ?? 0)->orderByDesc('id')->get();
+
+        return Inertia::render('SelfService/Loans', [
+            'loans' => $loans->map(fn (Loan $l) => HrLoanController::share($l)),
+            'next_period' => HrLoanController::nextPeriod($settings),
+            'max_ratio' => $settings->loan_max_ratio,
+            'has_pending' => $loans->contains('status', 'pending'),
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $employee = Employee::findOrFail($request->user()->employee_id);
+        abort_if(Loan::where('employee_id', $employee->id)->where('status', 'pending')->exists(), 422, 'Masih ada pengajuan pinjaman yang menunggu.');
+        $data = HrLoanController::validated($request);
+        Loans::assertAffordable($employee, $data['installment']);
+        $loan = Loan::create($data + ['employee_id' => $employee->id, 'status' => 'pending', 'source' => 'portal', 'created_by' => $request->user()->id]);
+        RequestNotifier::loan($loan);
+        Audit::log('payroll.loan_requested', $loan, 'Rp '.number_format($loan->principal, 0, ',', '.')." × {$loan->tenor} bln");
+        Inertia::flash('success', 'Pengajuan pinjaman terkirim ke HR.');
+
+        return back();
+    }
+
+    public function cancel(Request $request, Loan $loan): RedirectResponse
+    {
+        abort_unless($loan->employee_id === $request->user()->employee_id && $loan->status === 'pending', 404);
+        RequestNotifier::close("loan:{$loan->id}");
+        $loan->delete();
+        Inertia::flash('success', 'Pengajuan pinjaman dibatalkan.');
+
+        return back();
+    }
+}

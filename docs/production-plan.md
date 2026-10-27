@@ -6,7 +6,8 @@
 
 ## Status
 
-- **27 Okt 2026:** minggu 1 dan 2 selesai: server demo siap iklan (captcha `/demo` & `/login`, batas 30 workspace, pembersihan otomatis), aplikasi demo 504 karyawan, payroll fase 3 (proses gaji, persetujuan, slip PDF, portal, rekap), 2FA untuk akun payroll, audit log, matriks fitur untuk Marketing. Berikutnya: minggu 3 (fase 4 input variabel & pinjaman; edisi klien + lisensi).
+- **27 Okt 2026:** minggu 1 dan 2 selesai: server demo siap iklan (captcha `/demo` & `/login`, batas 30 workspace, pembersihan otomatis), aplikasi demo 504 karyawan, payroll fase 3 (proses gaji, persetujuan, slip PDF, portal, rekap), 2FA untuk akun payroll, audit log, matriks fitur untuk Marketing. Berikutnya: minggu 3.
+- **27 Okt 2026 (lanjutan):** minggu 3 selesai: payroll fase 4 (komponen & Input Variabel dengan import Excel dan persetujuan, Pinjaman Karyawan dengan jadwal angsuran, tunda, pelunasan, pengajuan dari portal), edisi klien (`EOLAS_EDITION=client`) dan lisensi Ed25519 (`eolas:license:issue`, `eolas:license:check`, batas karyawan aktif, halaman Lisensi). Kunci privat lisensi: `/root/eolas-license/eolas-license-private.key` di server (wajib dibackup di luar server). Berikutnya: minggu 4 (fase 5 THR, final pay, integrasi; installer, backup/update, dokumen → paket pilot).
 
 ## Keputusan (27 Okt 2026)
 

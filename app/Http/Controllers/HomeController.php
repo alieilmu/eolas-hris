@@ -18,6 +18,11 @@ class HomeController extends Controller
     {
         $user = $request->user();
         if (! $user) {
+            // A client installation has no landing page: straight to signing in.
+            if (\App\Support\Edition::client()) {
+                return redirect()->route('login');
+            }
+
             return Inertia::render('Landing', ['demo_days' => config('eolas.demo_days')]);
         }
         if ($user->isEmployee()) {

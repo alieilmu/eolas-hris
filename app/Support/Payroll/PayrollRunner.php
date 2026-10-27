@@ -3,6 +3,9 @@
 namespace App\Support\Payroll;
 
 use App\Models\Employee;
+use App\Models\Loan;
+use App\Models\LoanInstallment;
+use App\Models\PayrollInput;
 use App\Models\PayrollRun;
 use App\Models\Payslip;
 use App\Models\PayslipLine;
@@ -105,10 +108,36 @@ class PayrollRunner
                     continue;
                 }
                 $rows[] = ['payslip_id' => $slip->id, 'kind' => $kind, 'code' => $l['code'] ?? 'other', 'label' => $l['label'],
-                    'amount' => $l['amount'], 'note' => isset($l['note']) ? mb_substr((string) $l['note'], 0, 150) : null, 'sort' => $sort++];
+                    'amount' => $l['amount'], 'note' => isset($l['note']) ? mb_substr((string) $l['note'], 0, 150) : null, 'sort' => $sort++, 'ref' => $l['ref'] ?? null];
             }
         }
         PayslipLine::insert($rows);
+    }
+
+    /**
+     * An approved run settles what it paid: its Input Variabel are marked paid and its loan
+     * installments deducted (a loan with nothing left is paid off).
+     */
+    public static function settle(PayrollRun $run): void
+    {
+        $lines = PayslipLine::whereIn('payslip_id', Payslip::where('payroll_run_id', $run->id)->select('id'))
+            ->whereNotNull('ref')->get(['payslip_id', 'ref']);
+        DB::transaction(function () use ($lines) {
+            foreach ($lines as $l) {
+                [$type, $id] = explode(':', $l->ref) + [null, null];
+                if ($type === 'input') {
+                    PayrollInput::whereKey((int) $id)->update(['payslip_id' => $l->payslip_id]);
+                } elseif ($type === 'installment') {
+                    LoanInstallment::whereKey((int) $id)->where('status', 'scheduled')->update(['status' => 'deducted', 'payslip_id' => $l->payslip_id]);
+                }
+            }
+            $loans = LoanInstallment::whereIn('id', $lines->filter(fn ($l) => str_starts_with($l->ref, 'installment:'))->map(fn ($l) => (int) substr($l->ref, 12)))->pluck('loan_id')->unique();
+            foreach (Loan::whereIn('id', $loans)->where('status', 'active')->get() as $loan) {
+                if (! $loan->installments()->where('status', 'scheduled')->exists()) {
+                    $loan->update(['status' => 'paid_off']);
+                }
+            }
+        });
     }
 
     /** Take home pay of each employee in the latest earlier approved run. @return array<int, int> */

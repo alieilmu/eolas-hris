@@ -21,6 +21,9 @@ class PruneWorkspaces extends Command
 
     public function handle(): int
     {
+        if (\App\Support\Edition::client()) {
+            return self::SUCCESS; // no demo workspaces in a client installation
+        }
         $dry = (bool) $this->option('dry-run');
         $before = now()->subDays((int) config('eolas.demo_keep_days', 7));
 

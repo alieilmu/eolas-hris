@@ -19,7 +19,7 @@ use PragmaRX\Google2FA\Google2FA;
 class TwoFactor
 {
     /** Menus whose accounts must sign in with a second factor. */
-    public const REQUIRED_FOR = ['payroll-run', 'payroll-approval'];
+    public const REQUIRED_FOR = ['payroll-run', 'payroll-approval', 'payroll-inputs', 'loans'];
 
     public const SESSION_PASSED = 'two_factor.passed';
 

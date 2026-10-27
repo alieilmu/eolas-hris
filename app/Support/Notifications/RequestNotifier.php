@@ -62,6 +62,14 @@ class RequestNotifier
             'Pilihan Cuti Besar', 'memilih '.(LongServiceLeave::KEPUTUSAN[$c->decision] ?? $c->decision)." (periode ke-{$c->sequence_no})", '/time/leave-balances?tab=long_service&status=pending');
     }
 
+    /** A loan asked for in the portal: for whoever approves payroll for the employee. */
+    public static function loan(\App\Models\Loan $l): void
+    {
+        $l->loadMissing('employee');
+        self::send('loan', "loan:{$l->id}", 'payroll-approval', $l->employee, 'Pengajuan Pinjaman',
+            'mengajukan pinjaman Rp '.number_format($l->principal, 0, ',', '.')." untuk {$l->tenor} bulan", '/compensation/loans?status=pending');
+    }
+
     /** A new application from the public form (no employee yet: every admin of Recruitment). */
     public static function applicants(Applicant $a): void
     {

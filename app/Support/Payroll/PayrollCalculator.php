@@ -3,6 +3,8 @@
 namespace App\Support\Payroll;
 
 use App\Models\Employee;
+use App\Models\LoanInstallment;
+use App\Models\PayrollInput;
 use App\Models\OvertimeRecord;
 use App\Models\PayrollRate;
 use App\Models\PayrollRun;
@@ -92,8 +94,13 @@ class PayrollCalculator
         if ($taxDeducted) {
             $deductions[] = ['code' => 'pph21', 'label' => 'PPh21', 'amount' => $taxDeducted, 'note' => $method === 'gross_up' ? 'ditutup tunjangan PPh21' : null];
         }
+        // After tax: deductions of Input Variabel (koperasi …) and loan installments.
+        array_push($deductions, ...$line['after_tax'], ...self::installments($k, $p));
         $paid = array_sum(array_column($earnings, 'amount'));
         $deducted = array_sum(array_column($deductions, 'amount'));
+        if ($paid - $deducted < 0) {
+            $result['warnings'][] = 'Potongan lebih besar dari pendapatan: take home pay minus. Periksa angsuran pinjaman / potongan.';
+        }
 
         if ($result['mode'] === 'ter') {
             $result['tax_steps'] = [
@@ -160,17 +167,58 @@ class PayrollCalculator
             $earnings[] = ['code' => 'overtime', 'label' => 'Lembur', 'amount' => $overtimePay,
                 'note' => str_replace('.', ',', (string) $weighted).' jam tertimbang × upah ÷ '.self::PER_HOUR];
         }
-        $pay = array_sum(array_column($earnings, 'amount'));
+        [$inputEarnings, $afterTax] = self::inputs($k, $p);
+        array_push($earnings, ...$inputEarnings);
+        // Earnings outside PPh21 (a non-taxable component) are paid but not in the gross.
+        $taxable = array_sum(array_map(fn (array $l) => ($l['taxable'] ?? true) ? $l['amount'] : 0, $earnings));
 
         return [
             'earnings' => $earnings,
+            'after_tax' => $afterTax,
             'bpjs' => $bpjs,
-            'gross' => $pay + $bpjs['company']['health'] + $bpjs['company']['jkk'] + $bpjs['company']['jkm'],
+            'gross' => $taxable + $bpjs['company']['health'] + $bpjs['company']['jkk'] + $bpjs['company']['jkm'],
             'wage' => $wage,
             'jkk_rate' => $jkkRate,
             'absence' => $absence,
             'overtime' => ['records' => $overtime->count(), 'weighted_hours' => $weighted, 'amount' => $overtimePay],
         ];
+    }
+
+    /**
+     * Approved Input Variabel of the period: earnings (taxable or not) and deductions before
+     * tax as earnings lines (a deduction is a negative amount), deductions after tax apart.
+     *
+     * @return array{0: list<array>, 1: list<array>}
+     */
+    private static function inputs(Employee $k, PayrollPeriod $p): array
+    {
+        $earnings = [];
+        $after = [];
+        $rows = PayrollInput::with('component')->where('employee_id', $k->id)->where('period', $p->code())->where('status', 'approved')->orderBy('id')->get();
+        foreach ($rows as $in) {
+            $c = $in->component;
+            $line = ['code' => $c->code, 'label' => $c->name, 'note' => $in->notes, 'ref' => "input:{$in->id}"];
+            if ($c->kind === 'earning') {
+                $earnings[] = $line + ['amount' => (int) $in->amount, 'taxable' => $c->taxable];
+            } elseif ($c->taxable) {
+                $earnings[] = $line + ['amount' => -(int) $in->amount, 'taxable' => true];
+            } else {
+                $after[] = $line + ['amount' => (int) $in->amount];
+            }
+        }
+
+        return [$earnings, $after];
+    }
+
+    /** Installments of the employee's running loans due in the period. */
+    private static function installments(Employee $k, PayrollPeriod $p): array
+    {
+        return LoanInstallment::with('loan')->where('period', $p->code())->where('status', 'scheduled')
+            ->whereHas('loan', fn ($q) => $q->where('employee_id', $k->id)->where('status', 'active'))
+            ->orderBy('id')->get()
+            ->map(fn (LoanInstallment $i) => ['code' => 'loan', 'label' => 'Angsuran pinjaman', 'amount' => (int) $i->amount,
+                'note' => "ke-{$i->sequence} dari {$i->loan->tenor}", 'ref' => "installment:{$i->id}"])
+            ->all();
     }
 
     /** Days employed within the period, of its calendar days (joining or leaving within it). */

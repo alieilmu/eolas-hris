@@ -3,7 +3,10 @@
 namespace App\Models;
 
 use App\Support\Access\AccessScope;
+use App\Support\Edition;
+use App\Support\License\License;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -140,6 +143,13 @@ class Employee extends Model
     {
         // Administrasi → Pengguna & Akses: an Admin sees the employees of their locations, a Karyawan only themselves.
         static::addGlobalScope('access', fn (Builder $query) => AccessScope::restrict($query));
+
+        // Client edition: no more active employees than the license allows (form, import, hiring a candidate).
+        static::creating(function (Employee $k) {
+            if (Edition::client() && $k->status !== self::STATUS_TERMINATED && ($max = License::maxEmployees()) !== null && License::activeEmployees() >= $max) {
+                throw ValidationException::withMessages(['employee' => "Batas lisensi {$max} karyawan aktif sudah tercapai. Hubungi Eolas untuk menambah kapasitas lisensi."]);
+            }
+        });
     }
 
     public function scopeActive(Builder $query): void
