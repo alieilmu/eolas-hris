@@ -29,6 +29,7 @@ import {
     Users,
     Wallet,
     Calculator,
+    Banknote,
     Rocket,
 } from 'lucide-react';
 import type { NavModule } from '@/types';
@@ -88,6 +89,7 @@ export const APP_MODULES: NavModule[] = [
             { id: 'benefit-balances', label: 'Monitoring Plafon', icon: Gauge, href: '/compensation/benefit-balances', menu: 'benefit-balances' },
             { id: 'employee-compensation', label: 'Data Gaji', icon: Wallet, href: '/compensation/salaries', menu: 'employee-compensation' },
             { id: 'payroll-simulation', label: 'Simulasi Gaji', icon: Calculator, href: '/compensation/payroll-simulation', menu: 'employee-compensation' },
+            { id: 'payroll', label: 'Proses Gaji', icon: Banknote, href: '/compensation/payroll', menu: ['payroll-run', 'payroll-approval'] },
             { id: 'compensation-master', label: 'Pengaturan Kompensasi', icon: Database, href: '/compensation/settings', menu: 'compensation-settings' },
         ],
     },

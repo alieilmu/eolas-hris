@@ -56,7 +56,8 @@ export interface NavItem {
     href?: string;
     disabled?: boolean;
     /** The access menu (Administrasi → Pengguna & Akses) that shows this item; 'settings' = Super Admin. */
-    menu?: string;
+    /** The menu (or any of the menus) the account needs; "settings" = may manage users. */
+    menu?: string | string[];
     /** Sub-modules, shown indented under this item. */
     children?: NavItem[];
     /** Only in the main application, never inside a demo workspace. */

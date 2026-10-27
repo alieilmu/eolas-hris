@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'code', 'type', 'sort_order', 'work_schedule_scheme', 'daily_normal_hours', 'jkk_rate'])]
+#[Fillable(['name', 'code', 'type', 'sort_order', 'work_schedule_scheme', 'daily_normal_hours', 'jkk_rate', 'minimum_wage'])]
 class WorkLocation extends Model
 {
     public const TYPE_HEAD_OFFICE = 'head_office';
@@ -24,7 +24,7 @@ class WorkLocation extends Model
 
     protected function casts(): array
     {
-        return ['daily_normal_hours' => 'float', 'jkk_rate' => 'float'];
+        return ['daily_normal_hours' => 'float', 'jkk_rate' => 'float', 'minimum_wage' => 'integer'];
     }
 
     public function employees(): HasMany

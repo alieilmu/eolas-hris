@@ -25,11 +25,11 @@ export interface PayrollRateRow {
 }
 
 export interface PayrollData {
-    settings: { cutoff_day: number; default_tax_method: string; absence_divisor_mode: string; absence_divisor_days: number };
+    settings: { cutoff_day: number; default_tax_method: string; absence_divisor_mode: string; absence_divisor_days: number; payslip_password: boolean };
     tax_methods: Record<string, string>;
     divisor_modes: Record<string, string>;
     rates: PayrollRateRow[];
-    jkk: { id: number; name: string; type: string; jkk_rate: number }[];
+    jkk: { id: number; name: string; type: string; jkk_rate: number; minimum_wage: number | null }[];
     ter: Record<string, { lower_bound: number; upper_bound: number | null; rate: number }[]>;
 }
 
@@ -68,10 +68,15 @@ export function PayrollSection({ data }: { data: PayrollData }) {
 function PeriodForm({ data }: { data: PayrollData }) {
     const [form, setForm] = useState(data.settings);
     const [jkk, setJkk] = useState<Record<number, string>>(() => Object.fromEntries(data.jkk.map((l) => [l.id, String(l.jkk_rate)])));
+    const [umk, setUmk] = useState<Record<number, string>>(() => Object.fromEntries(data.jkk.map((l) => [l.id, l.minimum_wage ? String(l.minimum_wage) : ''])));
     const [busy, setBusy] = useState(false);
     const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((f) => ({ ...f, [key]: value }));
     const save = () =>
-        router.put('/compensation/settings/payroll', { ...form, jkk } as never, { ...visit, onStart: () => setBusy(true), onFinish: () => setBusy(false) });
+        router.put(
+            '/compensation/settings/payroll',
+            { ...form, jkk, umk: Object.fromEntries(Object.entries(umk).map(([k, v]) => [k, v === '' ? null : Number(v)])) } as never,
+            { ...visit, onStart: () => setBusy(true), onFinish: () => setBusy(false) },
+        );
 
     return (
         <section className="space-y-4">
@@ -113,8 +118,16 @@ function PeriodForm({ data }: { data: PayrollData }) {
                 </Field>
             </div>
             <div>
-                <p className={`${label} mb-2`}>Tarif JKK per lokasi kerja (%)</p>
-                <table className="w-full max-w-lg text-sm">
+                <p className={`${label} mb-2`}>Tarif JKK (%) & UMK per lokasi kerja</p>
+                <table className="w-full max-w-2xl text-sm">
+                    <thead className="text-left text-xs text-slate-400">
+                        <tr>
+                            <th className="py-1 font-semibold">Lokasi</th>
+                            <th />
+                            <th className="py-1 text-right font-semibold">JKK %</th>
+                            <th className="py-1 text-right font-semibold">UMK (Rp)</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {data.jkk.map((l) => (
                             <tr key={l.id} className="border-t border-slate-100">
@@ -132,12 +145,31 @@ function PeriodForm({ data }: { data: PayrollData }) {
                                         aria-label={`Tarif JKK ${l.name}`}
                                     />
                                 </td>
+                                <td className="py-2 pl-2 text-right">
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        step={1000}
+                                        value={umk[l.id] ?? ''}
+                                        onChange={(e) => setUmk((u) => ({ ...u, [l.id]: e.target.value }))}
+                                        className={`${smallInput} w-36 text-right`}
+                                        placeholder="–"
+                                        aria-label={`UMK ${l.name}`}
+                                    />
+                                </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
-                <p className="mt-1 text-[11px] text-slate-400">Kelas risiko PP 44/2015: 0,24 · 0,54 · 0,89 · 1,27 · 1,74%. Tambang umumnya kelas V (1,74%).</p>
+                <p className="mt-1 text-[11px] text-slate-400">Kelas risiko PP 44/2015: 0,24 · 0,54 · 0,89 · 1,27 · 1,74%. Tambang umumnya kelas V (1,74%). UMK = batas bawah dasar iuran BPJS Kesehatan (kosongkan bila tidak dipakai).</p>
             </div>
+            <label className="flex max-w-3xl items-start gap-2.5 text-sm text-slate-600">
+                <input type="checkbox" checked={form.payslip_password} onChange={(e) => set('payslip_password', e.target.checked)} className="mt-0.5 rounded border-slate-300" />
+                <span>
+                    Slip gaji PDF di portal karyawan dibuka dengan password <b>tanggal lahir</b> karyawan (ddmmyyyy).
+                    <span className="block text-[11px] text-slate-400">Slip yang diunduh HR dari Proses Gaji tidak berpassword.</span>
+                </span>
+            </label>
             <button onClick={save} disabled={busy} className={primaryButton}>
                 {busy ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Simpan pengaturan
             </button>

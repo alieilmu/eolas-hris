@@ -46,6 +46,7 @@ class PayrollSimulationController extends Controller
                 'tax_method' => $employee->payrollProfile?->tax_method,
                 'bpjs_health' => $employee->payrollProfile?->bpjs_health ?? true,
                 'bpjs_employment' => $employee->payrollProfile?->bpjs_employment ?? true,
+                'health_extra_members' => $employee->payrollProfile?->health_extra_members ?? 0,
             ] : null,
             'tax_methods' => PayrollSetting::TAX_METHODS,
             'default_tax_method' => $settings->default_tax_method,
@@ -59,6 +60,7 @@ class PayrollSimulationController extends Controller
             'tax_method' => ['nullable', Rule::in(array_keys(PayrollSetting::TAX_METHODS))],
             'bpjs_health' => ['required', 'boolean'],
             'bpjs_employment' => ['required', 'boolean'],
+            'health_extra_members' => ['sometimes', 'integer', 'min:0', 'max:10'],
         ]);
         EmployeePayrollProfile::updateOrCreate(['employee_id' => $employee->id], $data);
         Inertia::flash('success', "Pengaturan payroll {$employee->name} disimpan.");

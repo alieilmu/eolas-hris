@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 /** How payroll periods and deductions work (one row, Pengaturan Kompensasi → Payroll). */
-#[Fillable(['cutoff_day', 'default_tax_method', 'absence_divisor_mode', 'absence_divisor_days'])]
+#[Fillable(['cutoff_day', 'default_tax_method', 'absence_divisor_mode', 'absence_divisor_days', 'payslip_password'])]
 class PayrollSetting extends Model
 {
     public const TAX_METHODS = [
@@ -19,6 +19,11 @@ class PayrollSetting extends Model
         'schedule' => 'Hari kerja di roster periode itu',
         'fixed' => 'Angka tetap',
     ];
+
+    protected function casts(): array
+    {
+        return ['payslip_password' => 'boolean'];
+    }
 
     public static function current(): self
     {

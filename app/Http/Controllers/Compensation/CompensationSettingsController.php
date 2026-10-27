@@ -97,11 +97,11 @@ class CompensationSettingsController extends Controller
             'employee_class' => LookupValues::values('employee_class'),
             // Payroll: periods, tax method, potong gapok, BPJS / PPh21 figures per year, JKK per location.
             'payroll' => [
-                'settings' => PayrollSetting::current()->only(['cutoff_day', 'default_tax_method', 'absence_divisor_mode', 'absence_divisor_days']),
+                'settings' => PayrollSetting::current()->only(['cutoff_day', 'default_tax_method', 'absence_divisor_mode', 'absence_divisor_days', 'payslip_password']),
                 'tax_methods' => PayrollSetting::TAX_METHODS,
                 'divisor_modes' => PayrollSetting::DIVISOR_MODES,
                 'rates' => PayrollRate::orderByDesc('year')->get()->map(fn (PayrollRate $r) => $r->only(['year', ...PayrollRate::RATES, ...PayrollRate::AMOUNTS])),
-                'jkk' => WorkLocation::orderBy('sort_order')->get(['id', 'name', 'type', 'jkk_rate']),
+                'jkk' => WorkLocation::orderBy('sort_order')->get(['id', 'name', 'type', 'jkk_rate', 'minimum_wage']),
                 'ter' => TerRate::orderBy('category')->orderBy('lower_bound')->get(['category', 'lower_bound', 'upper_bound', 'rate'])->groupBy('category'),
             ],
         ]);
@@ -118,10 +118,16 @@ class CompensationSettingsController extends Controller
             'absence_divisor_days' => ['required', 'integer', 'min:1', 'max:31'],
             'jkk' => ['present', 'array'],
             'jkk.*' => ['required', 'numeric', 'min:0', 'max:10'],
-        ], [], ['cutoff_day' => 'Tanggal cutoff', 'absence_divisor_days' => 'Pembagi potong gapok', 'jkk.*' => 'Tarif JKK']);
-        PayrollSetting::current()->update(collect($data)->except('jkk')->all());
+            'umk' => ['sometimes', 'array'],
+            'umk.*' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
+            'payslip_password' => ['sometimes', 'boolean'],
+        ], [], ['cutoff_day' => 'Tanggal cutoff', 'absence_divisor_days' => 'Pembagi potong gapok', 'jkk.*' => 'Tarif JKK', 'umk.*' => 'UMK']);
+        PayrollSetting::current()->update(collect($data)->except(['jkk', 'umk'])->all());
         foreach ($data['jkk'] as $id => $rate) {
             WorkLocation::whereKey((int) $id)->update(['jkk_rate' => $rate]);
+        }
+        foreach ($data['umk'] ?? [] as $id => $wage) {
+            WorkLocation::whereKey((int) $id)->update(['minimum_wage' => $wage ?: null]);
         }
         Inertia::flash('success', 'Pengaturan payroll disimpan.');
 

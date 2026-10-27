@@ -11,6 +11,7 @@ use App\Http\Controllers\Time\LeaveBalanceController;
 use App\Http\Controllers\Compensation\LeaveSettingsController;
 use App\Http\Controllers\Compensation\BenefitClaimController;
 use App\Http\Controllers\Compensation\PayrollSimulationController;
+use App\Http\Controllers\Compensation\PayrollRunController;
 use App\Http\Controllers\Compensation\SalaryController;
 use App\Http\Controllers\Compensation\BenefitBalanceController;
 use App\Http\Controllers\DashboardController;
@@ -49,6 +50,7 @@ use App\Http\Controllers\CoreHr\ChangeRequestController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SelfService\ProfileController as PortalDataController;
 use App\Http\Controllers\SelfService\SelfServiceController;
+use App\Http\Controllers\SelfService\PayslipController as PortalPayslipController;
 use App\Http\Controllers\Recruitment\ApplicantController;
 use App\Http\Controllers\Recruitment\JobPostingController;
 use App\Http\Controllers\Recruitment\ReportController;
@@ -356,6 +358,29 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
             Route::put('/payroll-profile/{employee}', 'updateProfile')->whereNumber('employee')->name('payroll-profile.update');
         });
 
+        // Proses Gaji: payroll runs worked out ("payroll-run") and approved, paid, locked ("payroll-approval").
+        Route::controller(PayrollRunController::class)->prefix('payroll')->name('payroll')->group(function () {
+            Route::middleware('menu:payroll-run,payroll-approval')->group(function () {
+                Route::get('/', 'index');
+                Route::get('/{run}', 'show')->whereNumber('run')->name('.show');
+                Route::get('/{run}/export', 'export')->whereNumber('run')->name('.export');
+                Route::get('/{run}/slips/{payslip}', 'slip')->whereNumber(['run', 'payslip'])->name('.slip');
+                Route::get('/{run}/slips/{payslip}/pdf', 'pdf')->whereNumber(['run', 'payslip'])->name('.slip.pdf');
+            });
+            Route::middleware('menu:payroll-run')->group(function () {
+                Route::post('/', 'store')->name('.store');
+                Route::post('/{run}/calculate', 'calculate')->whereNumber('run')->name('.calculate');
+                Route::post('/{run}/submit', 'submit')->whereNumber('run')->name('.submit');
+                Route::delete('/{run}', 'destroy')->whereNumber('run')->name('.destroy');
+            });
+            Route::middleware('menu:payroll-approval')->group(function () {
+                Route::post('/{run}/approve', 'approve')->whereNumber('run')->name('.approve');
+                Route::post('/{run}/reject', 'reject')->whereNumber('run')->name('.reject');
+                Route::post('/{run}/paid', 'paid')->whereNumber('run')->name('.paid');
+                Route::post('/{run}/lock', 'lock')->whereNumber('run')->name('.lock');
+            });
+        });
+
         Route::controller(CompensationSettingsController::class)->middleware('menu:compensation-settings')->prefix('settings')->name('master.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('/grade', 'storeGrade')->name('grade.store');
@@ -441,6 +466,9 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
         // Own leave balance for the cuti form, and the Cuti Besar choice (checked by HR).
         Route::get('/leave-info', 'leaveInfo')->name('.leave-info');
         Route::post('/long-service-leave', 'chooseLongService')->name('.long-service-leave');
+        // Slip Gaji: own payslips of approved payroll runs.
+        Route::get('/payslips', [PortalPayslipController::class, 'index'])->name('.payslips');
+        Route::get('/payslips/{payslip}/pdf', [PortalPayslipController::class, 'pdf'])->whereNumber('payslip')->name('.payslips.pdf');
     });
 });
 

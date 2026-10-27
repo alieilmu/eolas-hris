@@ -41,6 +41,10 @@ class Menu
             'benefit-claims' => 'Deklarasi Benefit',
             'benefit-balances' => 'Monitoring Plafon',
             'employee-compensation' => 'Data Gaji (SSU, tunjangan, PTKP)',
+            // "Ubah" = may create runs, work them out and submit them.
+            'payroll-run' => 'Proses Gaji',
+            // "Ubah" = may approve or send back runs, mark them paid and lock them.
+            'payroll-approval' => 'Persetujuan Payroll',
             'compensation-settings' => 'Pengaturan Kompensasi & Benefit',
         ],
     ];
@@ -65,11 +69,13 @@ class Menu
         'benefit-claims' => '/compensation/claims',
         'benefit-balances' => '/compensation/benefit-balances',
         'employee-compensation' => '/compensation/salaries',
+        'payroll-run' => '/compensation/payroll',
+        'payroll-approval' => '/compensation/payroll',
         'compensation-settings' => '/compensation/settings',
     ];
 
     /** Menus whose pages list employees: they only show the account's locations. */
-    public const SCOPED = ['org-chart', 'workforce-planning', 'employees', 'data-change-requests', 'shift-schedule', 'attendance-records', 'leave-travel', 'travel-requests', 'benefit-claims', 'benefit-balances', 'leave-balances', 'time-clock', 'overtime-approval', 'employee-compensation'];
+    public const SCOPED = ['org-chart', 'workforce-planning', 'employees', 'data-change-requests', 'shift-schedule', 'attendance-records', 'leave-travel', 'travel-requests', 'benefit-claims', 'benefit-balances', 'leave-balances', 'time-clock', 'overtime-approval', 'employee-compensation', 'payroll-run', 'payroll-approval'];
 
     /** @return list<string> */
     public static function keys(): array

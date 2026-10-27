@@ -20,7 +20,8 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
     const allowed = (item: NavItem) =>
         !(item.centralOnly && workspace) &&
         !(item.setupOnly && !props.setup) &&
-        (!item.menu || (item.menu === 'settings' ? props.auth.can.manageUsers : props.auth.menus?.[item.menu] !== undefined));
+        (!item.menu ||
+            (item.menu === 'settings' ? props.auth.can.manageUsers : [item.menu].flat().some((m) => props.auth.menus?.[m] !== undefined)));
     const modules = allModules
         .map((m) => ({ ...m, items: m.items.filter(allowed).map((i) => (i.children ? { ...i, children: i.children.filter(allowed) } : i)) }))
         .filter((m) => m.items.length > 0);
