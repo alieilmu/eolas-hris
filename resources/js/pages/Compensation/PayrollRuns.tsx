@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Banknote, ChevronRight, Loader2, Plus } from 'lucide-react';
 import { AttendanceHeader, Field, Modal, ghostButton, inputClass, primaryButton } from '@/components/time/ui';
@@ -7,6 +7,8 @@ import { rupiah } from '@/lib/compensation';
 import { RUN_TONE, type PayrollRunRow } from '@/lib/payroll';
 
 interface Props {
+    types: Record<string, string>;
+    holidays: { value: string; label: string }[];
     runs: PayrollRunRow[];
     periods: { code: string; label: string }[];
     current_period: string;
@@ -16,7 +18,7 @@ interface Props {
 }
 
 /** Proses Gaji: the payroll runs, newest period first, and a new one. */
-export default function PayrollRuns({ runs, periods, current_period, locations, all_locations, can_run }: Props) {
+export default function PayrollRuns({ runs, periods, current_period, locations, all_locations, can_run, types, holidays }: Props) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -60,7 +62,7 @@ export default function PayrollRuns({ runs, periods, current_period, locations, 
                                     <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50/60">
                                         <td className="px-4 py-3">
                                             <Link href={`/compensation/payroll/${r.id}`} className="font-bold text-slate-800 hover:text-brand-700">
-                                                {r.label}
+                                                {r.type === 'thr' ? `THR ${r.holiday}` : r.type === 'final' ? 'Final pay' : 'Gaji'} {r.label}
                                             </Link>
                                             <span className="block text-xs text-slate-400">{r.range}</span>
                                         </td>
@@ -87,7 +89,17 @@ export default function PayrollRuns({ runs, periods, current_period, locations, 
                     </div>
                 )}
             </main>
-            {open && <NewRun periods={periods} current={current_period} locations={locations} allLocations={all_locations} onClose={() => setOpen(false)} />}
+            {open && (
+                <NewRun
+                    periods={periods}
+                    current={current_period}
+                    locations={locations}
+                    allLocations={all_locations}
+                    types={types}
+                    holidays={holidays}
+                    onClose={() => setOpen(false)}
+                />
+            )}
         </>
     );
 }
@@ -97,39 +109,80 @@ function NewRun({
     current,
     locations,
     allLocations,
+    types,
+    holidays,
     onClose,
 }: {
     periods: Props['periods'];
     current: string;
     locations: Props['locations'];
     allLocations: boolean;
+    types: Record<string, string>;
+    holidays: Props['holidays'];
     onClose: () => void;
 }) {
-    const form = useForm({ period: current, work_location_id: allLocations ? '' : String(locations[0]?.id ?? ''), pay_date: '', notes: '' });
+    const form = useForm({
+        type: 'regular' as 'regular' | 'thr' | 'final',
+        period: current,
+        work_location_id: allLocations ? '' : String(locations[0]?.id ?? ''),
+        pay_date: '',
+        notes: '',
+        holiday: 'idulfitri',
+        holiday_date: '',
+        employee_ids: [] as number[],
+    });
     const { data, setData, errors, processing } = form;
+    const [leavers, setLeavers] = useState<{ id: number; label: string; termination_date: string }[] | null>(null);
+    useEffect(() => {
+        if (data.type !== 'final') return;
+        setLeavers(null);
+        fetch(`/compensation/payroll/leaving?period=${data.period}`, { headers: { Accept: 'application/json' } })
+            .then((r) => (r.ok ? r.json() : []))
+            .then(setLeavers)
+            .catch(() => setLeavers([]));
+    }, [data.type, data.period]);
     const submit = () => {
-        form.transform((d) => ({ ...d, work_location_id: d.work_location_id ? Number(d.work_location_id) : null, pay_date: d.pay_date || null }));
+        form.transform((d) => ({
+            ...d,
+            work_location_id: d.type !== 'final' && d.work_location_id ? Number(d.work_location_id) : null,
+            pay_date: d.pay_date || null,
+            holiday: d.type === 'thr' ? d.holiday : null,
+            holiday_date: d.type === 'thr' ? d.holiday_date || null : null,
+            employee_ids: d.type === 'final' ? d.employee_ids : null,
+        }));
         form.post('/compensation/payroll');
     };
+    const err = (k: string) => (errors as Record<string, string>)[k];
 
     return (
         <Modal
             title="Proses gaji baru"
-            subtitle="Satu periode untuk semua lokasi kerja, atau per lokasi (mis. site dan Head Office diproses terpisah)."
+            subtitle="Gaji bulanan per periode (semua lokasi atau per lokasi), THR per hari raya, atau final pay untuk karyawan yang keluar."
             onClose={onClose}
             footer={
                 <>
                     <button onClick={onClose} className={ghostButton}>
                         Batal
                     </button>
-                    <button onClick={submit} disabled={processing} className={primaryButton}>
+                    <button onClick={submit} disabled={processing || (data.type === 'final' && data.employee_ids.length === 0)} className={primaryButton}>
                         {processing ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />} Buat
                     </button>
                 </>
             }
         >
             <div className="space-y-4">
-                <Field label="Periode">
+                <div className="flex gap-1 rounded-xl bg-slate-100 p-1 text-sm font-bold">
+                    {Object.entries(types).map(([v, l]) => (
+                        <button
+                            key={v}
+                            onClick={() => setData('type', v as typeof data.type)}
+                            className={`flex-1 rounded-lg px-2 py-1.5 ${data.type === v ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
+                        >
+                            {l}
+                        </button>
+                    ))}
+                </div>
+                <Field label={data.type === 'thr' ? 'Dibayar bersama gaji periode' : 'Periode'} hint={data.type === 'thr' ? 'PPh21 THR memakai TER bulan dibayar, digabung dengan gaji bulan itu.' : undefined}>
                     <select value={data.period} onChange={(e) => setData('period', e.target.value)} className={inputClass}>
                         {periods.map((p) => (
                             <option key={p.code} value={p.code}>
@@ -137,24 +190,62 @@ function NewRun({
                             </option>
                         ))}
                     </select>
-                    {errors.period && <p className="mt-1 text-xs font-semibold text-rose-600">{errors.period}</p>}
+                    {err('period') && <p className="mt-1 text-xs font-semibold text-rose-600">{err('period')}</p>}
                 </Field>
-                <Field label="Lokasi kerja">
-                    <select value={data.work_location_id} onChange={(e) => setData('work_location_id', e.target.value)} className={inputClass}>
-                        {allLocations && <option value="">Semua lokasi</option>}
-                        {locations.map((l) => (
-                            <option key={l.id} value={l.id}>
-                                {l.name}
-                            </option>
-                        ))}
-                    </select>
-                    {errors.work_location_id && <p className="mt-1 text-xs font-semibold text-rose-600">{errors.work_location_id}</p>}
-                </Field>
+                {data.type === 'thr' && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Hari raya" hint="Karyawan dipilih menurut agama di profil.">
+                            <select value={data.holiday} onChange={(e) => setData('holiday', e.target.value)} className={inputClass}>
+                                {holidays.map((h) => (
+                                    <option key={h.value} value={h.value}>
+                                        {h.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
+                        <Field label="Tanggal hari raya" hint="Dasar masa kerja (minimal 1 bulan).">
+                            <DateInput value={data.holiday_date} onChange={(v) => setData('holiday_date', v)} />
+                            {err('holiday_date') && <p className="mt-1 text-xs font-semibold text-rose-600">{err('holiday_date')}</p>}
+                        </Field>
+                    </div>
+                )}
+                {data.type === 'final' ? (
+                    <Field label="Karyawan yang keluar di periode ini" hint="Sisa gaji pro-rata, PPh21 setahun, dan pelunasan sisa pinjaman.">
+                        {leavers === null ? (
+                            <p className="text-sm text-slate-400">Memuat…</p>
+                        ) : leavers.length === 0 ? (
+                            <p className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-500">Tidak ada karyawan dengan tanggal keluar di periode ini.</p>
+                        ) : (
+                            <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-2">
+                                {leavers.map((l) => (
+                                    <label key={l.id} className="flex items-center gap-2 text-sm text-slate-700">
+                                        <input
+                                            type="checkbox"
+                                            checked={data.employee_ids.includes(l.id)}
+                                            onChange={(e) => setData('employee_ids', e.target.checked ? [...data.employee_ids, l.id] : data.employee_ids.filter((x) => x !== l.id))}
+                                        />
+                                        {l.label} <span className="text-xs text-slate-400">keluar {l.termination_date}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+                        {err('employee_ids') && <p className="mt-1 text-xs font-semibold text-rose-600">{err('employee_ids')}</p>}
+                    </Field>
+                ) : (
+                    <Field label="Lokasi kerja">
+                        <select value={data.work_location_id} onChange={(e) => setData('work_location_id', e.target.value)} className={inputClass}>
+                            {allLocations && <option value="">Semua lokasi</option>}
+                            {locations.map((l) => (
+                                <option key={l.id} value={l.id}>
+                                    {l.name}
+                                </option>
+                            ))}
+                        </select>
+                        {err('work_location_id') && <p className="mt-1 text-xs font-semibold text-rose-600">{err('work_location_id')}</p>}
+                    </Field>
+                )}
                 <Field label="Rencana tanggal bayar (opsional)">
                     <DateInput value={data.pay_date} onChange={(v) => setData('pay_date', v)} />
-                </Field>
-                <Field label="Catatan (opsional)">
-                    <textarea value={data.notes} onChange={(e) => setData('notes', e.target.value)} rows={2} className={inputClass} />
                 </Field>
             </div>
         </Modal>

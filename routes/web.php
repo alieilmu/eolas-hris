@@ -382,6 +382,7 @@ Route::middleware(['auth', 'two-factor', 'account.ready', 'licensed'])->group(fu
             Route::middleware('menu:payroll-run,payroll-approval')->group(function () {
                 Route::get('/', 'index');
                 Route::get('/{run}', 'show')->whereNumber('run')->name('.show');
+                Route::get('/leaving', 'leaving')->name('.leaving');
                 Route::get('/{run}/export', 'export')->whereNumber('run')->name('.export');
                 Route::get('/{run}/slips/{payslip}', 'slip')->whereNumber(['run', 'payslip'])->name('.slip');
                 Route::get('/{run}/slips/{payslip}/pdf', 'pdf')->whereNumber(['run', 'payslip'])->name('.slip.pdf');
@@ -407,6 +408,7 @@ Route::middleware(['auth', 'two-factor', 'account.ready', 'licensed'])->group(fu
                 Route::get('/template', 'template')->name('.template');
                 Route::post('/', 'store')->name('.store');
                 Route::post('/import', 'import')->name('.import');
+                Route::post('/pull', 'pull')->name('.pull');
                 Route::put('/{input}', 'update')->whereNumber('input')->name('.update');
                 Route::delete('/{input}', 'destroy')->whereNumber('input')->name('.destroy');
             });

@@ -210,13 +210,19 @@ class PayrollCalculator
         return [$earnings, $after];
     }
 
-    /** Installments of the employee's running loans due in the period. */
+    /**
+     * Installments of the employee's running loans due in the period; the month an employee
+     * leaves, everything left of them (final pay).
+     */
     private static function installments(Employee $k, PayrollPeriod $p): array
     {
-        return LoanInstallment::with('loan')->where('period', $p->code())->where('status', 'scheduled')
+        $leaving = $k->termination_date && CarbonImmutable::parse($k->termination_date)->between($p->start, $p->end);
+
+        return LoanInstallment::with('loan')->where('status', 'scheduled')
+            ->when($leaving, fn ($q) => $q->where('period', '>=', $p->code()), fn ($q) => $q->where('period', $p->code()))
             ->whereHas('loan', fn ($q) => $q->where('employee_id', $k->id)->where('status', 'active'))
             ->orderBy('id')->get()
-            ->map(fn (LoanInstallment $i) => ['code' => 'loan', 'label' => 'Angsuran pinjaman', 'amount' => (int) $i->amount,
+            ->map(fn (LoanInstallment $i) => ['code' => 'loan', 'label' => $i->period > $p->code() ? 'Pelunasan sisa pinjaman' : 'Angsuran pinjaman', 'amount' => (int) $i->amount,
                 'note' => "ke-{$i->sequence} dari {$i->loan->tenor}", 'ref' => "installment:{$i->id}"])
             ->all();
     }
@@ -247,20 +253,25 @@ class PayrollCalculator
             ->join('payroll_runs', 'payroll_runs.id', '=', 'payslips.payroll_run_id')
             ->where('payslips.employee_id', $k->id)->whereNull('payslips.error')
             ->whereIn('payroll_runs.status', PayrollRun::FINAL)
-            ->where('payroll_runs.period', '>=', sprintf('%04d-01', $p->year))->where('payroll_runs.period', '<', $p->code())
+            ->where('payroll_runs.period', '>=', sprintf('%04d-01', $p->year))
+            // Earlier months; THR paid this month too (its tax was taken by TER already).
+            ->where(fn ($q) => $q->where('payroll_runs.period', '<', $p->code())->orWhere(fn ($q) => $q->where('payroll_runs.type', 'thr')->where('payroll_runs.period', $p->code())))
             ->when($runId, fn ($q) => $q->where('payroll_runs.id', '!=', $runId))
-            ->get(['payroll_runs.period', 'payslips.gross', 'payslips.tax', 'payslips.tax_withheld', 'payslips.employee_contributions', 'payslips.snapshot'])
-            ->groupBy('period');
-        [$grossBefore, $withheld, $contributions, $months, $redone] = [0, 0, 0, 0, 0];
+            ->get(['payroll_runs.period', 'payroll_runs.type', 'payslips.gross', 'payslips.tax', 'payslips.tax_withheld', 'payslips.employee_contributions', 'payslips.snapshot']);
+        $add = function ($slip) use (&$grossBefore, &$withheld, &$contributions) {
+            $grossBefore += $slip->gross;
+            // Under net the company bears the tax: it still counts as paid for the year.
+            $withheld += ($slip->snapshot['tax_method'] ?? null) === 'net' ? $slip->tax : $slip->tax_withheld;
+            $contributions += $slip->employee_contributions;
+        };
+        [$grossBefore, $withheld, $contributions] = [0, 0, 0];
+        $stored->where('type', 'thr')->each($add);
+        $stored = $stored->where('type', '!=', 'thr')->groupBy('period');
+        [$months, $redone] = [0, 0];
         for ($m = 1; $m < $p->month; $m++) {
             $code = sprintf('%04d-%02d', $p->year, $m);
             if ($stored->has($code)) {
-                foreach ($stored[$code] as $slip) {
-                    $grossBefore += $slip->gross;
-                    // Under net the company bears the tax: it still counts as paid for the year.
-                    $withheld += ($slip->snapshot['tax_method'] ?? null) === 'net' ? $slip->tax : $slip->tax_withheld;
-                    $contributions += $slip->employee_contributions;
-                }
+                $stored[$code]->each($add);
                 $months++;
 
                 continue;

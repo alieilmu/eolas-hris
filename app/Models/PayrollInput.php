@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /** Input Variabel: an amount of a component for one employee in one period, paid once approved. */
-#[Fillable(['employee_id', 'period', 'payroll_component_id', 'amount', 'notes', 'status', 'source', 'created_by', 'approved_by', 'approved_at', 'rejection_note', 'payslip_id'])]
+#[Fillable(['employee_id', 'period', 'payroll_component_id', 'amount', 'notes', 'status', 'source', 'created_by', 'approved_by', 'approved_at', 'rejection_note', 'payslip_id', 'source_ref'])]
 class PayrollInput extends Model
 {
     public const STATUS = ['pending' => 'Menunggu persetujuan', 'approved' => 'Disetujui', 'rejected' => 'Ditolak'];

@@ -14,13 +14,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * sent back returns to calculated. Only draft and calculated runs are worked out again.
  */
 #[Fillable([
-    'period', 'type', 'work_location_id', 'period_start', 'period_end', 'pay_date', 'status', 'employee_count', 'progress', 'totals', 'notes', 'rejection_note',
+    'period', 'type', 'work_location_id', 'holiday', 'holiday_date', 'employee_ids', 'period_start', 'period_end', 'pay_date', 'status', 'employee_count', 'progress', 'totals', 'notes', 'rejection_note',
     'created_by', 'calculated_by', 'calculated_at', 'submitted_by', 'submitted_at', 'approved_by', 'approved_at',
     'paid_by', 'paid_at', 'locked_by', 'locked_at',
 ])]
 class PayrollRun extends Model
 {
-    public const TYPES = ['regular' => 'Gaji bulanan'];
+    public const TYPES = ['regular' => 'Gaji bulanan', 'thr' => 'THR', 'final' => 'Final pay (karyawan keluar)'];
+
+    /** THR per religious holiday (Permenaker 6/2016): who it is for, by the religion in the profile. */
+    public const HOLIDAYS = [
+        'idulfitri' => ['Idulfitri', ['Islam']],
+        'natal' => ['Natal', ['Kristen', 'Katolik']],
+        'nyepi' => ['Nyepi', ['Hindu']],
+        'waisak' => ['Waisak', ['Buddha']],
+        'imlek' => ['Imlek', ['Konghucu']],
+        'all' => ['Semua karyawan (satu hari raya)', null],
+    ];
 
     public const STATUS = [
         'draft' => 'Draft',
@@ -39,6 +49,7 @@ class PayrollRun extends Model
     {
         return [
             'period_start' => 'date', 'period_end' => 'date', 'pay_date' => 'date', 'totals' => 'array',
+            'holiday_date' => 'date', 'employee_ids' => 'array',
             'calculated_at' => 'datetime', 'submitted_at' => 'datetime', 'approved_at' => 'datetime', 'paid_at' => 'datetime', 'locked_at' => 'datetime',
         ];
     }
@@ -72,6 +83,12 @@ class PayrollRun extends Model
 
     public function label(): string
     {
-        return $this->periodOf()->label().' · '.($this->workLocation?->name ?? 'Semua lokasi');
+        $what = match ($this->type) {
+            'thr' => 'THR '.(self::HOLIDAYS[$this->holiday][0] ?? '').' · ',
+            'final' => 'Final pay · ',
+            default => '',
+        };
+
+        return $what.$this->periodOf()->label().' · '.($this->workLocation?->name ?? 'Semua lokasi');
     }
 }

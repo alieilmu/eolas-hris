@@ -56,42 +56,94 @@ class PayrollRunController extends Controller
             'locations' => AccessScope::locations(),
             'all_locations' => $ids === null,
             'can_run' => Auth::user()->canEdit('payroll-run'),
+            'types' => PayrollRun::TYPES,
+            'holidays' => collect(PayrollRun::HOLIDAYS)->map(fn ($h, $k) => ['value' => $k, 'label' => $h[0]])->values(),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
+            'type' => ['nullable', Rule::in(array_keys(PayrollRun::TYPES))],
             'period' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'work_location_id' => ['nullable', 'integer', Rule::exists(WorkLocation::class, 'id')],
             'pay_date' => ['nullable', 'date_format:Y-m-d'],
             'notes' => ['nullable', 'string', 'max:500'],
-        ]);
-        $location = $data['work_location_id'] ?? null;
-        if ($location === null && AccessScope::workLocationIds() !== null) {
+            'holiday' => ['required_if:type,thr', 'nullable', Rule::in(array_keys(PayrollRun::HOLIDAYS))],
+            'holiday_date' => ['required_if:type,thr', 'nullable', 'date_format:Y-m-d'],
+            'employee_ids' => ['required_if:type,final', 'nullable', 'array'],
+            'employee_ids.*' => ['integer'],
+        ], ['holiday_date.required_if' => 'Isi tanggal hari raya.', 'employee_ids.required_if' => 'Pilih karyawan yang keluar.']);
+        $type = $data['type'] ?? 'regular';
+        $location = $type === 'final' ? null : ($data['work_location_id'] ?? null);
+        if ($location === null && $type !== 'final' && AccessScope::workLocationIds() !== null) {
             throw ValidationException::withMessages(['work_location_id' => 'Pilih lokasi kerja: akun Anda hanya untuk lokasi tertentu.']);
         }
         AccessScope::assertWorkLocation($location);
-        $clash = PayrollRun::where('type', 'regular')->where('period', $data['period'])
-            ->when($location, fn ($q) => $q->where(fn ($q) => $q->whereNull('work_location_id')->orWhere('work_location_id', $location)))
-            ->exists();
-        if ($clash) {
-            throw ValidationException::withMessages(['period' => $location
-                ? 'Periode ini sudah punya proses gaji untuk lokasi ini atau untuk semua lokasi.'
-                : 'Periode ini sudah punya proses gaji (untuk satu lokasi atau semua). Hapus dulu, atau buat per lokasi.']);
-        }
         $period = PayrollPeriod::fromCode($data['period'], PayrollSetting::current()->cutoff_day);
+        $ids = [];
+        if ($type === 'final') {
+            $ids = $this->leavers($data['employee_ids'] ?? [], $data['period'], $period);
+            // Leavers of one location: the run is that location's (so an account of that location acts on it).
+            $places = \App\Models\Employee::whereIn('id', $ids)->distinct()->pluck('work_location_id');
+            $location = $places->count() === 1 ? $places->first() : null;
+            if ($location === null && AccessScope::workLocationIds() !== null) {
+                throw ValidationException::withMessages(['employee_ids' => 'Pilih karyawan dari satu lokasi kerja.']);
+            }
+        } else {
+            $clash = PayrollRun::where('type', $type)->where('period', $data['period'])
+                ->when($type === 'thr', fn ($q) => $q->where('holiday', $data['holiday']))
+                ->when($location, fn ($q) => $q->where(fn ($q) => $q->whereNull('work_location_id')->orWhere('work_location_id', $location)))
+                ->exists();
+            if ($clash) {
+                throw ValidationException::withMessages(['period' => $location
+                    ? 'Periode ini sudah punya proses '.($type === 'thr' ? 'THR hari raya ini' : 'gaji').' untuk lokasi ini atau untuk semua lokasi.'
+                    : 'Periode ini sudah punya proses '.($type === 'thr' ? 'THR hari raya ini' : 'gaji').' (untuk satu lokasi atau semua). Hapus dulu, atau buat per lokasi.']);
+            }
+        }
         $run = PayrollRun::create([
-            'period' => $data['period'], 'type' => 'regular', 'work_location_id' => $location,
+            'period' => $data['period'], 'type' => $type, 'work_location_id' => $location,
             'period_start' => $period->start->toDateString(), 'period_end' => $period->end->toDateString(),
             'pay_date' => $data['pay_date'] ?? null, 'notes' => $data['notes'] ?? null,
+            'holiday' => $type === 'thr' ? $data['holiday'] : null, 'holiday_date' => $type === 'thr' ? $data['holiday_date'] : null,
+            'employee_ids' => $type === 'final' ? $ids : null,
             'status' => 'draft', 'created_by' => $request->user()->id,
         ]);
         $run->update(['employee_count' => PayrollRunner::employees($run)->count()]);
         Audit::log('payroll.run_created', $run, $run->label());
-        Inertia::flash('success', 'Proses gaji '.$run->label().' dibuat. Klik Hitung untuk menghitung slip.');
+        Inertia::flash('success', 'Proses '.$run->label().' dibuat. Klik Hitung untuk menghitung slip.');
 
         return redirect("/compensation/payroll/{$run->id}");
+    }
+
+    /** Final pay: employees of the account's locations leaving in the period, not paid in another run of it. */
+    private function leavers(array $ids, string $code, PayrollPeriod $period): array
+    {
+        $found = \App\Models\Employee::whereIn('id', $ids)->whereNotNull('termination_date')
+            ->whereBetween('termination_date', [$period->start->toDateString(), $period->end->toDateString()])->pluck('id')->all();
+        if (count($found) !== count(array_unique($ids)) || ! $found) {
+            throw ValidationException::withMessages(['employee_ids' => 'Pilih karyawan yang tanggal keluarnya di periode ini.']);
+        }
+        $paid = PayrollRun::where('period', $code)->where(fn ($q) => $q->where('type', 'final')->orWhere('type', 'regular'))->get()
+            ->flatMap(fn (PayrollRun $r) => $r->type === 'final' ? ($r->employee_ids ?? []) : Payslip::where('payroll_run_id', $r->id)->pluck('employee_id')->all())
+            ->intersect($found);
+        if ($paid->isNotEmpty()) {
+            throw ValidationException::withMessages(['employee_ids' => $paid->count().' karyawan sudah ada di proses gaji periode ini.']);
+        }
+
+        return array_values(array_map('intval', $found));
+    }
+
+    /** Employees leaving in a period, for a final pay run. */
+    public function leaving(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $period = PayrollPeriod::fromCode((string) $request->query('period'), PayrollSetting::current()->cutoff_day);
+        abort_unless($period, 422);
+
+        return response()->json(\App\Models\Employee::whereNotNull('termination_date')
+            ->whereBetween('termination_date', [$period->start->toDateString(), $period->end->toDateString()])
+            ->orderBy('name')->get(['id', 'employee_number', 'name', 'termination_date'])
+            ->map(fn ($e) => ['id' => $e->id, 'label' => "{$e->employee_number} · {$e->name}", 'termination_date' => $e->termination_date?->toDateString()]));
     }
 
     public function show(Request $request, PayrollRun $run): Response
@@ -240,7 +292,7 @@ class PayrollRunController extends Controller
 
         $perLocation = $slips->groupBy(fn ($s) => $s->snapshot['location'] ?? '-');
 
-        return TableExcel::download("payroll-{$run->period}-".($run->workLocation?->code ?? 'all').'.xlsx', [
+        return TableExcel::download(($run->type === 'regular' ? 'payroll' : $run->type)."-{$run->period}-".($run->workLocation?->code ?? 'all').'.xlsx', [
             [
                 'title' => 'Payroll Recap', 'info' => $info, 'freeze' => 4,
                 'columns' => [
@@ -276,7 +328,9 @@ class PayrollRunController extends Controller
     {
         return [
             'id' => $r->id, 'period' => $r->period, 'label' => $r->periodOf()->label(), 'range' => $r->periodOf()->range(),
-            'type' => $r->type, 'work_location_id' => $r->work_location_id, 'location' => $r->workLocation?->name ?? 'Semua lokasi',
+            'type' => $r->type, 'type_label' => PayrollRun::TYPES[$r->type] ?? $r->type,
+            'holiday' => $r->holiday ? (PayrollRun::HOLIDAYS[$r->holiday][0] ?? $r->holiday) : null, 'holiday_date' => $r->holiday_date?->toDateString(),
+            'work_location_id' => $r->work_location_id, 'location' => $r->type === 'final' ? count($r->employee_ids ?? []).' karyawan keluar' : ($r->workLocation?->name ?? 'Semua lokasi'),
             'status' => $r->status, 'status_label' => PayrollRun::STATUS[$r->status] ?? $r->status,
             'employee_count' => $r->employee_count, 'progress' => $r->progress, 'pay_date' => $r->pay_date?->toDateString(),
             'take_home_pay' => $r->totals['all']['take_home_pay'] ?? null, 'errors' => $r->totals['all']['errors'] ?? 0,

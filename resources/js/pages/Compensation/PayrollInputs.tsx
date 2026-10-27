@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Check, Download, FileUp, Loader2, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { Check, Download, DownloadCloud, FileUp, Loader2, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { AttendanceHeader, Field, Modal, ghostButton, inputClass, primaryButton, secondaryButton, smallInput } from '@/components/time/ui';
 import { rupiah } from '@/lib/compensation';
 
@@ -83,6 +83,13 @@ export default function PayrollInputs({ period, period_label, periods, inputs, e
                 </select>
                 {can.edit && (
                     <>
+                        <button
+                            onClick={() => router.post(`${BASE}/pull`, { period }, { preserveScroll: true })}
+                            className={secondaryButton}
+                            title="Deklarasi benefit, Cuti Besar dan lumpsum cuti lapangan periode ini"
+                        >
+                            <DownloadCloud size={15} /> Tarik dari modul lain
+                        </button>
                         <button onClick={() => setImporting(true)} className={secondaryButton}>
                             <FileUp size={15} /> Import Excel
                         </button>
@@ -182,7 +189,7 @@ export default function PayrollInputs({ period, period_label, periods, inputs, e
                                         <td className="max-w-xs px-3 py-2 text-xs text-slate-500">
                                             {i.notes}
                                             <span className="block text-[11px] text-slate-400">
-                                                {i.source === 'import' ? 'Import' : 'Manual'} · {i.created_by}
+                                                {{ import: 'Import', auto: 'Dari modul lain', manual: 'Manual' }[i.source] ?? i.source} · {i.created_by}
                                             </span>
                                             {i.rejection_note && <span className="block text-rose-600">Ditolak: {i.rejection_note}</span>}
                                         </td>

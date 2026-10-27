@@ -9,6 +9,7 @@ use App\Models\PayrollInput;
 use App\Models\PayrollRun;
 use App\Models\Payslip;
 use App\Models\PayslipLine;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -22,13 +23,34 @@ class PayrollRunner
     /** A slip whose take home pay moved more than this against last month is flagged. */
     private const SWING = 0.10;
 
-    /** Employees on the payroll in the run's period: active, or leaving within it; joined by its end. */
+    /**
+     * Who a run pays. Regular: active in the period or leaving within it, joined by its end, and
+     * not paid off already by a final pay run of the period. THR: of the holiday's religion, with
+     * a full month of service and still employed on the day. Final pay: the employees chosen.
+     */
     public static function employees(PayrollRun $run): Builder
     {
         $start = $run->period_start->toDateString();
         $end = $run->period_end->toDateString();
+        if ($run->type === 'final') {
+            return Employee::query()->whereIn('id', $run->employee_ids ?: [0]);
+        }
+        if ($run->type === 'thr') {
+            $day = ($run->holiday_date ?? $run->period_end)->toDateString();
+            $religions = PayrollRun::HOLIDAYS[$run->holiday][1] ?? null;
+            $joinedBy = CarbonImmutable::parse($day)->subMonth()->toDateString();
+
+            return Employee::query()
+                ->when($run->work_location_id, fn ($q) => $q->where('work_location_id', $run->work_location_id))
+                ->where(fn ($q) => $q->whereNull('termination_date')->orWhere('termination_date', '>=', $day))
+                ->where('status', '!=', Employee::STATUS_TERMINATED)
+                ->whereHas('profile', fn ($q) => $q->where(fn ($q) => $q->whereNull('hire_date')->orWhere('hire_date', '<=', $joinedBy))
+                    ->when($religions, fn ($q) => $q->whereIn('religion', $religions)));
+        }
+        $finalled = PayrollRun::where('type', 'final')->where('period', $run->period)->pluck('employee_ids')->flatten()->filter()->all();
 
         return Employee::query()
+            ->when($finalled, fn ($q) => $q->whereNotIn('id', $finalled))
             ->when($run->work_location_id, fn ($q) => $q->where('work_location_id', $run->work_location_id))
             ->where(fn ($q) => $q->where(fn ($q) => $q->where('status', '!=', Employee::STATUS_TERMINATED)->where(fn ($q) => $q->whereNull('termination_date')->orWhere('termination_date', '>=', $start)))
                 ->orWhereBetween('termination_date', [$start, $end]))
@@ -50,7 +72,8 @@ class PayrollRunner
                 ->whereIn('id', $chunk)->get()->keyBy('id');
             DB::transaction(function () use ($chunk, $employees, $period, $run, $previous) {
                 foreach ($chunk as $id) {
-                    self::store($run, $employees[$id], PayrollCalculator::month($employees[$id], $period, $run->id), $previous[$id] ?? null);
+                    $result = $run->type === 'thr' ? ThrCalculator::for($employees[$id], $run) : PayrollCalculator::month($employees[$id], $period, $run->id);
+                    self::store($run, $employees[$id], $result, $run->type === 'regular' ? ($previous[$id] ?? null) : null);
                 }
             });
             $run->update(['progress' => min($ids->count(), ($n + 1) * 50)]);

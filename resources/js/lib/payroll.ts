@@ -4,7 +4,10 @@ export interface PayrollRunRow {
     period: string;
     label: string;
     range: string;
-    type: string;
+    type: 'regular' | 'thr' | 'final';
+    type_label: string;
+    holiday: string | null;
+    holiday_date: string | null;
     work_location_id: number | null;
     location: string;
     status: 'draft' | 'calculating' | 'calculated' | 'submitted' | 'approved' | 'paid' | 'locked';

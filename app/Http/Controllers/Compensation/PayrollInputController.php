@@ -12,6 +12,7 @@ use App\Support\Audit\Audit;
 use App\Support\Payroll\PayrollInputExcel;
 use App\Support\Payroll\PayrollPeriod;
 use App\Support\Payroll\PayrollPeriods;
+use App\Support\Payroll\PayrollSources;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -135,6 +136,21 @@ class PayrollInputController extends Controller
         Audit::log($data['decision'] === 'approved' ? 'payroll.inputs_approved' : 'payroll.inputs_rejected', null,
             "{$inputs->count()} input · Rp ".number_format($inputs->sum('amount'), 0, ',', '.'), ['ids' => $inputs->pluck('id')->all()]);
         Inertia::flash('success', $inputs->count().' input '.($data['decision'] === 'approved' ? 'disetujui.' : 'ditolak.'));
+
+        return back();
+    }
+
+    /** Deklarasi, Cuti Besar and lumpsum cuti lapangan of the period, as waiting inputs. */
+    public function pull(Request $request): RedirectResponse
+    {
+        $period = PayrollPeriod::fromCode((string) $request->input('period'), PayrollSetting::current()->cutoff_day);
+        abort_unless($period, 422);
+        $n = PayrollSources::pull($period, $request->user()->id);
+        $made = $n['claims'] + $n['long_service'] + $n['field_leave'];
+        Audit::log('payroll.inputs_pulled', null, "{$period->code()}: {$n['claims']} deklarasi, {$n['long_service']} Cuti Besar, {$n['field_leave']} lumpsum");
+        Inertia::flash('success', $made
+            ? "Ditarik untuk {$period->label()}: {$n['claims']} deklarasi, {$n['long_service']} Cuti Besar, {$n['field_leave']} lumpsum cuti lapangan. Menunggu persetujuan."
+            : "Tidak ada data baru untuk ditarik di {$period->label()}.");
 
         return back();
     }

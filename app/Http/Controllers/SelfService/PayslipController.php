@@ -23,7 +23,12 @@ class PayslipController extends Controller
 
         return Inertia::render('SelfService/Payslips', [
             'slips' => $slips->map(fn (Payslip $s) => [
-                'id' => $s->id, 'period' => $s->run->period, 'label' => $s->run->periodOf()->label(),
+                'id' => $s->id, 'period' => $s->run->period,
+                'label' => match ($s->run->type) {
+                    'thr' => 'THR '.(PayrollRun::HOLIDAYS[$s->run->holiday][0] ?? '').' '.$s->run->holiday_date?->year,
+                    'final' => 'Final pay '.$s->run->periodOf()->label(),
+                    default => $s->run->periodOf()->label(),
+                },
                 'pay_date' => $s->run->pay_date?->toDateString(), 'take_home_pay' => $s->take_home_pay,
             ]),
             'slip' => $chosen ? PayrollRunController::slipData($chosen) : null,

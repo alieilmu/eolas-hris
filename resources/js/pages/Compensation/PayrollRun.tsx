@@ -103,8 +103,11 @@ export default function PayrollRun({ run, slips, can }: Props) {
 
     return (
         <>
-            <Head title={`Proses Gaji ${run.label}`} />
-            <AttendanceHeader title={`Proses Gaji ${run.label}`} subtitle={`${run.location} · periode ${run.range}`}>
+            <Head title={`${run.type === 'regular' ? 'Proses Gaji' : run.type_label} ${run.label}`} />
+            <AttendanceHeader
+                title={run.type === 'thr' ? `THR ${run.holiday} · dibayar ${run.label}` : run.type === 'final' ? `Final pay · ${run.label}` : `Proses Gaji ${run.label}`}
+                subtitle={run.type === 'thr' ? `${run.location} · hari raya ${run.holiday_date}` : `${run.location} · periode ${run.range}`}
+            >
                 <Link href="/compensation/payroll" className={secondaryButton}>
                     <ArrowLeft size={15} /> Semua proses
                 </Link>

@@ -47,6 +47,7 @@ class Audit
             'payroll.input_created' => 'Input variabel dibuat',
             'payroll.input_deleted' => 'Input variabel dihapus',
             'payroll.inputs_imported' => 'Input variabel diimpor',
+            'payroll.inputs_pulled' => 'Input ditarik dari modul lain',
             'payroll.inputs_approved' => 'Input variabel disetujui',
             'payroll.inputs_rejected' => 'Input variabel ditolak',
             'payroll.loan_created' => 'Pinjaman dicatat HR',
