@@ -11,6 +11,7 @@ use App\Models\PayslipLine;
 use App\Models\User;
 use App\Models\WorkLocation;
 use App\Support\Access\AccessScope;
+use App\Support\Audit\Audit;
 use App\Support\Excel\TableExcel;
 use App\Support\Payroll\PayrollPeriod;
 use App\Support\Payroll\PayrollRunner;
@@ -87,6 +88,7 @@ class PayrollRunController extends Controller
             'status' => 'draft', 'created_by' => $request->user()->id,
         ]);
         $run->update(['employee_count' => PayrollRunner::employees($run)->count()]);
+        Audit::log('payroll.run_created', $run, $run->label());
         Inertia::flash('success', 'Proses gaji '.$run->label().' dibuat. Klik Hitung untuk menghitung slip.');
 
         return redirect("/compensation/payroll/{$run->id}");
@@ -126,6 +128,7 @@ class PayrollRunController extends Controller
         abort_unless($run->editable(), 422, 'Proses gaji ini tidak bisa dihitung ulang pada status sekarang.');
         $run->update(['status' => 'calculating', 'progress' => 0]);
         CalculatePayrollRun::dispatch($run->id, $request->user()->id);
+        Audit::log('payroll.run_calculated', $run, $run->label());
         Inertia::flash('success', 'Slip sedang dihitung.');
 
         return back();
@@ -139,6 +142,7 @@ class PayrollRunController extends Controller
             throw ValidationException::withMessages(['run' => 'Masih ada slip yang gagal dihitung. Lengkapi datanya lalu hitung ulang.']);
         }
         $run->update(['status' => 'submitted', 'submitted_by' => $request->user()->id, 'submitted_at' => now(), 'rejection_note' => null]);
+        Audit::log('payroll.run_submitted', $run, $run->label(), ['take_home_pay' => $run->totals['all']['take_home_pay'] ?? null]);
         Inertia::flash('success', 'Proses gaji diajukan untuk disetujui.');
 
         return back();
@@ -150,6 +154,7 @@ class PayrollRunController extends Controller
         abort_unless($run->status === 'submitted', 422);
         abort_unless($this->mayApprove($run, $request->user()), 403, 'Proses gaji tidak bisa disetujui oleh yang menghitung atau mengajukannya.');
         $run->update(['status' => 'approved', 'approved_by' => $request->user()->id, 'approved_at' => now()]);
+        Audit::log('payroll.run_approved', $run, $run->label(), ['take_home_pay' => $run->totals['all']['take_home_pay'] ?? null]);
         Inertia::flash('success', 'Proses gaji disetujui. Slip sudah terlihat di portal karyawan.');
 
         return back();
@@ -161,6 +166,7 @@ class PayrollRunController extends Controller
         abort_unless($run->status === 'submitted', 422);
         $note = $request->validate(['note' => ['required', 'string', 'max:500']])['note'];
         $run->update(['status' => 'calculated', 'rejection_note' => $note, 'submitted_by' => null, 'submitted_at' => null]);
+        Audit::log('payroll.run_rejected', $run, $run->label().': '.$note);
         Inertia::flash('success', 'Proses gaji dikembalikan untuk diperbaiki.');
 
         return back();
@@ -172,6 +178,7 @@ class PayrollRunController extends Controller
         abort_unless($run->status === 'approved', 422);
         $data = $request->validate(['pay_date' => ['nullable', 'date_format:Y-m-d']]);
         $run->update(['status' => 'paid', 'paid_by' => $request->user()->id, 'paid_at' => now(), 'pay_date' => $data['pay_date'] ?? $run->pay_date ?? now()->toDateString()]);
+        Audit::log('payroll.run_paid', $run, $run->label());
         Inertia::flash('success', 'Proses gaji ditandai sudah dibayar.');
 
         return back();
@@ -182,6 +189,7 @@ class PayrollRunController extends Controller
         $this->assertActionable($run);
         abort_unless($run->status === 'paid', 422);
         $run->update(['status' => 'locked', 'locked_by' => $request->user()->id, 'locked_at' => now()]);
+        Audit::log('payroll.run_locked', $run, $run->label());
         Inertia::flash('success', 'Proses gaji dikunci. Koreksi berikutnya masuk ke periode selanjutnya.');
 
         return back();
@@ -191,6 +199,7 @@ class PayrollRunController extends Controller
     {
         $this->assertActionable($run);
         abort_unless(in_array($run->status, ['draft', 'calculated'], true), 422, 'Hanya proses gaji yang belum diajukan yang bisa dihapus.');
+        Audit::log('payroll.run_deleted', $run, $run->label());
         $run->delete();
         Inertia::flash('success', 'Proses gaji dihapus.');
 
@@ -201,6 +210,7 @@ class PayrollRunController extends Controller
     public function slip(PayrollRun $run, Payslip $payslip): JsonResponse
     {
         $this->assertSlip($run, $payslip);
+        Audit::log('payroll.slip_viewed', $payslip, "{$payslip->employee_number} {$payslip->name} · {$run->period}");
 
         return response()->json(self::slipData($payslip));
     }
@@ -208,6 +218,7 @@ class PayrollRunController extends Controller
     public function pdf(PayrollRun $run, Payslip $payslip): HttpResponse
     {
         $this->assertSlip($run, $payslip);
+        Audit::log('payroll.slip_downloaded', $payslip, "{$payslip->employee_number} {$payslip->name} · {$run->period}");
 
         return PayslipPdf::download($payslip, protect: false);
     }
@@ -224,6 +235,7 @@ class PayrollRunController extends Controller
             ->sortBy(fn ($c) => [array_search($c->kind, array_keys(PayslipLine::KINDS), true), $c->sort])->values();
         $amount = fn (Payslip $s, $c) => (int) $s->lines->where('kind', $c->kind)->where('code', $c->code)->sum('amount');
         $info = TableExcel::info(['Proses gaji '.$run->label(), PayrollRun::STATUS[$run->status]]);
+        Audit::log('payroll.export', $run, $run->label(), ['slips' => $slips->count()]);
 
         $perLocation = $slips->groupBy(fn ($s) => $s->snapshot['location'] ?? '-');
 

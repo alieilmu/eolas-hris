@@ -7,6 +7,7 @@ use App\Http\Middleware\UseTenant;
 use App\Models\TrialAccount;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Rules\Turnstile;
+use App\Support\Audit\Audit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
@@ -30,6 +31,7 @@ class LoginController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+        Audit::log('auth.login', $request->user());
         // The demo workspace this account lives in (UseTenant opens it on every request).
         $request->session()->put(UseTenant::SESSION, $request->tenant);
         if ($request->tenant) {

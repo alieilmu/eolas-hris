@@ -30,6 +30,7 @@ import {
     Wallet,
     Calculator,
     Banknote,
+    ScrollText,
     Rocket,
 } from 'lucide-react';
 import type { NavModule } from '@/types';
@@ -101,6 +102,7 @@ export const APP_MODULES: NavModule[] = [
             { id: 'setup', label: 'Sesi Awal', icon: Rocket, href: '/setup', menu: 'settings', setupOnly: true },
             { id: 'users', label: 'Pengguna & Akses', icon: ShieldCheck, href: '/settings/users', menu: 'settings' },
             { id: 'branding', label: 'Branding', icon: Palette, href: '/settings/branding', menu: 'settings' },
+            { id: 'audit-log', label: 'Audit Log', icon: ScrollText, href: '/settings/audit-log', menu: 'settings' },
             { id: 'trial-accounts', label: 'Akun Demo', icon: FlaskConical, href: '/settings/trial-accounts', menu: 'settings', centralOnly: true },
         ],
     },

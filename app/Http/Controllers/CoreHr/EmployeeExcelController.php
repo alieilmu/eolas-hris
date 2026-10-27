@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\CoreHr;
 
+use App\Support\Audit\Audit;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Support\Employees\ColumnGroups;
@@ -33,6 +34,7 @@ class EmployeeExcelController extends Controller
     {
         $employees = EmployeeRow::activeEmployees();
         $rows = $this->filteredRows($employees, $request->string('q')->trim()->lower()->value());
+        Audit::log('employees.export', null, "{$rows->count()} karyawan", array_filter(['q' => $request->string('q')->trim()->value()]));
 
         return ExcelWorkbook::download(
             ExcelWorkbook::export($rows, EmployeeRow::maxChildren($employees)),
@@ -103,6 +105,10 @@ class EmployeeExcelController extends Controller
             throw $e;
         }
         $dryRun ? DB::rollBack() : DB::commit();
+        if (! $dryRun) {
+            Audit::log('employees.import', null, $request->file('file')->getClientOriginalName().' · '.count($rows).' baris',
+                collect($outcome)->only(['created', 'updated', 'skipped', 'failed'])->filter(fn ($v) => is_int($v))->all());
+        }
 
         return response()->json(['dry_run' => $dryRun, ...$outcome]);
     }

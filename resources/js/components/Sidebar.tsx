@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { ChevronDown, FlaskConical, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ChevronDown, FlaskConical, KeyRound, LogOut, ShieldCheck, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { NotificationBell } from '@/components/NotificationBell';
 import type { NavItem, NavModule } from '@/types';
@@ -244,6 +244,13 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
                     >
                         <KeyRound size={15} />
                         Ganti Password
+                    </Link>
+                    <Link
+                        href="/account/two-factor"
+                        className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-brand-200 transition-all hover:bg-white/5 hover:text-white"
+                    >
+                        <ShieldCheck size={15} />
+                        Verifikasi 2 Langkah
                     </Link>
                     <Link
                         href="/logout"

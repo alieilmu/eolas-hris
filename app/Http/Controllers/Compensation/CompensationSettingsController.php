@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Compensation;
 
+use App\Support\Audit\Audit;
 use App\Http\Controllers\Controller;
 use App\Models\LeavePolicy;
 use App\Models\FieldLeaveEntitlement;
@@ -129,6 +130,7 @@ class CompensationSettingsController extends Controller
         foreach ($data['umk'] ?? [] as $id => $wage) {
             WorkLocation::whereKey((int) $id)->update(['minimum_wage' => $wage ?: null]);
         }
+        Audit::log('payroll.settings_changed', null, null, collect($data)->except(['jkk', 'umk'])->all() + ['jkk' => $data['jkk'], 'umk' => $data['umk'] ?? null]);
         Inertia::flash('success', 'Pengaturan payroll disimpan.');
 
         return back();
@@ -146,6 +148,7 @@ class CompensationSettingsController extends Controller
         }
         $data = $request->validate($rules);
         PayrollRate::updateOrCreate(['year' => $data['year']], $data);
+        Audit::log('payroll.rates_changed', null, "Tarif {$data['year']}", $data);
         Inertia::flash('success', "Tarif payroll {$data['year']} disimpan.");
 
         return back();

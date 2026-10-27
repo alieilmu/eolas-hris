@@ -21,6 +21,7 @@ use App\Support\Payroll\PayrollCalculator;
 use App\Support\Payroll\PayrollPeriod;
 use App\Support\Payroll\Pph21;
 use App\Support\Payroll\Salary;
+use App\Support\Security\TwoFactor;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -66,6 +67,16 @@ class PayrollRunTest extends TestCase
         return User::where('role', User::ROLE_ADMIN)->firstOrFail();
     }
 
+    /** Payroll pages need two-factor sign-in: an account with it, past the code. */
+    private function signIn(User $user): static
+    {
+        if (! $user->hasTwoFactor() && TwoFactor::required($user)) {
+            $user->forceFill(['two_factor_secret' => TwoFactor::newSecret(), 'two_factor_confirmed_at' => now()])->save();
+        }
+
+        return $this->actingAs($user)->withSession([TwoFactor::SESSION_PASSED => true]);
+    }
+
     private function hr(array $menus, array $locations = []): User
     {
         return User::create([
@@ -87,7 +98,7 @@ class PayrollRunTest extends TestCase
     public function test_a_run_goes_from_draft_to_locked_and_reaches_the_portal(): void
     {
         $maker = $this->hr(['payroll-run' => 'edit', 'payroll-approval' => 'edit']);
-        $this->actingAs($maker)->post('/compensation/payroll', ['period' => '2026-10', 'pay_date' => '2026-10-28'])->assertRedirect();
+        $this->signIn($maker)->post('/compensation/payroll', ['period' => '2026-10', 'pay_date' => '2026-10-28'])->assertRedirect();
         $run = PayrollRun::sole();
         $this->assertSame('draft', $run->status);
         $this->assertSame($this->onPayroll(), $run->employee_count);
@@ -113,11 +124,11 @@ class PayrollRunTest extends TestCase
         $this->actingAs($employee)->get('/self-service/payslips')->assertInertia(fn (Assert $p) => $p->has('slips', 0)->where('slip', null));
 
         // Submitted by the maker: they cannot approve it themselves, the Super Admin can.
-        $this->actingAs($maker)->post("/compensation/payroll/{$run->id}/submit")->assertRedirect();
+        $this->signIn($maker)->post("/compensation/payroll/{$run->id}/submit")->assertRedirect();
         $this->assertSame('submitted', $run->fresh()->status);
         $this->post("/compensation/payroll/{$run->id}/approve")->assertForbidden();
         $this->post("/compensation/payroll/{$run->id}/calculate")->assertStatus(422);
-        $this->actingAs($this->admin())->post("/compensation/payroll/{$run->id}/approve")->assertRedirect();
+        $this->signIn($this->admin())->post("/compensation/payroll/{$run->id}/approve")->assertRedirect();
         $this->assertSame('approved', $run->fresh()->status);
 
         $this->actingAs($employee)->get('/self-service/payslips')->assertInertia(fn (Assert $p) => $p->component('SelfService/Payslips')
@@ -129,7 +140,7 @@ class PayrollRunTest extends TestCase
         $other = Payslip::where('payroll_run_id', $run->id)->where('id', '!=', $slip->id)->firstOrFail();
         $this->get("/self-service/payslips/{$other->id}/pdf")->assertNotFound();
 
-        $this->actingAs($maker)->post("/compensation/payroll/{$run->id}/paid", ['pay_date' => '2026-10-28'])->assertRedirect();
+        $this->signIn($maker)->post("/compensation/payroll/{$run->id}/paid", ['pay_date' => '2026-10-28'])->assertRedirect();
         $this->post("/compensation/payroll/{$run->id}/lock")->assertRedirect();
         $this->assertSame('locked', $run->fresh()->status);
         $this->delete("/compensation/payroll/{$run->id}")->assertStatus(422);
@@ -140,7 +151,7 @@ class PayrollRunTest extends TestCase
 
     public function test_a_run_sent_back_can_be_worked_out_again(): void
     {
-        $this->actingAs($this->admin())->post('/compensation/payroll', ['period' => '2026-10']);
+        $this->signIn($this->admin())->post('/compensation/payroll', ['period' => '2026-10']);
         $run = PayrollRun::sole();
         $this->post("/compensation/payroll/{$run->id}/calculate");
         $this->post("/compensation/payroll/{$run->id}/submit");
@@ -156,14 +167,14 @@ class PayrollRunTest extends TestCase
     public function test_runs_of_one_period_do_not_overlap_and_locations_are_respected(): void
     {
         $locations = WorkLocation::orderBy('sort_order')->pluck('id');
-        $this->actingAs($this->admin())->post('/compensation/payroll', ['period' => '2026-10', 'work_location_id' => $locations[0]])->assertSessionHasNoErrors();
+        $this->signIn($this->admin())->post('/compensation/payroll', ['period' => '2026-10', 'work_location_id' => $locations[0]])->assertSessionHasNoErrors();
         $this->post('/compensation/payroll', ['period' => '2026-10'])->assertSessionHasErrors('period');
         $this->post('/compensation/payroll', ['period' => '2026-10', 'work_location_id' => $locations[0]])->assertSessionHasErrors('period');
         $this->post('/compensation/payroll', ['period' => '2026-10', 'work_location_id' => $locations[1]])->assertSessionHasNoErrors();
 
         // An account for one location: only runs of that location.
         $site = $this->hr(['payroll-run' => 'edit'], [$locations[1]]);
-        $this->actingAs($site)->post('/compensation/payroll', ['period' => '2026-11'])->assertSessionHasErrors('work_location_id');
+        $this->signIn($site)->post('/compensation/payroll', ['period' => '2026-11'])->assertSessionHasErrors('work_location_id');
         $this->post('/compensation/payroll', ['period' => '2026-11', 'work_location_id' => $locations[0]])->assertSessionHasErrors('work_location_id');
         $this->get('/compensation/payroll')->assertInertia(fn (Assert $p) => $p->has('runs', 1)->where('runs.0.work_location_id', $locations[1]));
         $first = PayrollRun::where('work_location_id', $locations[0])->sole();
@@ -172,7 +183,7 @@ class PayrollRunTest extends TestCase
         // Without the menus: nothing.
         $this->actingAs($this->hr(['employees' => 'edit']))->get('/compensation/payroll')->assertForbidden();
         $viewer = $this->hr(['payroll-run' => 'view']);
-        $this->actingAs($viewer)->get('/compensation/payroll')->assertOk();
+        $this->signIn($viewer)->get('/compensation/payroll')->assertOk();
         $this->post('/compensation/payroll', ['period' => '2026-12'])->assertForbidden();
     }
 
@@ -202,7 +213,7 @@ class PayrollRunTest extends TestCase
 
     public function test_december_builds_on_the_stored_slips(): void
     {
-        $this->actingAs($this->admin())->post('/compensation/payroll', ['period' => '2026-11']);
+        $this->signIn($this->admin())->post('/compensation/payroll', ['period' => '2026-11']);
         $run = PayrollRun::sole();
         $this->post("/compensation/payroll/{$run->id}/calculate");
         $slip = Payslip::where('payroll_run_id', $run->id)->whereNull('error')->firstOrFail();

@@ -6,6 +6,7 @@ use App\Models\TrialAccount;
 use App\Models\Employee;
 use App\Models\User;
 use App\Rules\Turnstile;
+use App\Support\Audit\Audit;
 use App\Support\Tenancy\Tenant;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
@@ -69,6 +70,7 @@ class LoginRequest extends FormRequest
         $valid = $user && Hash::check($this->string('password'), $user->password);
         if (! $valid) {
             RateLimiter::hit($this->throttleKey());
+            Audit::log('auth.login_failed', $user, null, ['login' => Str::limit($login, 100)], $user);
 
             // One message for both cases so the form doesn't reveal which accounts exist.
             throw ValidationException::withMessages([

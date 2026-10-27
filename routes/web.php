@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Account\PasswordController;
+use App\Http\Controllers\Account\TwoFactorController;
+use App\Http\Controllers\Settings\AuditLogController;
 use App\Http\Controllers\Time\TimeSettingsController;
 use App\Http\Controllers\Time\TimeClockController;
 use App\Http\Controllers\Time\SheetController;
@@ -90,7 +92,7 @@ Route::middleware('guest')->group(function () {
  * "lihat" and change its data with "ubah"; menus listing employees only show the
  * account's locations. The Super Admin has every menu.
  */
-Route::middleware(['auth', 'account.ready'])->group(function () {
+Route::middleware(['auth', 'two-factor', 'account.ready'])->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
     // Dashboard: an overview of every module for the account's locations.
@@ -102,6 +104,18 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
     // Own password; a first-time password must be changed before anything else.
     Route::get('/account/password', [PasswordController::class, 'edit'])->name('account.password');
     Route::put('/account/password', [PasswordController::class, 'update'])->name('account.password.update');
+
+    // Verifikasi 2 langkah (authenticator app): own setup, the code after the password.
+    Route::controller(TwoFactorController::class)->group(function () {
+        Route::get('/two-factor/challenge', 'challenge')->name('two-factor.challenge');
+        Route::post('/two-factor/challenge', 'verify')->middleware('throttle:6,1')->name('two-factor.challenge.verify');
+        Route::get('/account/two-factor', 'show')->name('account.two-factor');
+        Route::post('/account/two-factor', 'start')->name('account.two-factor.start');
+        Route::post('/account/two-factor/confirm', 'confirm')->middleware('throttle:10,1')->name('account.two-factor.confirm');
+        Route::post('/account/two-factor/recovery-codes', 'recoveryCodes')->name('account.two-factor.recovery');
+        Route::post('/account/two-factor/skip', 'skip')->name('account.two-factor.skip');
+        Route::delete('/account/two-factor', 'destroy')->name('account.two-factor.destroy');
+    });
 
     // Modul Recruitment: Tracking (stages and candidates), Pelamar, Pengaturan Form and Laporan.
     Route::middleware('menu:recruitment')->prefix('recruitment')->name('recruitment.')->group(function () {
@@ -359,7 +373,7 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
         });
 
         // Proses Gaji: payroll runs worked out ("payroll-run") and approved, paid, locked ("payroll-approval").
-        Route::controller(PayrollRunController::class)->prefix('payroll')->name('payroll')->group(function () {
+        Route::controller(PayrollRunController::class)->prefix('payroll')->name('payroll')->middleware('two-factor.required')->group(function () {
             Route::middleware('menu:payroll-run,payroll-approval')->group(function () {
                 Route::get('/', 'index');
                 Route::get('/{run}', 'show')->whereNumber('run')->name('.show');
@@ -410,6 +424,8 @@ Route::middleware(['auth', 'account.ready'])->group(function () {
         Route::get('/users', 'index')->name('users');
         Route::post('/users', 'store')->name('users.store');
         Route::put('/users/{user}', 'update')->whereNumber('user')->name('users.update');
+        Route::post('/users/{user}/two-factor-reset', [TwoFactorController::class, 'reset'])->whereNumber('user')->name('users.two-factor-reset');
+        Route::get('/audit-log', [AuditLogController::class, 'index'])->name('audit-log');
         Route::delete('/users/{user}', 'destroy')->whereNumber('user')->name('users.destroy');
         Route::post('/employee-accounts', 'storeEmployee')->name('employee-accounts.store');
         Route::post('/employee-accounts/bulk-reset', 'resetEmployeesBulk')->name('employee-accounts.reset-many');

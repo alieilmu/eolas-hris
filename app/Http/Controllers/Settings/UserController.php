@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Support\Audit\Audit;
+use App\Support\Security\TwoFactor;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\SubLocation;
@@ -39,6 +41,8 @@ class UserController extends Controller
                 'sub_location_ids' => $u->sub_location_ids ?? [],
                 'is_active' => $u->is_active,
                 'last_login_at' => $u->last_login_at?->format('d.m.Y H:i'),
+                'two_factor' => $u->hasTwoFactor(),
+                'two_factor_required' => TwoFactor::required($u),
             ]),
             'employees' => Employee::with(['position:id,name', 'workLocation:id,name', 'subLocation:id,name', 'profile:id,employee_id,birth_date'])
                 ->where('status', '!=', Employee::STATUS_TERMINATED)
@@ -203,6 +207,7 @@ class UserController extends Controller
     {
         abort_unless($user->isEmployee() && $user->employee, 404);
         $user->update(['password' => self::initialPasswordHash($user->employee), 'must_change_password' => true]);
+        Audit::log('users.password_reset', $user, $user->name);
         Inertia::flash('success', "Password {$user->name} dikembalikan ke password awal.");
 
         return back();
@@ -220,6 +225,7 @@ class UserController extends Controller
                 User::whereKey($u->id)->update(['password' => self::initialPasswordHash($u->employee), 'must_change_password' => true]);
             }
         });
+        Audit::log('users.password_reset', null, "{$users->count()} akun karyawan", ['user_ids' => $users->pluck('id')->all()]);
         $withoutBirthDate = $users->filter(fn (User $u) => ! $u->employee->profile?->birth_date)->count();
         Inertia::flash('success', "Password {$users->count()} akun karyawan dikembalikan ke password awal (tanggal lahir ddmmyyyy)"
             .($withoutBirthDate ? "; {$withoutBirthDate} tanpa tanggal lahir memakai NRP." : '.'));

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Compensation;
 
+use App\Support\Audit\Audit;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeePayrollProfile;
@@ -63,6 +64,7 @@ class PayrollSimulationController extends Controller
             'health_extra_members' => ['sometimes', 'integer', 'min:0', 'max:10'],
         ]);
         EmployeePayrollProfile::updateOrCreate(['employee_id' => $employee->id], $data);
+        Audit::log('payroll.profile_changed', $employee, "{$employee->employee_number} {$employee->name}", $data);
         Inertia::flash('success', "Pengaturan payroll {$employee->name} disimpan.");
 
         return back();

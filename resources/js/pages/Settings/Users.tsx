@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Check, KeyRound, Loader2, MapPin, Pencil, Plus, Power, Search, ShieldCheck, Trash2, UserPlus, Users as UsersIcon } from 'lucide-react';
+import { Check, KeyRound, Loader2, MapPin, Pencil, Plus, Power, Search, ShieldCheck, ShieldOff, Trash2, UserPlus, Users as UsersIcon } from 'lucide-react';
 import { AttendanceHeader, Modal, ghostButton, primaryButton, secondaryButton, smallInput } from '@/components/time/ui';
 import type { MenuLevel } from '@/types';
 
@@ -14,6 +14,8 @@ interface AdminRow {
     sub_location_ids: number[];
     is_active: boolean;
     last_login_at: string | null;
+    two_factor: boolean;
+    two_factor_required: boolean;
 }
 
 interface EmployeeRow {
@@ -163,6 +165,11 @@ function AdminTab({ admins, menus, locations, sub_locations, roles }: Props) {
                                         <span className={`text-xs font-bold ${a.is_active ? 'text-emerald-700' : 'text-slate-400'}`}>
                                             {a.is_active ? 'Aktif' : 'Nonaktif'}
                                         </span>
+                                        <span
+                                            className={`mt-0.5 block text-[11px] font-semibold ${a.two_factor ? 'text-brand-700' : a.two_factor_required ? 'text-amber-600' : 'text-slate-400'}`}
+                                        >
+                                            {a.two_factor ? '2FA aktif' : a.two_factor_required ? '2FA belum diatur' : 'Tanpa 2FA'}
+                                        </span>
                                     </td>
                                     <td className="px-3 py-3 text-xs text-slate-500 tabular-nums">{a.last_login_at ?? '-'}</td>
                                     <td className="py-3 pr-5">
@@ -174,6 +181,18 @@ function AdminTab({ admins, menus, locations, sub_locations, roles }: Props) {
                                             >
                                                 <Pencil size={15} />
                                             </button>
+                                            {a.two_factor && a.id !== me && (
+                                                <button
+                                                    onClick={() =>
+                                                        confirm(`Reset 2FA ${a.name}? Pakai bila HP-nya hilang; akun ini mengatur ulang 2FA sendiri.`) &&
+                                                        router.post(`/settings/users/${a.id}/two-factor-reset`, {}, visit)
+                                                    }
+                                                    title="Reset 2FA"
+                                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-amber-50 hover:text-amber-600"
+                                                >
+                                                    <ShieldOff size={15} />
+                                                </button>
+                                            )}
                                             <button
                                                 disabled={a.id === me}
                                                 onClick={() => confirm(`Hapus akun ${a.name}?`) && router.delete(`/settings/users/${a.id}`, visit)}

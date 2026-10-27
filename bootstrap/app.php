@@ -5,6 +5,8 @@ use App\Http\Middleware\EnableAccessScope;
 use App\Http\Middleware\EnsureAccountReady;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\MenuAccess;
+use App\Http\Middleware\RequireTwoFactor;
+use App\Http\Middleware\TwoFactorChallenge;
 use App\Http\Middleware\UseTenant;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -35,6 +37,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'account.ready' => EnsureAccountReady::class,
             'scoped' => EnableAccessScope::class,
             'central' => CentralOnly::class,
+            // An account with 2FA gives its code after the password; payroll pages need 2FA.
+            'two-factor' => TwoFactorChallenge::class,
+            'two-factor.required' => RequireTwoFactor::class,
         ]);
         // The demo workspace is opened right after the session starts, before anyone is authenticated.
         $middleware->prependToPriorityList(before: \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class, prepend: UseTenant::class);

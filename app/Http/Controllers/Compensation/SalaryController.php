@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Compensation;
 
+use App\Support\Audit\Audit;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeSalary;
@@ -95,6 +96,8 @@ class SalaryController extends Controller
         $g = $employee->salaries()->create($data + ['created_by' => $request->user()->id]);
         // The profile's golongan follows (it decides the plafon of Comben).
         $employee->profile?->update(['grade' => $g->salaryScale->grade->code]);
+        Audit::log('salary.changed', $employee, "{$employee->employee_number} {$employee->name}: {$g->salaryScale->grade->code} {$g->salaryScale->step} mulai {$data['effective_date']}",
+            ['reason' => $data['reason']]);
         Inertia::flash('success', "Golongan {$g->salaryScale->grade->code}".($g->salaryScale->step ? " {$g->salaryScale->step}" : '')." untuk {$employee->name} disimpan.");
 
         return back();
@@ -104,6 +107,7 @@ class SalaryController extends Controller
     {
         abort_unless(Employee::whereKey($salary->employee_id)->exists(), 404); // scoped
         $salary->delete();
+        Audit::log('salary.deleted', $salary->employee, "Riwayat gaji mulai {$salary->effective_date}");
         Inertia::flash('success', 'Riwayat gaji dihapus.');
 
         return back();
