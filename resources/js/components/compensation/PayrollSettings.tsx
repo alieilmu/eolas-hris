@@ -44,7 +44,12 @@ export interface PayrollData {
         absence_divisor_days: number;
         payslip_password: boolean;
         loan_max_ratio: number;
+        company_tax_id: string | null;
+        company_nitku: string | null;
+        payer_bank: string | null;
+        payer_account: string | null;
     };
+    journal_accounts: { group: string; number: string; name: string }[];
     components: PayrollComponentRow[];
     component_kinds: Record<string, string>;
     component_natures: Record<string, string>;
@@ -91,13 +96,19 @@ export function PayrollSection({ data }: { data: PayrollData }) {
 function PeriodForm({ data }: { data: PayrollData }) {
     const [form, setForm] = useState(data.settings);
     const [jkk, setJkk] = useState<Record<number, string>>(() => Object.fromEntries(data.jkk.map((l) => [l.id, String(l.jkk_rate)])));
+    const [accounts, setAccounts] = useState(data.journal_accounts);
     const [umk, setUmk] = useState<Record<number, string>>(() => Object.fromEntries(data.jkk.map((l) => [l.id, l.minimum_wage ? String(l.minimum_wage) : ''])));
     const [busy, setBusy] = useState(false);
     const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((f) => ({ ...f, [key]: value }));
     const save = () =>
         router.put(
             '/compensation/settings/payroll',
-            { ...form, jkk, umk: Object.fromEntries(Object.entries(umk).map(([k, v]) => [k, v === '' ? null : Number(v)])) } as never,
+            {
+                ...form,
+                jkk,
+                umk: Object.fromEntries(Object.entries(umk).map(([k, v]) => [k, v === '' ? null : Number(v)])),
+                journal_accounts: Object.fromEntries(accounts.map((a) => [a.group, { number: a.number, name: a.name }])),
+            } as never,
             { ...visit, onStart: () => setBusy(true), onFinish: () => setBusy(false) },
         );
 
@@ -195,6 +206,47 @@ function PeriodForm({ data }: { data: PayrollData }) {
                     </tbody>
                 </table>
                 <p className="mt-1 text-[11px] text-slate-400">Kelas risiko PP 44/2015: 0,24 · 0,54 · 0,89 · 1,27 · 1,74%. Tambang umumnya kelas V (1,74%). UMK = batas bawah dasar iuran BPJS Kesehatan (kosongkan bila tidak dipakai).</p>
+            </div>
+            <div className="grid max-w-3xl gap-4 sm:grid-cols-2">
+                <Field label="NPWP perusahaan (pemotong PPh 21)" hint="16 digit, untuk impor Coretax.">
+                    <input value={form.company_tax_id ?? ''} onChange={(e) => set('company_tax_id', e.target.value)} className={`${smallInput} w-full font-mono`} />
+                </Field>
+                <Field label="NITKU (ID tempat kegiatan usaha)" hint="22 digit, dari Coretax.">
+                    <input value={form.company_nitku ?? ''} onChange={(e) => set('company_nitku', e.target.value)} className={`${smallInput} w-full font-mono`} />
+                </Field>
+                <Field label="Bank rekening sumber gaji">
+                    <input value={form.payer_bank ?? ''} onChange={(e) => set('payer_bank', e.target.value)} placeholder="mis. BCA" className={`${smallInput} w-full`} />
+                </Field>
+                <Field label="Nomor rekening sumber gaji" hint="Dipakai di header file transfer Mandiri.">
+                    <input value={form.payer_account ?? ''} onChange={(e) => set('payer_account', e.target.value)} className={`${smallInput} w-full font-mono`} />
+                </Field>
+            </div>
+            <div>
+                <p className={`${label} mb-2`}>Akun jurnal gaji</p>
+                <table className="w-full max-w-2xl text-sm">
+                    <tbody>
+                        {accounts.map((a, i) => (
+                            <tr key={a.group} className="border-t border-slate-100">
+                                <td className="py-1.5 pr-2">
+                                    <input
+                                        value={a.number}
+                                        onChange={(e) => setAccounts((all) => all.map((x, j) => (j === i ? { ...x, number: e.target.value } : x)))}
+                                        className={`${smallInput} w-24 font-mono`}
+                                        aria-label={`Nomor akun ${a.name}`}
+                                    />
+                                </td>
+                                <td className="py-1.5">
+                                    <input
+                                        value={a.name}
+                                        onChange={(e) => setAccounts((all) => all.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+                                        className={`${smallInput} w-full`}
+                                        aria-label="Nama akun"
+                                    />
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
             <label className="flex max-w-3xl items-start gap-2.5 text-sm text-slate-600">
                 <input type="checkbox" checked={form.payslip_password} onChange={(e) => set('payslip_password', e.target.checked)} className="mt-0.5 rounded border-slate-300" />

@@ -8,10 +8,11 @@ interface Props {
     slips: { id: number; period: string; label: string; pay_date: string | null; take_home_pay: number }[];
     slip: (Slip & { id: number }) | null;
     password: boolean;
+    tax_years: number[];
 }
 
 /** Portal Karyawan → Slip Gaji: the own payslips of approved payroll runs, and a PDF of each. */
-export default function Payslips({ slips, slip, password }: Props) {
+export default function Payslips({ slips, slip, password, tax_years }: Props) {
     return (
         <>
             <Head title="Slip Gaji" />
@@ -27,6 +28,15 @@ export default function Payslips({ slips, slip, password }: Props) {
                 ) : (
                     <div className="mt-4 grid gap-4 lg:grid-cols-[220px_1fr]">
                         <nav className="flex gap-2 overflow-x-auto lg:flex-col">
+                            {tax_years.map((y) => (
+                                <a
+                                    key={y}
+                                    href={`/self-service/tax-slips/${y}/pdf`}
+                                    className="flex shrink-0 items-center gap-1.5 rounded-xl border border-dashed border-brand-200 bg-brand-50/50 px-3 py-2 text-sm font-semibold text-brand-800"
+                                >
+                                    <FileText size={14} /> 1721-A1 {y}
+                                </a>
+                            ))}
                             {slips.map((s) => (
                                 <Link
                                     key={s.id}

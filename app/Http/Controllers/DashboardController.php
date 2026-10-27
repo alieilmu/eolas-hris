@@ -62,7 +62,51 @@ class DashboardController extends Controller
             'recruitment' => $this->recruitment($today),
             'workforce_planning' => $this->workforcePlanning($location, $locations),
             'birthdays' => $user->canView('employees') ? $this->birthdays($location, $today) : null,
+            'payroll' => $user->canView('payroll-run', 'payroll-approval') ? $this->payroll($location) : null,
+            'certifications' => $user->canView('certifications') ? $this->certifications($location, $today) : null,
         ]);
+    }
+
+    /** Pay of the last 12 approved months (regular runs): what the company spent, and overtime. */
+    private function payroll(?int $location): array
+    {
+        $ids = \App\Support\Access\AccessScope::workLocationIds();
+        $slips = \App\Models\Payslip::query()
+            ->join('payroll_runs', 'payroll_runs.id', '=', 'payslips.payroll_run_id')
+            ->whereIn('payroll_runs.status', \App\Models\PayrollRun::FINAL)->where('payroll_runs.type', 'regular')
+            ->when($location, fn ($q) => $q->where('payslips.work_location_id', $location))
+            ->when($ids !== null, fn ($q) => $q->whereIn('payslips.work_location_id', $ids))
+            ->whereNull('payslips.error')
+            ->selectRaw('payroll_runs.period as period, sum(payslips.total_earnings + payslips.company_cost) as cost, sum(payslips.take_home_pay) as thp, count(*) as people')
+            ->groupBy('payroll_runs.period')->orderByDesc('payroll_runs.period')->limit(12)->get()->sortBy('period')->values();
+        $latest = $slips->last();
+        $overtime = $latest ? (int) \App\Models\PayslipLine::where('code', 'overtime')
+            ->whereIn('payslip_id', \App\Models\Payslip::whereHas('run', fn ($q) => $q->where('period', $latest->period)->where('type', 'regular')->whereIn('status', \App\Models\PayrollRun::FINAL))
+                ->when($location, fn ($q) => $q->where('work_location_id', $location))->select('id'))->sum('amount') : 0;
+        $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+        return [
+            'per_month' => $slips->map(fn ($r) => ['label' => $months[(int) substr($r->period, 5, 2) - 1].' '.substr($r->period, 2, 2), 'value' => (int) $r->cost])->all(),
+            'latest' => $latest ? ['period' => $latest->period, 'cost' => (int) $latest->cost, 'take_home_pay' => (int) $latest->thp, 'people' => (int) $latest->people, 'overtime' => $overtime] : null,
+        ];
+    }
+
+    /** Certificates expired or running out within 90 days, the soonest first. */
+    private function certifications(?int $location, CarbonImmutable $today): array
+    {
+        $due = \App\Models\EmployeeCertification::with(['employee:id,name,employee_number', 'type:id,name,code'])
+            ->whereNotNull('expires_at')->where('expires_at', '<=', $today->addDays(90)->toDateString())
+            ->whereHas('employee', fn ($q) => $q->where('status', '!=', Employee::STATUS_TERMINATED)->when($location, fn ($q) => $q->where('work_location_id', $location)))
+            ->orderBy('expires_at')->get();
+
+        return [
+            'expired' => $due->filter(fn ($c) => $c->daysLeft($today) < 0)->count(),
+            'soon' => $due->filter(fn ($c) => ($d = $c->daysLeft($today)) >= 0 && $d <= 30)->count(),
+            'upcoming' => $due->filter(fn ($c) => $c->daysLeft($today) > 30)->count(),
+            'list' => $due->filter(fn ($c) => $c->daysLeft($today) >= -30)->take(6)->map(fn ($c) => [
+                'name' => $c->employee->name, 'type' => $c->type->code, 'expires_at' => $c->expires_at->format('Y-m-d'), 'days_left' => $c->daysLeft($today),
+            ])->values()->all(),
+        ];
     }
 
     /** Active employees of the account's locations (or of one of them). */

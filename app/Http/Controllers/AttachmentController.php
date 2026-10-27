@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BenefitClaim;
 use App\Models\Attachment;
+use App\Models\EmployeeCertification;
 use App\Models\EmployeeChangeRequest;
 use App\Models\LeaveTravelRequest;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ class AttachmentController extends Controller
     {
         // Through the record's own access scope: someone outside the account's locations is not found.
         $owner = $attachment->attachable()->first();
-        abort_unless($owner instanceof BenefitClaim || $owner instanceof LeaveTravelRequest || $owner instanceof EmployeeChangeRequest, 404);
+        abort_unless($owner instanceof BenefitClaim || $owner instanceof LeaveTravelRequest || $owner instanceof EmployeeChangeRequest || $owner instanceof EmployeeCertification, 404);
 
         $user = $request->user();
         $allowed = $user->isEmployee()
@@ -29,6 +30,7 @@ class AttachmentController extends Controller
             : match (true) {
                 $owner instanceof BenefitClaim => $user->canView('benefit-claims', 'benefit-balances'),
                 $owner instanceof LeaveTravelRequest => $user->canView('leave-travel', 'travel-requests'),
+                $owner instanceof EmployeeCertification => $user->canView('certifications', 'employees'),
                 default => $user->canView('data-change-requests', 'employees'),
             };
         abort_unless($allowed, 403);

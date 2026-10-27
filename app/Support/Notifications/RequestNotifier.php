@@ -62,6 +62,21 @@ class RequestNotifier
             'Pilihan Cuti Besar', 'memilih '.(LongServiceLeave::KEPUTUSAN[$c->decision] ?? $c->decision)." (periode ke-{$c->sequence_no})", '/time/leave-balances?tab=long_service&status=pending');
     }
 
+    /** A certificate about to expire (or expired today): HR of the employee's location, and the employee. */
+    public static function certificationExpiring(\App\Models\EmployeeCertification $c, int $days): void
+    {
+        $c->loadMissing('employee', 'type');
+        $when = $days <= 0 ? 'habis hari ini' : "habis dalam {$days} hari (".$c->expires_at->format('d.m.Y').')';
+        self::send('certification', "certification:{$c->id}:{$days}", 'certifications', $c->employee, 'Sertifikat akan habis',
+            "{$c->type->name}".($c->number ? " {$c->number}" : '')." {$when}", '/core-hr/certifications?status='.($days <= 30 ? 'soon' : 'upcoming'));
+        $user = User::where('employee_id', $c->employee_id)->where('is_active', true)->first();
+        if ($user) {
+            self::safely(fn () => $user->notify(new RequestReceived('certification-own', "certification-own:{$c->id}:{$days}", 'Sertifikat Anda akan habis',
+                "{$c->type->name} {$when}. Segera perpanjang dan kirim salinannya ke HR.", '/self-service/certifications',
+                ['id' => $c->employee_id, 'employee_number' => $c->employee->employee_number, 'name' => $c->employee->name])));
+        }
+    }
+
     /** A loan asked for in the portal: for whoever approves payroll for the employee. */
     public static function loan(\App\Models\Loan $l): void
     {

@@ -3,6 +3,8 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     ArrowUpRight,
+    Award,
+    Banknote,
     BookOpen,
     Briefcase,
     Cake,
@@ -54,6 +56,8 @@ interface Props {
     recruitment: { stages: (Slice & { color: string })[]; new_applicants: number; applicants_30_days: number; open_postings: number };
     workforce_planning: { label: string; plan: number; actual: number; gap: number }[];
     birthdays: { name: string; position: string | null; date: string; age: number; days: number }[] | null;
+    payroll: { per_month: Slice[]; latest: { period: string; cost: number; take_home_pay: number; people: number; overtime: number } | null } | null;
+    certifications: { expired: number; soon: number; upcoming: number; list: { name: string; type: string; expires_at: string; days_left: number }[] } | null;
 }
 
 const KOMPOSISI = [
@@ -377,6 +381,67 @@ export default function Dashboard(props: Props) {
                             </Card>
                         </div>
                     </div>
+
+                    {(props.payroll || props.certifications) && (
+                        <div className="grid gap-6 xl:grid-cols-2">
+                            {props.payroll && (
+                                <Card title="Biaya gaji 12 bulan" icon={<Banknote size={15} />} action={<OpenLink href="/compensation/payroll" show />}>
+                                    {props.payroll.latest ? (
+                                        <>
+                                            <div className="mb-4 flex flex-wrap gap-6">
+                                                <div>
+                                                    <p className="text-[11px] font-semibold text-slate-400">Biaya {props.payroll.latest.period}</p>
+                                                    <CountUp value={props.payroll.latest.cost} format={compactRupiah} className="text-2xl font-black text-brand-700" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[11px] font-semibold text-slate-400">Take home pay</p>
+                                                    <p className="text-2xl font-black text-slate-800">{compactRupiah(props.payroll.latest.take_home_pay)}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[11px] font-semibold text-slate-400">Lembur</p>
+                                                    <p className="text-2xl font-black text-slate-800">{compactRupiah(props.payroll.latest.overtime)}</p>
+                                                </div>
+                                            </div>
+                                            <VBars data={props.payroll.per_month} format={rupiah} highlight={props.payroll.per_month.length - 1} />
+                                            <p className="mt-3 text-[11px] text-slate-400">Biaya = pendapatan karyawan + iuran BPJS & PPh ditanggung perusahaan, dari proses gaji yang disetujui.</p>
+                                        </>
+                                    ) : (
+                                        <p className="py-8 text-center text-sm text-slate-400">Belum ada proses gaji yang disetujui.</p>
+                                    )}
+                                </Card>
+                            )}
+                            {props.certifications && (
+                                <Card title="Sertifikat & izin akan habis" icon={<Award size={15} />} action={<OpenLink href="/core-hr/certifications" show />}>
+                                    <div className="mb-4 grid grid-cols-3 gap-3">
+                                        {(
+                                            [
+                                                ['Kedaluwarsa', props.certifications.expired, 'text-rose-600', 'expired'],
+                                                ['≤ 30 hari', props.certifications.soon, 'text-amber-600', 'soon'],
+                                                ['31–90 hari', props.certifications.upcoming, 'text-slate-800', 'upcoming'],
+                                            ] as const
+                                        ).map(([l, v, tone, s]) => (
+                                            <Link key={l} href={`/core-hr/certifications?status=${s}`} className="rounded-2xl bg-slate-50 p-3 hover:bg-slate-100">
+                                                <p className="text-[11px] font-semibold text-slate-400">{l}</p>
+                                                <p className={`text-2xl font-black ${tone}`}>{num(v)}</p>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                    <ul className="space-y-1.5">
+                                        {props.certifications.list.map((c) => (
+                                            <li key={`${c.name}${c.type}${c.expires_at}`} className="flex items-center justify-between gap-3 text-sm">
+                                                <span className="truncate text-slate-700">
+                                                    {c.name} <span className="text-xs text-slate-400">· {c.type}</span>
+                                                </span>
+                                                <span className={`shrink-0 text-xs font-bold ${c.days_left < 0 ? 'text-rose-600' : c.days_left <= 30 ? 'text-amber-600' : 'text-slate-500'}`}>
+                                                    {c.days_left < 0 ? `lewat ${-c.days_left} hari` : c.days_left === 0 ? 'hari ini' : `${c.days_left} hari lagi`}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </Card>
+                            )}
+                        </div>
+                    )}
 
                     {/* Comben + recruitment */}
                     <div className="grid gap-6 xl:grid-cols-2">

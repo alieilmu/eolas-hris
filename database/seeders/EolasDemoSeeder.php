@@ -14,5 +14,6 @@ class EolasDemoSeeder extends Seeder
     public function run(): void
     {
         $this->call([DemoSeeder::class, EolasSalaryDemoSeeder::class, EolasTimeClockDemoSeeder::class, EolasBrandingSeeder::class]);
+        \App\Support\Demo\DemoCertifications::seed(\App\Support\Demo\Industry::DEFAULT);
     }
 }

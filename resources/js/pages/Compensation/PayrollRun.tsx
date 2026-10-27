@@ -116,6 +116,7 @@ export default function PayrollRun({ run, slips, can }: Props) {
                         <Download size={15} /> Rekap Excel
                     </a>
                 )}
+                {['approved', 'paid', 'locked'].includes(run.status) && <ReportsMenu base={base} />}
             </AttendanceHeader>
             <main className="flex-1 space-y-4 overflow-y-auto bg-slate-50 p-6">
                 <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -412,5 +413,39 @@ function PaidDialog({ busy, initial, onClose, onSubmit }: { busy: boolean; initi
                 <DateInput value={date} onChange={setDate} />
             </Field>
         </Modal>
+    );
+}
+
+/** Files an approved run hands on: bank transfer, BPJS, PPh 21 for Coretax, journal. */
+function ReportsMenu({ base }: { base: string }) {
+    const [open, setOpen] = useState(false);
+    const items: [string, string, string][] = [
+        ['File transfer bank', 'Format umum (Excel)', `${base}/reports/bank?format=generic`],
+        ['', 'BCA (CSV transfer massal)', `${base}/reports/bank?format=bca`],
+        ['', 'Mandiri (CSV MCM bulk)', `${base}/reports/bank?format=mandiri`],
+        ['Iuran BPJS', 'Ketenagakerjaan & Kesehatan', `${base}/reports/bpjs`],
+        ['PPh 21', 'Bukti potong bulanan (Coretax)', `${base}/reports/pph21`],
+        ['Jurnal', 'Jurnal gaji per lokasi', `${base}/reports/journal`],
+    ];
+
+    return (
+        <div className="relative">
+            <button onClick={() => setOpen(!open)} className={secondaryButton}>
+                <FileText size={15} /> Laporan
+            </button>
+            {open && (
+                <div className="absolute right-0 z-30 mt-2 w-72 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl" onMouseLeave={() => setOpen(false)}>
+                    {items.map(([group, label, href]) => (
+                        <div key={href}>
+                            {group && <p className="px-3 pt-2 pb-1 text-[10px] font-bold tracking-wide text-slate-400 uppercase">{group}</p>}
+                            <a href={href} onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-slate-700 hover:bg-brand-50">
+                                <Download size={13} className="text-slate-400" /> {label}
+                            </a>
+                        </div>
+                    ))}
+                    <p className="px-3 pt-2 pb-1 text-[11px] text-slate-400">Cocokkan format bank & Coretax dengan template terbaru dari bank / DJP.</p>
+                </div>
+            )}
+        </div>
     );
 }

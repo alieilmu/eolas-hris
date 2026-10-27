@@ -3,6 +3,7 @@
 use App\Http\Controllers\Account\PasswordController;
 use App\Http\Controllers\Account\TwoFactorController;
 use App\Http\Controllers\Settings\AuditLogController;
+use App\Http\Controllers\CoreHr\CertificationController;
 use App\Http\Controllers\Settings\LicenseController;
 use App\Http\Controllers\Time\TimeSettingsController;
 use App\Http\Controllers\Time\TimeClockController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Compensation\PayrollRunController;
 use App\Http\Controllers\Compensation\PayrollInputController;
 use App\Http\Controllers\Compensation\LoanController;
 use App\Http\Controllers\Compensation\PayrollComponentController;
+use App\Http\Controllers\Compensation\PayrollReportController;
 use App\Http\Controllers\Compensation\SalaryController;
 use App\Http\Controllers\Compensation\BenefitBalanceController;
 use App\Http\Controllers\DashboardController;
@@ -349,6 +351,18 @@ Route::middleware(['auth', 'two-factor', 'account.ready', 'licensed'])->group(fu
         });
     });
 
+    // Sertifikasi & Izin Kerja: licences and certificates that expire, with reminders.
+    Route::controller(CertificationController::class)->prefix('core-hr/certifications')->name('certifications')->group(function () {
+        Route::middleware('menu:certifications')->group(function () {
+            Route::get('/', 'index');
+            Route::get('/export', 'export')->name('.export');
+            Route::post('/', 'store')->name('.store');
+            Route::post('/types', 'storeType')->name('.types.store');
+            Route::post('/{certification}', 'update')->whereNumber('certification')->name('.update');
+            Route::delete('/{certification}', 'destroy')->whereNumber('certification')->name('.destroy');
+        });
+    });
+
     // Comben: Deklarasi Pengobatan / Kacamata against the plafon, its monitoring and master data.
     Route::prefix('compensation')->name('compensation.')->group(function () {
         Route::controller(BenefitClaimController::class)->middleware('menu:benefit-claims')->group(function () {
@@ -386,6 +400,7 @@ Route::middleware(['auth', 'two-factor', 'account.ready', 'licensed'])->group(fu
                 Route::get('/{run}/export', 'export')->whereNumber('run')->name('.export');
                 Route::get('/{run}/slips/{payslip}', 'slip')->whereNumber(['run', 'payslip'])->name('.slip');
                 Route::get('/{run}/slips/{payslip}/pdf', 'pdf')->whereNumber(['run', 'payslip'])->name('.slip.pdf');
+                Route::get('/{run}/reports/{type}', [PayrollReportController::class, 'run'])->whereNumber('run')->whereIn('type', ['bank', 'bpjs', 'pph21', 'journal'])->name('.report');
             });
             Route::middleware('menu:payroll-run')->group(function () {
                 Route::post('/', 'store')->name('.store');
@@ -399,6 +414,13 @@ Route::middleware(['auth', 'two-factor', 'account.ready', 'licensed'])->group(fu
                 Route::post('/{run}/paid', 'paid')->whereNumber('run')->name('.paid');
                 Route::post('/{run}/lock', 'lock')->whereNumber('run')->name('.lock');
             });
+        });
+
+        // Laporan Tahunan: the 1721-A1 of every employee.
+        Route::controller(PayrollReportController::class)->prefix('payroll-annual')->name('payroll-annual')->middleware(['two-factor.required', 'menu:payroll-run,payroll-approval'])->group(function () {
+            Route::get('/', 'annual');
+            Route::get('/export', 'annualExport')->name('.export');
+            Route::get('/{employee}/pdf', 'annualPdf')->whereNumber('employee')->name('.pdf');
         });
 
         // Input Variabel: amounts per period, entered ("payroll-inputs") and approved ("payroll-approval").
@@ -529,6 +551,8 @@ Route::middleware(['auth', 'two-factor', 'account.ready', 'licensed'])->group(fu
         // Slip Gaji: own payslips of approved payroll runs.
         Route::get('/payslips', [PortalPayslipController::class, 'index'])->name('.payslips');
         Route::get('/payslips/{payslip}/pdf', [PortalPayslipController::class, 'pdf'])->whereNumber('payslip')->name('.payslips.pdf');
+        Route::get('/tax-slips/{year}/pdf', [PortalPayslipController::class, 'a1'])->whereNumber('year')->name('.tax-slips.pdf');
+        Route::get('/certifications', [\App\Http\Controllers\SelfService\CertificationController::class, 'index'])->name('.certifications');
         // Pinjaman: own loans, asking for one.
         Route::get('/loans', [PortalLoanController::class, 'index'])->name('.loans');
         Route::post('/loans', [PortalLoanController::class, 'store'])->name('.loans.store');

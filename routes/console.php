@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Demo server: ended workspaces removed, the waiting line moved on (service "scheduler").
 Schedule::command('eolas:prune-workspaces')->hourly()->withoutOverlapping();
+
+// Sertifikasi & Izin: reminders 90/60/30 days before expiry, every morning.
+Schedule::command('eolas:certifications:remind')->dailyAt('07:00')->withoutOverlapping();

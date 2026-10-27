@@ -23,6 +23,8 @@ class Menu
             // "Ubah" = may approve the plan revisions of its locations (and change the plan straight away).
             'workforce-planning-approval' => 'Persetujuan Revisi MPP',
             'employees' => 'Data Karyawan',
+            // "Ubah" = may record certificates and licences and their scans.
+            'certifications' => 'Sertifikasi & Izin Kerja (STR/SIP, SIMPER, SKK …)',
             'data-change-requests' => 'Pengajuan Update Data',
             'core-hr-settings' => 'Pengaturan Core HR',
         ],
@@ -60,6 +62,7 @@ class Menu
         'workforce-planning' => '/core-hr/workforce-planning',
         'workforce-planning-approval' => '/core-hr/workforce-planning',
         'employees' => '/core-hr/employees',
+        'certifications' => '/core-hr/certifications',
         'data-change-requests' => '/core-hr/change-requests',
         'core-hr-settings' => '/core-hr/settings',
         'shift-schedule' => '/time/shift-schedule',
@@ -81,7 +84,7 @@ class Menu
     ];
 
     /** Menus whose pages list employees: they only show the account's locations. */
-    public const SCOPED = ['org-chart', 'workforce-planning', 'employees', 'data-change-requests', 'shift-schedule', 'attendance-records', 'leave-travel', 'travel-requests', 'benefit-claims', 'benefit-balances', 'leave-balances', 'time-clock', 'overtime-approval', 'employee-compensation', 'payroll-run', 'payroll-approval', 'payroll-inputs', 'loans'];
+    public const SCOPED = ['org-chart', 'workforce-planning', 'employees', 'certifications', 'data-change-requests', 'shift-schedule', 'attendance-records', 'leave-travel', 'travel-requests', 'benefit-claims', 'benefit-balances', 'leave-balances', 'time-clock', 'overtime-approval', 'employee-compensation', 'payroll-run', 'payroll-approval', 'payroll-inputs', 'loans'];
 
     /** @return list<string> */
     public static function keys(): array

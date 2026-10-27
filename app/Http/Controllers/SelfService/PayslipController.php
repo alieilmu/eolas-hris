@@ -33,6 +33,8 @@ class PayslipController extends Controller
             ]),
             'slip' => $chosen ? PayrollRunController::slipData($chosen) : null,
             'password' => (bool) PayrollSetting::current()->payslip_password,
+            // 1721-A1 summaries: the years with approved slips.
+            'tax_years' => $slips->map(fn (Payslip $s) => (int) substr($s->run->period, 0, 4))->unique()->sortDesc()->values(),
         ]);
     }
 
@@ -41,6 +43,16 @@ class PayslipController extends Controller
         abort_unless($this->own($request)->whereKey($payslip->id)->exists(), 404);
 
         return PayslipPdf::download($payslip, protect: true);
+    }
+
+    public function a1(Request $request, int $year): HttpResponse
+    {
+        $employee = \App\Models\Employee::with('profile')->findOrFail($request->user()->employee_id ?? 0);
+        $row = \App\Support\Payroll\Reports\AnnualTax::year($year, [$employee->id])->first();
+        abort_unless($row, 404);
+
+        return \App\Http\Controllers\Compensation\PayrollReportController::a1Pdf($row, $year,
+            $employee->profile?->birth_date ? \Carbon\CarbonImmutable::parse($employee->profile->birth_date)->format('dmY') : null, true);
     }
 
     private function own(Request $request)

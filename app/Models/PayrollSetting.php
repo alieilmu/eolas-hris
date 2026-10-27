@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 /** How payroll periods and deductions work (one row, Pengaturan Kompensasi → Payroll). */
-#[Fillable(['cutoff_day', 'default_tax_method', 'absence_divisor_mode', 'absence_divisor_days', 'payslip_password', 'loan_max_ratio'])]
+#[Fillable(['cutoff_day', 'default_tax_method', 'absence_divisor_mode', 'absence_divisor_days', 'payslip_password', 'loan_max_ratio', 'company_tax_id', 'company_nitku', 'payer_bank', 'payer_account', 'journal_accounts'])]
 class PayrollSetting extends Model
 {
     public const TAX_METHODS = [
@@ -22,7 +22,7 @@ class PayrollSetting extends Model
 
     protected function casts(): array
     {
-        return ['payslip_password' => 'boolean'];
+        return ['payslip_password' => 'boolean', 'journal_accounts' => 'array'];
     }
 
     public static function current(): self

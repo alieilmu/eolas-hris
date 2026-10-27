@@ -42,6 +42,8 @@ class ProvisionWorkspace extends Command
             $this->call('db:seed', ['--class' => $account->data_source === 'blank' ? EolasBlankSeeder::class : EolasDemoSeeder::class, '--force' => true]);
             if ($account->data_source !== 'blank') {
                 IndustrySkin::apply($account->industry ?? Industry::DEFAULT);
+                // Certificates of the industry (positions are renamed by now).
+                \App\Support\Demo\DemoCertifications::seed($account->industry ?? Industry::DEFAULT);
             }
             $this->accounts($account);
             Branding::query()->first()?->update(['company_name' => $account->company_name]);

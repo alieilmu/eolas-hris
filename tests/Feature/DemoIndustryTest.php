@@ -77,4 +77,18 @@ class DemoIndustryTest extends TestCase
         $this->assertSame('six_day', WorkLocation::where('code', 'BDG')->value('work_schedule_scheme'));
         $this->assertSame(['Rawat Inap', 'IGD', 'ICU', 'Kamar Operasi'], json_decode(DB::table('job_posting_fields')->where('label', 'Unit Pengalaman')->value('options'), true));
     }
+
+    public function test_demo_certificates_follow_the_industry(): void
+    {
+        $this->seed(EolasDemoSeeder::class);
+        $codes = fn () => \App\Models\EmployeeCertification::withoutGlobalScopes()->with('type')->get()->pluck('type.code')->unique()->values()->all();
+        $this->assertContains('SIMPER', $codes());
+        $this->assertNotContains('STR', $codes());
+        $this->assertTrue(\App\Models\EmployeeCertification::withoutGlobalScopes()->get()->contains(fn ($c) => $c->status() === 'expired'));
+
+        IndustrySkin::apply('hospital');
+        \App\Support\Demo\DemoCertifications::seed('hospital');
+        $this->assertContains('STR', $codes());
+        $this->assertNotContains('SIMPER', $codes());
+    }
 }

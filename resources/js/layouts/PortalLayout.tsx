@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { HandCoins, Home, KeyRound, LogOut, ReceiptText, UserPen } from 'lucide-react';
+import { Award, HandCoins, Home, KeyRound, LogOut, ReceiptText, UserPen } from 'lucide-react';
 import { BrandLogo, brandLine, useBranding } from '@/components/BrandLogo';
 import { FlashToast } from '@/components/FlashToast';
 
@@ -8,6 +8,7 @@ const NAV = [
     { href: '/self-service', label: 'Beranda', icon: Home },
     { href: '/self-service/payslips', label: 'Slip Gaji', icon: ReceiptText },
     { href: '/self-service/loans', label: 'Pinjaman', icon: HandCoins },
+    { href: '/self-service/certifications', label: 'Sertifikat', icon: Award },
     { href: '/self-service/profile', label: 'Data Saya', icon: UserPen },
 ];
 

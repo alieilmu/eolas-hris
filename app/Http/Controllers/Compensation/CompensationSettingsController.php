@@ -98,7 +98,8 @@ class CompensationSettingsController extends Controller
             'employee_class' => LookupValues::values('employee_class'),
             // Payroll: periods, tax method, potong gapok, BPJS / PPh21 figures per year, JKK per location.
             'payroll' => [
-                'settings' => PayrollSetting::current()->only(['cutoff_day', 'default_tax_method', 'absence_divisor_mode', 'absence_divisor_days', 'payslip_password', 'loan_max_ratio']),
+                'settings' => PayrollSetting::current()->only(['cutoff_day', 'default_tax_method', 'absence_divisor_mode', 'absence_divisor_days', 'payslip_password', 'loan_max_ratio', 'company_tax_id', 'company_nitku', 'payer_bank', 'payer_account']),
+                'journal_accounts' => collect(\App\Support\Payroll\Reports\Accounts::chart())->map(fn ($a, $g) => ['group' => $g, 'number' => $a[0], 'name' => $a[1]])->values(),
                 'components' => \App\Models\PayrollComponent::orderBy('sort_order')->get(['id', 'code', 'name', 'kind', 'nature', 'taxable', 'sort_order', 'is_active', 'is_system']),
                 'component_kinds' => \App\Models\PayrollComponent::KINDS,
                 'component_natures' => \App\Models\PayrollComponent::NATURES,
@@ -126,7 +127,17 @@ class CompensationSettingsController extends Controller
             'umk.*' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
             'payslip_password' => ['sometimes', 'boolean'],
             'loan_max_ratio' => ['sometimes', 'integer', 'min:10', 'max:100'],
+            'company_tax_id' => ['nullable', 'string', 'max:20', 'regex:/^[0-9.\-\s]*$/'],
+            'company_nitku' => ['nullable', 'string', 'max:30', 'regex:/^[0-9.\-\s]*$/'],
+            'payer_bank' => ['nullable', 'string', 'max:30'],
+            'payer_account' => ['nullable', 'string', 'max:40'],
+            'journal_accounts' => ['sometimes', 'array'],
+            'journal_accounts.*.number' => ['required', 'string', 'max:20'],
+            'journal_accounts.*.name' => ['required', 'string', 'max:80'],
         ], [], ['cutoff_day' => 'Tanggal cutoff', 'absence_divisor_days' => 'Pembagi potong gapok', 'jkk.*' => 'Tarif JKK', 'umk.*' => 'UMK']);
+        if (isset($data['journal_accounts'])) {
+            $data['journal_accounts'] = array_intersect_key($data['journal_accounts'], \App\Support\Payroll\Reports\Accounts::GROUPS);
+        }
         PayrollSetting::current()->update(collect($data)->except(['jkk', 'umk'])->all());
         foreach ($data['jkk'] as $id => $rate) {
             WorkLocation::whereKey((int) $id)->update(['jkk_rate' => $rate]);
