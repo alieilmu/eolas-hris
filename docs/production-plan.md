@@ -4,6 +4,10 @@
 > Basis: branch `eloas`, payroll fase 2 sudah live (mesin BPJS/PPh21, potong gapok, simulasi gaji).
 > Rincian aturan payroll ada di [payroll-plan.md](payroll-plan.md); dokumen ini mengatur **urutan, isi, dan jadwal** semua pekerjaan.
 
+## Status
+
+- **27 Okt 2026:** minggu 1 dan 2 selesai: server demo siap iklan (captcha `/demo` & `/login`, batas 30 workspace, pembersihan otomatis), aplikasi demo 504 karyawan, payroll fase 3 (proses gaji, persetujuan, slip PDF, portal, rekap), 2FA untuk akun payroll, audit log, matriks fitur untuk Marketing. Berikutnya: minggu 3 (fase 4 input variabel & pinjaman; edisi klien + lisensi).
+
 ## Keputusan (27 Okt 2026)
 
 | Topik | Keputusan |
