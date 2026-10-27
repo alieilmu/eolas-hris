@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Trial;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProvisionDemoWorkspace;
 use App\Models\TrialAccount;
+use App\Rules\Turnstile;
 use App\Support\Demo\Industry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class TrialRequestController extends Controller
             'company_size' => self::JUMLAH_KARYAWAN,
             'auto_approve' => config('eolas.demo_auto_approve'),
             'demo_days' => config('eolas.demo_days'),
+            'turnstile_site_key' => Turnstile::enabled() ? config('services.turnstile.site_key') : null,
         ]);
     }
 
@@ -47,7 +49,12 @@ class TrialRequestController extends Controller
             'industry' => ['nullable', 'required_if:data_source,demo', Rule::in(array_keys(Industry::LABELS))],
             'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
             'agree' => ['accepted'],
+            // A field people never see: bots filling every input give themselves away.
+            'website' => ['prohibited'],
+            'captcha' => [Rule::requiredIf(Turnstile::enabled()), new Turnstile($request->ip())],
         ], [
+            'website.prohibited' => 'Pengajuan tidak bisa diproses.',
+            'captcha.required' => 'Selesaikan verifikasi "Saya bukan robot" terlebih dahulu.',
             'email.unique' => 'Email ini sudah terdaftar untuk akun demo. Silakan masuk.',
             'email.not_regex' => 'Gunakan email Anda sendiri.',
             'agree.accepted' => 'Centang persetujuan untuk melanjutkan.',
@@ -56,14 +63,17 @@ class TrialRequestController extends Controller
 
         $data['industry'] = $data['data_source'] === 'demo' ? ($data['industry'] ?? Industry::DEFAULT) : null;
         $auto = (bool) config('eolas.demo_auto_approve');
+        // The server holds so many workspaces at once; past that the request waits in line
+        // (eolas:prune-workspaces prepares it once a place frees up).
+        $start = $auto && ! TrialAccount::full();
         $account = TrialAccount::create([
-            ...collect($data)->except(['agree', 'password_confirmation'])->all(),
+            ...collect($data)->except(['agree', 'password_confirmation', 'website', 'captcha'])->all(),
             'email' => Str::lower($data['email']),
             'code' => TrialAccount::newCode(),
-            'status' => $auto ? 'provisioning' : 'pending',
-            'approved_at' => $auto ? now() : null,
+            'status' => $start ? 'provisioning' : ($auto ? 'waiting' : 'pending'),
+            'approved_at' => $start ? now() : null,
         ]);
-        if ($auto) {
+        if ($start) {
             ProvisionDemoWorkspace::dispatch($account->id);
         }
 

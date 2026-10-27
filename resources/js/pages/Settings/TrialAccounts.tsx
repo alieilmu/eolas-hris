@@ -15,7 +15,7 @@ interface Account {
     data_source: 'demo' | 'blank';
     industry_label: string | null;
     source_label: string;
-    status: 'pending' | 'provisioning' | 'active' | 'inactive' | 'failed' | 'ends';
+    status: 'pending' | 'waiting' | 'provisioning' | 'active' | 'inactive' | 'failed' | 'ends' | 'archived';
     status_label: string;
     notes: string | null;
     expires_at: string | null;
@@ -28,22 +28,26 @@ interface Props {
     accounts: Account[];
     auto_approve: boolean;
     demo_days: number;
-    stats: { total: number; active: number; pending: number; demo: number; blank: number };
+    max_active: number;
+    keep_days: number;
+    stats: { total: number; occupied: number; active: number; pending: number; demo: number; blank: number };
 }
 
 const STATUS_TONE: Record<Account['status'], string> = {
     pending: 'bg-amber-100 text-amber-700',
+    waiting: 'bg-amber-100 text-amber-700',
     provisioning: 'bg-sky-100 text-sky-700',
     active: 'bg-brand-100 text-brand-700',
     inactive: 'bg-slate-100 text-slate-500',
     failed: 'bg-rose-100 text-rose-600',
     ends: 'bg-slate-100 text-slate-500',
+    archived: 'bg-slate-100 text-slate-400',
 };
 
 const dt = (s: string | null) => (s ? new Date(s.replace(' ', 'T')).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '–');
 
 /** Settings → Akun Demo: the requests, their workspaces, and what the Super Admin can do with them. */
-export default function TrialAccounts({ accounts, auto_approve, demo_days, stats }: Props) {
+export default function TrialAccounts({ accounts, auto_approve, demo_days, max_active, keep_days, stats }: Props) {
     const [q, setQ] = useState('');
     const [open, setOpen] = useState<number | null>(null);
     const busy = accounts.some((a) => a.status === 'provisioning');
@@ -76,8 +80,8 @@ export default function TrialAccounts({ accounts, auto_approve, demo_days, stats
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
                     {[
                         ['Total pengajuan', stats.total],
-                        ['Workspace aktif', stats.active],
-                        ['Menunggu persetujuan', stats.pending],
+                        ['Workspace aktif', `${stats.occupied} / ${max_active}`],
+                        ['Menunggu / daftar tunggu', stats.pending],
                         ['Pakai data demo', stats.demo],
                         ['Pakai data sendiri', stats.blank],
                     ].map(([l, v]) => (
@@ -91,8 +95,11 @@ export default function TrialAccounts({ accounts, auto_approve, demo_days, stats
                 <div className="rounded-2xl border border-brand-100 bg-brand-50/60 p-4 text-sm text-slate-600">
                     Pengajuan dari halaman publik <b>/demo</b>{' '}
                     {auto_approve ? 'langsung disiapkan otomatis' : 'menunggu persetujuan Anda di sini'}. Masa demo {demo_days} hari. Setiap akun
-                    mendapat database dan folder file sendiri, terpisah dari data utama. Atur lewat <code className="text-xs">DEMO_AUTO_APPROVE</code> dan{' '}
-                    <code className="text-xs">DEMO_DAYS</code> di .env.
+                    mendapat database dan folder file sendiri, terpisah dari data utama. Paling banyak {max_active} workspace terbuka sekaligus; pengajuan
+                    berikutnya masuk daftar tunggu dan disiapkan otomatis begitu ada tempat. Workspace yang berakhir lebih dari {keep_days} hari dihapus
+                    (data pengajuan tetap disimpan, bisa dibuka lagi). Atur lewat <code className="text-xs">DEMO_AUTO_APPROVE</code>,{' '}
+                    <code className="text-xs">DEMO_DAYS</code>, <code className="text-xs">DEMO_MAX_ACTIVE</code> dan{' '}
+                    <code className="text-xs">DEMO_KEEP_DAYS</code> di .env.
                 </div>
 
                 <div className="rounded-2xl border border-slate-100 bg-white">
@@ -151,12 +158,12 @@ export default function TrialAccounts({ accounts, auto_approve, demo_days, stats
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex flex-wrap justify-end gap-1.5">
-                                                    {(a.status === 'pending' || a.status === 'failed') && (
+                                                    {['pending', 'waiting', 'failed', 'archived'].includes(a.status) && (
                                                         <button
                                                             onClick={() => post(`/settings/trial-accounts/${a.id}/approve`)}
                                                             className="flex items-center gap-1 rounded-lg bg-brand-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-brand-700"
                                                         >
-                                                            <Check size={13} /> {a.status === 'failed' ? 'Coba lagi' : 'Setujui'}
+                                                            <Check size={13} /> {a.status === 'failed' ? 'Coba lagi' : a.status === 'archived' ? 'Buka lagi' : a.status === 'waiting' ? 'Siapkan sekarang' : 'Setujui'}
                                                         </button>
                                                     )}
                                                     {['active', 'inactive', 'ends'].includes(a.status) && (

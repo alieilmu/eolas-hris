@@ -71,7 +71,10 @@ class Tenant
     public static function drop(string $database): void
     {
         self::assertName($database);
-        DB::connection('central')->statement("DROP DATABASE IF EXISTS `{$database}`");
+        // Workspaces are MySQL databases; the tests' SQLite has none to drop.
+        if (DB::connection('central')->getDriverName() === 'mysql') {
+            DB::connection('central')->statement("DROP DATABASE IF EXISTS `{$database}`");
+        }
         File::deleteDirectory(self::root($database));
     }
 

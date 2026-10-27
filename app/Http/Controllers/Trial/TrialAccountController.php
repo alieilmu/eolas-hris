@@ -24,21 +24,30 @@ class TrialAccountController extends Controller
             'accounts' => $accounts->map->toShare(),
             'auto_approve' => config('eolas.demo_auto_approve'),
             'demo_days' => config('eolas.demo_days'),
+            'max_active' => config('eolas.demo_max_active'),
+            'keep_days' => config('eolas.demo_keep_days'),
             'stats' => [
+                'occupied' => TrialAccount::occupied(),
                 'total' => $accounts->count(),
                 'active' => $accounts->filter->usable()->count(),
-                'pending' => $accounts->where('status', 'pending')->count(),
+                'pending' => $accounts->whereIn('status', ['pending', 'waiting'])->count(),
                 'demo' => $accounts->where('data_source', 'demo')->count(),
                 'blank' => $accounts->where('data_source', 'blank')->count(),
             ],
         ]);
     }
 
-    /** Approves a waiting request (or retries a failed one): its workspace is prepared. */
+    /**
+     * Approves a waiting request (or retries a failed one, or opens a removed workspace
+     * again for a new demo period): its workspace is prepared.
+     */
     public function approve(TrialAccount $account): RedirectResponse
     {
-        abort_unless(in_array($account->status, ['pending', 'failed'], true), 422);
-        $account->update(['status' => 'provisioning', 'approved_at' => $account->approved_at ?? now()]);
+        abort_unless(in_array($account->status, ['pending', 'waiting', 'failed', 'archived'], true), 422);
+        $account->update([
+            'status' => 'provisioning', 'approved_at' => $account->approved_at ?? now(),
+            ...$account->status === 'archived' ? ['expires_at' => null] : [],
+        ]);
         ProvisionDemoWorkspace::dispatch($account->id);
 
         Inertia::flash('success', "Workspace {$account->company_name} sedang disiapkan.");

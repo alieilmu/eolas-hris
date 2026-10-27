@@ -9,7 +9,7 @@ interface Account {
     name: string;
     company_name: string;
     email: string;
-    status: 'pending' | 'provisioning' | 'active' | 'inactive' | 'failed' | 'ends';
+    status: 'pending' | 'waiting' | 'provisioning' | 'active' | 'inactive' | 'failed' | 'ends' | 'archived';
     status_label: string;
     data_source: 'demo' | 'blank';
     industry_label: string | null;
@@ -119,10 +119,27 @@ export default function DemoStatus({ account }: { account: Account }) {
                     </>
                 )}
 
-                {['failed', 'inactive', 'ends'].includes(account.status) && (
+                {account.status === 'waiting' && (
+                    <>
+                        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-accent-100 text-brand-700">
+                            <Hourglass size={30} />
+                        </span>
+                        <h1 className="mt-5 text-xl font-black text-slate-900">Anda di daftar tunggu</h1>
+                        <p className="mt-2 text-sm text-slate-500">
+                            Terima kasih {account.name}. Banyak perusahaan sedang mencoba Eolas, jadi workspace <b>{account.company_name}</b> disiapkan
+                            otomatis begitu ada tempat, biasanya dalam beberapa jam. Setelah itu Anda bisa masuk dengan email <b>{account.email}</b> dan
+                            password yang Anda buat.
+                        </p>
+                        <p className="mt-4 text-xs text-slate-400">
+                            Simpan alamat halaman ini untuk mengecek status: /demo/status/{account.code}
+                        </p>
+                    </>
+                )}
+
+                {['failed', 'inactive', 'ends', 'archived'].includes(account.status) && (
                     <>
                         <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-rose-50 text-rose-500">
-                            {account.status === 'ends' ? <Clock size={30} /> : <AlertTriangle size={30} />}
+                            {account.status === 'ends' || account.status === 'archived' ? <Clock size={30} /> : <AlertTriangle size={30} />}
                         </span>
                         <h1 className="mt-5 text-xl font-black text-slate-900">{account.status_label}</h1>
                         <p className="mt-2 text-sm text-slate-500">Silakan hubungi admin Eolas untuk bantuan.</p>

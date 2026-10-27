@@ -22,10 +22,12 @@ class TrialAccount extends Model
 
     public const STATUS = [
         'pending' => 'Menunggu persetujuan',
+        'waiting' => 'Daftar tunggu',
         'provisioning' => 'Sedang disiapkan',
         'active' => 'Aktif',
         'inactive' => 'Nonaktif',
         'failed' => 'Gagal disiapkan',
+        'archived' => 'Workspace dihapus',
     ];
 
     protected $connection = 'central';
@@ -50,6 +52,19 @@ class TrialAccount extends Model
         return $code;
     }
 
+    /** Workspaces taking a place on the server: being prepared, or active and not ended. */
+    public static function occupied(): int
+    {
+        return self::where('status', 'provisioning')
+            ->orWhere(fn ($q) => $q->where('status', 'active')->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now())))
+            ->count();
+    }
+
+    public static function full(): bool
+    {
+        return self::occupied() >= (int) config('eolas.demo_max_active', 30);
+    }
+
     public function expired(): bool
     {
         return $this->expires_at !== null && $this->expires_at->isPast();
@@ -66,6 +81,8 @@ class TrialAccount extends Model
     {
         return match (true) {
             $this->status === 'pending' => 'Akun demo Anda masih menunggu persetujuan admin Eolas.',
+            $this->status === 'waiting' => 'Akun demo Anda ada di daftar tunggu; workspace disiapkan begitu ada tempat.',
+            $this->status === 'archived' => 'Masa demo akun ini sudah berakhir dan workspace-nya dihapus. Hubungi admin Eolas untuk membukanya lagi.',
             $this->status === 'provisioning' => 'Workspace demo Anda sedang disiapkan. Coba lagi dalam beberapa saat.',
             $this->status === 'failed' => 'Workspace demo gagal disiapkan. Hubungi admin Eolas.',
             $this->status === 'inactive' => 'Akun demo ini sudah dinonaktifkan.',

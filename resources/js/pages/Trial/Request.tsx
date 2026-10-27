@@ -1,7 +1,8 @@
-import type { FormEvent, ReactNode } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, CheckCircle2, Database, FlaskConical, Loader2, Rocket } from 'lucide-react';
 import { EolasMark } from '@/components/EolasMark';
+import { Turnstile } from '@/components/Turnstile';
 
 interface Props {
     source: Record<'demo' | 'blank', string>;
@@ -9,6 +10,7 @@ interface Props {
     auto_approve: boolean;
     demo_days: number;
     industries: { value: string; label: string; description: string }[];
+    turnstile_site_key: string | null;
 }
 
 const input =
@@ -40,7 +42,7 @@ const CHOICES = [
     },
 ];
 
-export default function DemoRequest({ company_size, auto_approve, demo_days, industries }: Props) {
+export default function DemoRequest({ company_size, auto_approve, demo_days, industries, turnstile_site_key }: Props) {
     const form = useForm({
         name: '',
         email: '',
@@ -54,12 +56,16 @@ export default function DemoRequest({ company_size, auto_approve, demo_days, ind
         password: '',
         password_confirmation: '',
         agree: false,
+        website: '',
+        captcha: '',
     });
     const { data, setData, errors, processing } = form;
+    const [attempt, setAttempt] = useState(0);
 
     const submit = (e: FormEvent) => {
         e.preventDefault();
-        form.post('/demo', { preserveScroll: true });
+        // A token is good for one check: a refused submit needs a new one.
+        form.post('/demo', { preserveScroll: true, onError: () => setAttempt((n) => n + 1) });
     };
 
     return (
@@ -255,9 +261,28 @@ export default function DemoRequest({ company_size, auto_approve, demo_days, ind
                         </span>
                     </label>
 
+                    {/* Honeypot: hidden from people, filled in by bots. */}
+                    <input
+                        type="text"
+                        name="website"
+                        tabIndex={-1}
+                        autoComplete="off"
+                        aria-hidden="true"
+                        className="absolute -left-[9999px] h-px w-px opacity-0"
+                        value={data.website}
+                        onChange={(e) => setData('website', e.target.value)}
+                    />
+
+                    {turnstile_site_key && (
+                        <div>
+                            <Turnstile siteKey={turnstile_site_key} onToken={(t) => setData('captcha', t)} resetKey={attempt || undefined} />
+                            {(errors.captcha || errors.website) && <span className="mt-1 block text-xs font-semibold text-rose-600">{errors.captcha || errors.website}</span>}
+                        </div>
+                    )}
+
                     <button
                         type="submit"
-                        disabled={processing}
+                        disabled={processing || (!!turnstile_site_key && !data.captcha)}
                         className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-brand-600/25 transition hover:bg-brand-700 disabled:opacity-60"
                     >
                         {processing ? <Loader2 size={16} className="animate-spin" /> : <Rocket size={16} />}
