@@ -12,3 +12,12 @@ storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
 tests
+# Never in the image (it is shipped to client servers): database dumps and internal notes.
+**/*.sql
+**/*.sql.gz
+docs
+CLAUDE.md
+AGENTS.md
+.claude
+installer
+dist

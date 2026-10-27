@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Eolas HRIS — backup harian: database (mysqldump), file (lampiran, logo, lisensi) dan .env.
+# Retensi: 7 harian, 4 mingguan (Minggu), 6 bulanan (tanggal 1). Dijalankan oleh eolas-backup.timer.
+set -euo pipefail
+. "$(dirname "$(readlink -f "$0")")/../lib.sh"
+
+stamp=$(date +%Y%m%d-%H%M%S)
+dest="$BACKUP_DIR/daily/$stamp"
+umask 077
+mkdir -p "$dest"
+
+say "Database"
+dc exec -T db sh -c 'exec mysqldump -h127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers --databases "$MYSQL_DATABASE"' 2>/dev/null \
+    | gzip > "$dest/database.sql.gz"
+[ -s "$dest/database.sql.gz" ] && zcat "$dest/database.sql.gz" | tail -1 | grep -q "Dump completed" || die "dump database tidak lengkap"
+
+say "File aplikasi"
+dc exec -T app tar -C /var/www/html/storage -czf - app > "$dest/storage.tar.gz"
+
+cp "$EOLAS_DIR/.env" "$dest/env"
+cat "$EOLAS_DIR/VERSION" > "$dest/VERSION" 2>/dev/null || true
+( cd "$dest" && sha256sum database.sql.gz storage.tar.gz env > SHA256SUMS )
+
+# Weekly and monthly copies, then the retention.
+if [ "$(date +%u)" = 7 ]; then mkdir -p "$BACKUP_DIR/weekly" && cp -a "$dest" "$BACKUP_DIR/weekly/"; fi
+if [ "$(date +%d)" = 01 ]; then mkdir -p "$BACKUP_DIR/monthly" && cp -a "$dest" "$BACKUP_DIR/monthly/"; fi
+prune() {
+    [ -d "$BACKUP_DIR/$1" ] || return 0
+    find "$BACKUP_DIR/$1" -mindepth 1 -maxdepth 1 -type d | sort | head -n -"$2" | xargs -r rm -rf
+}
+prune daily 7; prune weekly 4; prune monthly 6
+
+say "Backup selesai: $dest ($(du -sh "$dest" | cut -f1))"
+echo "$dest"

@@ -135,6 +135,23 @@ class ClientEditionTest extends TestCase
         @unlink($key);
     }
 
+    public function test_the_first_setup_seeds_and_makes_the_super_admin(): void
+    {
+        putenv('EOLAS_ADMIN_PASSWORD=pendek');
+        $this->artisan('eolas:client:setup', ['--company' => 'PT Taylor', '--admin-name' => 'Admin HR', '--admin-email' => 'hr@taylor.co.id'])->assertFailed();
+        putenv('EOLAS_ADMIN_PASSWORD=rahasia-sekali-123');
+        $this->artisan('eolas:client:setup', ['--company' => 'PT Taylor', '--admin-name' => 'Admin HR', '--admin-email' => 'HR@taylor.co.id'])->assertSuccessful();
+        $admin = User::where('email', 'hr@taylor.co.id')->sole();
+        $this->assertTrue($admin->isAdmin());
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('rahasia-sekali-123', $admin->password));
+        $this->assertSame('PT Taylor', \App\Models\Branding::query()->value('company_name'));
+        $this->assertSame('pending', \App\Models\WorkspaceSetup::query()->value('status'));
+        // Again: no second seeding, the same account.
+        $this->artisan('eolas:client:setup', ['--company' => 'PT Taylor Mining', '--admin-name' => 'Admin HR', '--admin-email' => 'hr@taylor.co.id'])->assertSuccessful();
+        $this->assertSame(1, User::count());
+        putenv('EOLAS_ADMIN_PASSWORD');
+    }
+
     public function test_the_saas_edition_needs_no_license(): void
     {
         config(['eolas.edition' => 'saas']);

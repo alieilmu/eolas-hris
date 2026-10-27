@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Eolas HRIS — memasang versi baru: eolas-update /path/eolas-hris-1.1.0 (folder paket dari Eolas)
+# Urutan: cek lisensi & masa support → backup → muat image baru → jalankan (migrasi otomatis)
+# → cek kesehatan. Bila gagal: kembali ke versi lama dan database dari backup tadi.
+set -euo pipefail
+. "$(dirname "$(readlink -f "$0")")/../lib.sh"
+
+pkg="${1:-}"
+[ -n "$pkg" ] && [ -f "$pkg/VERSION" ] || die "Pakai: eolas-update <folder paket> (berisi VERSION dan image)"
+new=$(cat "$pkg/VERSION")
+old=$(env_get EOLAS_VERSION)
+[ "$new" != "$old" ] || die "Versi $new sudah terpasang"
+
+say "Memeriksa lisensi"
+dc exec -T app php artisan eolas:license:check --for-update || die "Update ditolak: lisensi tidak berlaku atau masa support berakhir. Hubungi Eolas."
+
+backup=$("$EOLAS_DIR/bin/eolas-backup" | tail -1)
+say "Memuat image $new"
+( cd "$pkg" && sha256sum -c --quiet SHA256SUMS ) || die "Checksum paket tidak cocok"
+for img in "$pkg"/images/*.tar.gz; do gunzip -c "$img" | docker load; done
+
+cp "$pkg/docker-compose.yml" "$EOLAS_DIR/docker-compose.yml"
+cp -r "$pkg/bin" "$pkg/lib.sh" "$EOLAS_DIR/"
+chmod +x "$EOLAS_DIR"/bin/*
+env_set EOLAS_VERSION "$new"
+echo "$new" > "$EOLAS_DIR/VERSION"
+# Compose fails when the app never turns healthy; the health check below decides.
+dc up -d || true
+
+if wait_healthy 300; then
+    say "Eolas $new terpasang (sebelumnya $old). Backup sebelum update: $backup"
+    exit 0
+fi
+
+warn "Versi $new tidak sehat. Kembali ke $old."
+docker logs --tail 40 eolas-app >&2 || true
+env_set EOLAS_VERSION "$old"
+echo "$old" > "$EOLAS_DIR/VERSION"
+EOLAS_YES=1 "$EOLAS_DIR/bin/eolas-restore" "$backup"
+die "Update dibatalkan; Eolas $old dipulihkan dari $backup."
