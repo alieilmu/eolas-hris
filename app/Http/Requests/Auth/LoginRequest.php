@@ -5,6 +5,7 @@ namespace App\Http\Requests\Auth;
 use App\Models\TrialAccount;
 use App\Models\Employee;
 use App\Models\User;
+use App\Rules\Turnstile;
 use App\Support\Tenancy\Tenant;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
@@ -23,7 +25,7 @@ class LoginRequest extends FormRequest
     public ?string $tenant = null;
 
     /**
-     * @return array<string, array<int, string>>
+     * @return array<string, array<int, mixed>>
      */
     public function rules(): array
     {
@@ -33,6 +35,8 @@ class LoginRequest extends FormRequest
             'password' => ['required', 'string'],
             // Kode workspace demo: needed for an NRP or a seeded account inside a workspace.
             'workspace' => ['nullable', 'string', 'max:16'],
+            // Cloudflare Turnstile, when its keys are set (see App\Rules\Turnstile).
+            'captcha' => [Rule::requiredIf(Turnstile::enabled()), new Turnstile($this->ip())],
         ];
     }
 
@@ -44,6 +48,7 @@ class LoginRequest extends FormRequest
         return [
             'email.required' => 'Email atau NRP wajib diisi.',
             'password.required' => 'Password wajib diisi.',
+            'captcha.required' => 'Selesaikan verifikasi "Saya bukan robot" terlebih dahulu.',
         ];
     }
 

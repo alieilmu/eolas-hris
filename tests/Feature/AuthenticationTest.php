@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -26,6 +27,20 @@ class AuthenticationTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Auth/Login')
                 ->where('auth.user', null));
+    }
+
+    public function test_the_login_asks_for_the_captcha_when_turnstile_is_set(): void
+    {
+        config(['services.turnstile.site_key' => 'site', 'services.turnstile.secret_key' => 'secret']);
+        Http::fake(['challenges.cloudflare.com/*' => Http::sequence()->push(['success' => false])->push(['success' => true])]);
+        $user = User::factory()->create(['role' => User::ROLE_HR]);
+
+        $this->get('/login')->assertInertia(fn (Assert $page) => $page->where('turnstile_site_key', 'site'));
+        $this->post('/login', ['email' => $user->email, 'password' => 'password'])->assertSessionHasErrors('captcha');
+        $this->post('/login', ['email' => $user->email, 'password' => 'password', 'captcha' => 'bad'])->assertSessionHasErrors('captcha');
+        $this->assertGuest();
+        $this->post('/login', ['email' => $user->email, 'password' => 'password', 'captcha' => 'good'])->assertSessionHasNoErrors();
+        $this->assertAuthenticatedAs($user);
     }
 
     public function test_users_can_log_in_and_return_to_the_intended_page(): void

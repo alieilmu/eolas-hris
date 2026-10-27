@@ -2,12 +2,16 @@ import { useState } from 'react';
 import { Form, Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Briefcase, FlaskConical, Loader2, LogIn } from 'lucide-react';
 import { LoginMark, useBranding } from '@/components/BrandLogo';
+import { Turnstile } from '@/components/Turnstile';
 
 const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500';
 
-export default function Login({ workspace }: { workspace: string | null }) {
+export default function Login({ workspace, turnstile_site_key }: { workspace: string | null; turnstile_site_key: string | null }) {
     const branding = useBranding();
     const [showWorkspace, setShowWorkspace] = useState(!!workspace);
+    const [captcha, setCaptcha] = useState('');
+    // A token is good for one check: a refused sign-in needs a new one.
+    const [attempt, setAttempt] = useState(0);
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-slate-50 to-accent-50 p-6">
@@ -31,6 +35,7 @@ export default function Login({ workspace }: { workspace: string | null }) {
                     action="/login"
                     method="post"
                     resetOnError={['password']}
+                    onError={() => setAttempt((n) => n + 1)}
                     className="space-y-5 rounded-3xl border border-slate-200 border-t-4 border-t-accent-400 bg-white p-8 shadow-sm"
                 >
                     {({ errors, processing }) => (
@@ -45,9 +50,9 @@ export default function Login({ workspace }: { workspace: string | null }) {
                                 )}
                             </div>
 
-                            {(errors.email || errors.password) && (
+                            {(errors.email || errors.password || errors.captcha) && (
                                 <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-600">
-                                    {errors.email || errors.password}
+                                    {errors.email || errors.password || errors.captcha}
                                 </div>
                             )}
 
@@ -108,9 +113,16 @@ export default function Login({ workspace }: { workspace: string | null }) {
                                 Ingat saya
                             </label>
 
+                            {turnstile_site_key && (
+                                <>
+                                    <input type="hidden" name="captcha" value={captcha} />
+                                    <Turnstile siteKey={turnstile_site_key} onToken={setCaptcha} resetKey={attempt || undefined} />
+                                </>
+                            )}
+
                             <button
                                 type="submit"
-                                disabled={processing}
+                                disabled={processing || (!!turnstile_site_key && !captcha)}
                                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-brand-200 transition-all hover:bg-brand-700 disabled:opacity-50"
                             >
                                 {processing ? <Loader2 className="animate-spin" size={16} /> : <LogIn size={16} />}

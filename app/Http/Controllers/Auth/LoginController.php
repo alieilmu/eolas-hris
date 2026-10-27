@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Middleware\UseTenant;
 use App\Models\TrialAccount;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Rules\Turnstile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
@@ -18,7 +19,10 @@ class LoginController extends Controller
     public function create(Request $request): Response
     {
         // A link from the demo request ("Masuk ke workspace") fills in its code.
-        return Inertia::render('Auth/Login', ['workspace' => $request->string('ws')->limit(16, '')->toString() ?: null]);
+        return Inertia::render('Auth/Login', [
+            'workspace' => $request->string('ws')->limit(16, '')->toString() ?: null,
+            'turnstile_site_key' => Turnstile::enabled() ? config('services.turnstile.site_key') : null,
+        ]);
     }
 
     public function store(LoginRequest $request): HttpResponse
