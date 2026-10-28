@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { Award, HandCoins, Home, KeyRound, LogOut, ReceiptText, UserPen } from 'lucide-react';
+import { Award, ClipboardCheck, HandCoins, Home, KeyRound, LogOut, ReceiptText, UserPen } from 'lucide-react';
 import { BrandLogo, brandLine, useBranding } from '@/components/BrandLogo';
 import { FlashToast } from '@/components/FlashToast';
 
@@ -16,8 +16,10 @@ const NAV: { href: string; label: string; icon: typeof Home; module?: 'talent' |
 /** Portal Karyawan: a simple top bar instead of the admin sidebar; on a phone the menu is a row of tabs under it. */
 export default function PortalLayout({ children }: { children: ReactNode }) {
     const { auth, modules } = usePage().props;
-    const nav = NAV.filter((item) => !item.module || modules.includes(item.module));
     const url = usePage().url.split('?')[0];
+    // Persetujuan: for a superior with pengajuan waiting (and while on the page).
+    const approvals = auth.approvals > 0 || url.startsWith('/approvals') ? [{ href: '/approvals', label: 'Persetujuan', icon: ClipboardCheck, badge: auth.approvals }] : [];
+    const nav: ((typeof NAV)[number] & { badge?: number })[] = [...NAV.filter((item) => !item.module || modules.includes(item.module)), ...approvals];
     const user = auth.user;
     const branding = useBranding();
 
@@ -43,6 +45,7 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                             >
                                 <item.icon size={15} />
                                 {item.label}
+                                {!!item.badge && <span className="rounded-full bg-amber-400 px-1.5 text-[11px] font-black text-brand-950">{item.badge}</span>}
                             </Link>
                         ))}
                     </nav>
@@ -80,6 +83,7 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                         >
                             <item.icon size={15} />
                             {item.label}
+                            {!!item.badge && <span className="rounded-full bg-amber-400 px-1.5 text-[11px] font-black text-brand-950">{item.badge}</span>}
                         </Link>
                     ))}
                 </nav>

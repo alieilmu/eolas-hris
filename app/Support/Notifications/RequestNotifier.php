@@ -11,9 +11,11 @@ use App\Models\WorkforcePlanRevision;
 use App\Models\EmployeeChangeRequest;
 use App\Models\LeaveTravelRequest;
 use App\Models\User;
+use App\Models\WorkflowInstance;
 use App\Notifications\RequestReceived;
 use App\Support\Access\AccessScope;
 use App\Support\Leave\LeaveLedger;
+use App\Support\Workflow\Workflow;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
@@ -125,6 +127,44 @@ class RequestNotifier
         self::safely(fn () => $r->creator->notify(new RequestReceived('workforce_planning-result', "workforce_planning-result:{$r->id}", 'Revisi MPP '.($agree ? 'disetujui' : 'ditolak'),
             "{$r->plan->workLocation->name} · {$r->plan->label()} oleh ".($r->approver?->name ?? '-').($r->verification_notes ? " — {$r->verification_notes}" : ''),
             "/core-hr/workforce-planning?location={$r->plan->work_location_id}&period={$r->plan->code()}", ['id' => null, 'employee_number' => null, 'name' => $r->approver?->name])));
+    }
+
+    /** A step of a Workflow began: for whoever approves it (Persetujuan Saya). */
+    public static function workflowStep(WorkflowInstance $i): void
+    {
+        $to = User::whereIn('id', $i->current_approvers ?? [])->where('is_active', true)->get();
+        $k = Employee::withoutGlobalScopes()->find($i->employee_id);
+        if ($to->isEmpty() || ! $k) {
+            return;
+        }
+        $label = Workflow::TYPES[$i->definition->type]['label'];
+        self::safely(fn () => Notification::send($to, new RequestReceived('approval', "workflow:{$i->id}:{$i->current_step}", "Menunggu persetujuan Anda: {$label}",
+            "{$k->name} ({$k->employee_number})".($i->summary ? " · {$i->summary}" : ''), '/approvals', ['id' => $k->id, 'employee_number' => $k->employee_number, 'name' => $k->name])));
+    }
+
+    /** A step was decided: closed for everyone, or (a step all must agree on) only for $only. */
+    public static function workflowDone(WorkflowInstance $i, ?int $step, ?User $only = null): void
+    {
+        if ($step === null) {
+            return;
+        }
+        self::safely(fn () => DatabaseNotification::where('ref', "workflow:{$i->id}:{$step}")->whereNull('read_at')
+            ->when($only, fn ($q) => $q->where('notifiable_type', $only->getMorphClass())->where('notifiable_id', $only->id))
+            ->update(['read_at' => now()]));
+    }
+
+    /** The end of a Workflow: for the employee, and whoever filed it for them (not the one who decided). */
+    public static function workflowResult(WorkflowInstance $i, ?User $by, ?string $notes): void
+    {
+        $label = Workflow::TYPES[$i->definition->type]['label'];
+        $to = User::where('is_active', true)->where(fn ($q) => $q->where('employee_id', $i->employee_id)->orWhere('id', $i->started_by ?? 0))
+            ->get()->reject(fn (User $u) => $u->id === $by?->id);
+        if ($to->isEmpty()) {
+            return;
+        }
+        $agree = $i->status === WorkflowInstance::APPROVED;
+        self::safely(fn () => Notification::send($to, new RequestReceived('approval-result', "workflow-result:{$i->id}", "{$label} ".($agree ? 'disetujui' : 'ditolak'),
+            trim(($i->summary ?? '').($by ? ' · oleh '.$by->name : '').($notes ? " — {$notes}" : ''), ' ·'), $i->url ?? '/approvals?tab=mine', ['id' => $i->employee_id, 'employee_number' => null, 'name' => $by?->name])));
     }
 
     /** HR decided, or the employee withdrew it: nothing left to do for anyone. */

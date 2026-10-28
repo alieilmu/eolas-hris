@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\Account\PasswordController;
 use App\Http\Controllers\Account\TwoFactorController;
 use App\Http\Controllers\Settings\AuditLogController;
@@ -521,6 +522,15 @@ Route::middleware(['auth', 'two-factor', 'account.ready', 'licensed'])->group(fu
     Route::middleware('can:manage-users')->prefix('settings')->name('settings.')->controller(BrandingController::class)->group(function () {
         Route::get('/branding', 'edit')->name('branding');
         Route::post('/branding', 'update')->name('branding.update');
+    });
+
+    // Persetujuan Saya: pengajuan waiting for this account in their Workflow (admins and superiors in the portal).
+    Route::controller(ApprovalController::class)->prefix('approvals')->name('approvals')->group(function () {
+        Route::get('/', 'index');
+        Route::post('/bulk', 'bulk')->name('.bulk');
+        Route::post('/{instance}/approve', 'approve')->whereNumber('instance')->name('.approve');
+        Route::post('/{instance}/reject', 'reject')->whereNumber('instance')->name('.reject');
+        Route::post('/{instance}/cancel', 'cancel')->whereNumber('instance')->name('.cancel');
     });
 
     // The bell: pengajuan from the portal waiting for this account.

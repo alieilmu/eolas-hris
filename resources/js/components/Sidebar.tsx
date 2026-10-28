@@ -90,6 +90,9 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
             <Link key={item.id} href={item.href} prefetch className={className}>
                 <ItemIcon size={15} />
                 {item.label}
+                {item.badge && props.auth[item.badge] > 0 && (
+                    <span className="ml-auto rounded-full bg-amber-400 px-1.5 text-[11px] font-black text-brand-950 tabular-nums">{props.auth[item.badge]}</span>
+                )}
             </Link>
         );
     };

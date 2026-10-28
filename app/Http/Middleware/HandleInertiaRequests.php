@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\WorkspaceSetup;
 use App\Support\Modules;
 use App\Support\Tenancy\Tenant;
+use App\Support\Workflow\Workflow;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -70,6 +71,8 @@ class HandleInertiaRequests extends Middleware
                 ],
                 // Unread pengajuan notifications (the bell); employees have none.
                 'notifications' => $user && ! $user->isEmployee() ? rescue(fn () => $user->unreadNotifications()->count(), 0) : 0,
+                // Pengajuan waiting for this account's decision (Persetujuan Saya), admins and employees alike.
+                'approvals' => $user ? rescue(fn () => Workflow::pendingFor($user)->count(), 0, report: false) : 0,
                 // Menu => "view" | "edit", for the sidebar and the edit buttons.
                 'menus' => (object) ($user?->menus() ?? []),
             ],

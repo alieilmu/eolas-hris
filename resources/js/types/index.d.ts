@@ -37,6 +37,8 @@ export interface Auth {
     menus: Record<string, MenuLevel>;
     /** Unread notifications (pengajuan from the portal); 0 for employees. */
     notifications: number;
+    /** Pengajuan waiting for this account's decision (Persetujuan Saya). */
+    approvals: number;
 }
 
 /** Eolas: the demo workspace the account works in (null in the main application). */
@@ -66,6 +68,8 @@ export interface NavItem {
     setupOnly?: boolean;
     /** Only in a client installation (the license). */
     clientOnly?: boolean;
+    /** A count shown beside the item: "approvals" = pengajuan waiting for this account. */
+    badge?: 'approvals';
     /** The add-on package (Modules) that brings this item; none = Core. */
     module?: 'talent' | 'lms';
 }

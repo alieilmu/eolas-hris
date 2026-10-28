@@ -4,6 +4,7 @@ import {
     CalendarCheck,
     CalendarClock,
     CalendarDays,
+    ClipboardCheck,
     ClipboardList,
     Database,
     FileText,
@@ -45,7 +46,10 @@ export const APP_MODULES: NavModule[] = [
         id: 'overview',
         label: 'Ringkasan',
         icon: LayoutDashboard,
-        items: [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' }],
+        items: [
+            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
+            { id: 'approvals', label: 'Persetujuan Saya', icon: ClipboardCheck, href: '/approvals', badge: 'approvals' },
+        ],
     },
     {
         id: 'recruitment',

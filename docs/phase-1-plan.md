@@ -82,6 +82,14 @@ Tanggal mengikuti peta jalan (Fase 1 mulai Januari 2027). Bila minggu 0 selesai 
 - Halaman **Persetujuan Saya**: semua pengajuan yang menunggu keputusan pengguna, lintas jenis, dengan setujui/tolak massal.
 - Riwayat persetujuan (siapa, kapan, catatan) tampil di detail setiap pengajuan.
 
+**Status 28 Okt 2026: selesai.**
+- Syarat: `App\Support\Workflow\Conditions`, aturan `{field, op, value}` di `workflow_steps.conditions` (semua harus terpenuhi). Field: `amount`, `days`, `category` (dari pengajuan), `work_location`, `job_level` (otomatis dari karyawan). Operator `> >= < <= in not_in`. Fakta dibekukan saat pengajuan dibuat (`workflow_instances.facts`). Langkah yang syaratnya tidak terpenuhi dilewati; bila tidak ada langkah yang berlaku, pengajuan langsung disetujui (editor minggu 5 harus memperingatkan alur tanpa langkah tanpa syarat).
+- Mode langkah `any` / `all` (`workflow_steps.mode`); pada `all` setiap penyetuju satu suara.
+- Notifikasi (lonceng): penyetuju saat langkah dimulai (`workflow:{id}:{langkah}`, ditutup setelah diputuskan), pemohon dan pembuat pengajuan saat disetujui/ditolak (`workflow-result:{id}`). Karyawan belum punya lonceng di portal; untuk atasan di portal muncul menu **Persetujuan** dengan jumlahnya.
+- Halaman **Persetujuan Saya** (`/approvals`, sidebar Ringkasan dengan angka; portal untuk atasan): tab Menunggu saya / Sudah saya putuskan / Pengajuan saya, filter jenis, setujui/tolak satu-satu atau massal (penolakan wajib alasan), riwayat per langkah (`ApprovalHistory`), pemohon bisa membatalkan.
+- `Workflow::start(..., facts:, summary:, url:)`; komponen `ApprovalHistory` siap dipasang di detail pengajuan saat migrasi minggu 3–4.
+- Test: `WorkflowTest` 12 test; total 231 lolos. Uji browser: admin (desktop) dan portal (HP) tanpa error JS, setuju lewat dialog berhasil.
+
 ## Minggu 3 — Migrasi cuti, dinas, lembur
 
 - Alur bawaan dibuat persis sama dengan perilaku sekarang (satu langkah: HR dengan akses menu dan lokasi). **Tidak ada yang berubah bagi klien sampai HR mengubah alurnya.**

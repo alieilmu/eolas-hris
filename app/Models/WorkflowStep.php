@@ -7,12 +7,19 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One step of a flow: who approves it (Approvers::TYPES) and, from week 2, when it applies.
+ * One step of a flow: who approves it (Approvers::TYPES), when it applies (Conditions) and
+ * whether one approver is enough ("any") or all of them must agree ("all").
  * approver_value: the levels to climb (superior), a position id (position) or a menu (menu).
  */
-#[Fillable(['workflow_definition_id', 'sequence', 'name', 'approver_type', 'approver_value', 'conditions'])]
+#[Fillable(['workflow_definition_id', 'sequence', 'name', 'approver_type', 'approver_value', 'conditions', 'mode'])]
 class WorkflowStep extends Model
 {
+    public const ANY = 'any';
+
+    public const ALL = 'all';
+
+    protected $attributes = ['mode' => self::ANY];
+
     protected function casts(): array
     {
         return ['conditions' => 'array', 'sequence' => 'integer'];
