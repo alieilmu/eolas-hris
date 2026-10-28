@@ -72,6 +72,7 @@ class Audit
             'workflow.cancelled' => 'Pengajuan dibatalkan pemohon',
             'workflow.escalated' => 'Langkah persetujuan dieskalasi (lewat batas waktu)',
             'workflow.delegation' => 'Delegasi persetujuan diubah',
+            'workflow.definition' => 'Alur persetujuan diubah',
             'recruitment.offer' => 'Penawaran kerja diajukan',
         ],
         'Data karyawan' => [

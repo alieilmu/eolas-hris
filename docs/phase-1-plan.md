@@ -129,6 +129,13 @@ Tanggal mengikuti peta jalan (Fase 1 mulai Januari 2027). Bila minggu 0 selesai 
 
 **Selesai bila:** HR membuat alur cuti 3 langkah dengan syarat "lebih dari 5 hari → tambah manajer" tanpa bantuan programmer, dan simulasinya benar.
 
+**Status 28 Okt 2026: selesai.**
+- **Pengaturan → Alur Persetujuan** (`/settings/workflows`, Super Admin): daftar 7 jenis pengajuan; langkah disusun dengan tarik-geser atau tombol naik/turun; per langkah: penyetuju (atasan 1–5 tingkat, jabatan tertentu, atau HR dengan akses menu di lokasi karyawan), "salah satu cukup / semua harus setuju", batas waktu hari kerja (eskalasi minggu 4), dan syarat (nominal, hari, jam, jenis, lokasi, golongan; hanya yang dimiliki jenis pengajuan itu). Validasi di server (`FlowEditor::validate`).
+- **Simulasi** draf yang belum disimpan: pilih karyawan dan contoh pengajuan → tiap langkah berlaku atau dilewati, siapa penyetujunya, dan alasannya bila jatuh ke HR / Super Admin atau diteruskan ke jabatan lebih atas (`Approvers::explain`).
+- **Periksa cakupan:** untuk setiap langkah atasan/jabatan, jumlah karyawan aktif yang tidak menemukan penyetuju di struktur organisasi (jatuh ke HR), alasan dan contoh namanya; dihitung per kombinasi jabatan + lokasi.
+- **Versi:** menyimpan membuat versi baru yang aktif; pengajuan yang berjalan tetap di versinya. Riwayat versi bisa dimuat lagi ke editor. Tercatat di Audit Log ("Alur persetujuan diubah").
+- Test: `WorkflowEditorTest` (3), termasuk kriteria selesai (alur cuti 3 langkah, manajer hanya bila > 5 hari, simulasi dan pengajuan nyata cocok); 249 test lolos. Regresi browser 43 halaman bersih; editor + simulasi + cakupan diuji di browser.
+
 ## Minggu 6 — Fondasi PWA
 
 - `manifest.webmanifest` dengan nama dan ikon dari Branding perusahaan; service worker untuk tampilan dasar saat sinyal hilang.

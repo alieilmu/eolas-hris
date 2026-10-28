@@ -70,6 +70,7 @@ use App\Http\Controllers\Recruitment\PipelineController;
 use App\Http\Controllers\Settings\BrandingController;
 use App\Http\Controllers\Settings\SetupController;
 use App\Http\Controllers\Settings\UserController;
+use App\Http\Controllers\Settings\WorkflowSettingsController;
 use App\Support\LegacyUrls;
 use Illuminate\Support\Facades\Route;
 
@@ -522,6 +523,13 @@ Route::middleware(['auth', 'two-factor', 'account.ready', 'licensed'])->group(fu
         Route::post('/{account}/status', 'toggle')->whereNumber('account')->name('.toggle');
         Route::post('/{account}/reset', 'reset')->whereNumber('account')->name('.reset');
         Route::delete('/{account}', 'destroy')->whereNumber('account')->name('.destroy');
+    });
+    // Settings → Alur Persetujuan: the approval flow of each kind of pengajuan (Super Admin).
+    Route::middleware('can:manage-users')->prefix('settings/workflows')->name('settings.workflows')->controller(WorkflowSettingsController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::post('/{type}', 'store')->name('.store');
+        Route::post('/{type}/simulate', 'simulate')->name('.simulate');
+        Route::post('/{type}/coverage', 'coverage')->name('.coverage');
     });
     // Settings → White Label: Super Admin only.
     Route::middleware('can:manage-users')->prefix('settings')->name('settings.')->controller(BrandingController::class)->group(function () {

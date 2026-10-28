@@ -50,20 +50,47 @@ class Approvers
     /** @return Collection<int, User> */
     public static function forStep(WorkflowStep $step, Employee $employee, string $hrMenu): Collection
     {
+        return self::explain($step, $employee, $hrMenu)['users'];
+    }
+
+    /**
+     * forStep() with how it got there, for the flow editor's simulation and coverage check:
+     * `fallback` is null when the step's own approver was found, "up" when a vacant position
+     * passed it to a higher one, "hr" / "admin" when nobody in the chart could (the reason in
+     * `note`).
+     *
+     * @return array{users: Collection<int, User>, fallback: ?string, note: ?string}
+     */
+    public static function explain(WorkflowStep $step, Employee $employee, string $hrMenu): array
+    {
+        $note = null;
+        $from = null;
         $users = match ($step->approver_type) {
-            self::SUPERIOR => self::fromSuperior($employee, max(1, (int) ($step->approver_value ?: 1))),
-            self::POSITION => self::fromPosition(Position::find((int) $step->approver_value), $employee),
+            self::SUPERIOR => self::fromSuperior($employee, max(1, (int) ($step->approver_value ?: 1)), $note, $from),
+            self::POSITION => self::fromPosition(Position::find((int) $step->approver_value), $employee, $from),
             self::MENU => self::hr($step->approver_value ?: $hrMenu, $employee),
             default => collect(),
         };
+        $fallback = null;
+        if ($users->isNotEmpty() && $from) {
+            $fallback = 'up';
+            $note = $from;
+        }
         if ($users->isEmpty()) {
+            $note ??= match ($step->approver_type) {
+                self::POSITION => ($p = Position::find((int) $step->approver_value)) ? "Jabatan {$p->name} dan atasannya tidak dipegang karyawan aktif yang punya akun." : 'Jabatan penyetuju sudah dihapus.',
+                self::MENU => 'Tidak ada admin dengan akses "ubah" di menu ini untuk lokasi karyawan.',
+                default => 'Tidak ada atasan yang punya akun di struktur organisasi.',
+            };
             $users = self::hr($hrMenu, $employee);
+            $fallback = 'hr';
         }
         if ($users->isEmpty()) {
             $users = self::memo('admins', fn () => User::where('role', User::ROLE_ADMIN)->where('is_active', true)->get());
+            $fallback = 'admin';
         }
 
-        return $users->reject(fn (User $u) => self::isRequester($u, $employee))->values();
+        return ['users' => $users->reject(fn (User $u) => self::isRequester($u, $employee))->values(), 'fallback' => $fallback, 'note' => $note];
     }
 
     /**
@@ -73,35 +100,62 @@ class Approvers
     public static function above(User $approver, Employee $employee): Collection
     {
         $own = $approver->employee_id ? Employee::withoutGlobalScopes()->find($approver->employee_id) : null;
-        $position = $own ? Position::find($own->position_id)?->superior() : null;
+        $position = $own && $own->position_id ? self::position($own->position_id)?->superior() : null;
 
         return self::fromPosition($position, $employee)->reject(fn (User $u) => $u->id === $approver->id)->values();
     }
 
     /** The superior $levels up from the employee's position, then on up while nobody holds it. */
-    private static function fromSuperior(Employee $employee, int $levels): Collection
+    private static function fromSuperior(Employee $employee, int $levels, ?string &$note = null, ?string &$from = null): Collection
     {
-        $position = Position::find($employee->position_id)?->superior();
+        $own = $employee->position_id ? self::position($employee->position_id) : null;
+        if (! $own) {
+            $note = 'Karyawan belum ditempatkan di jabatan.';
+
+            return collect();
+        }
+        $position = self::superiorOf($own);
         for ($i = 1; $position && $i < $levels; $i++) {
-            $position = $position->superior();
+            $position = self::superiorOf($position);
+        }
+        if (! $position) {
+            $note = "Jabatan {$own->name} belum punya atasan sejauh {$levels} tingkat di struktur organisasi.";
+
+            return collect();
         }
 
-        return self::fromPosition($position, $employee);
+        return self::fromPosition($position, $employee, $from);
     }
 
-    private static function fromPosition(?Position $position, Employee $employee): Collection
+    /** The holders of $position, or of the first position above it someone holds ($from says which were skipped). */
+    private static function fromPosition(?Position $position, Employee $employee, ?string &$from = null): Collection
     {
         $seen = [];
+        $start = $position;
         while ($position && ! isset($seen[$position->id])) {
             $seen[$position->id] = true;
             $users = self::holders($position)->reject(fn (User $u) => self::isRequester($u, $employee));
             if ($users->isNotEmpty()) {
+                if ($position->id !== $start->id) {
+                    $from = "{$start->name} kosong (atau tanpa akun); diteruskan ke {$position->name}.";
+                }
+
                 return $users->values();
             }
-            $position = $position->superior();
+            $position = self::superiorOf($position);
         }
 
         return collect();
+    }
+
+    private static function position(int $id): ?Position
+    {
+        return self::$memo === null ? Position::find($id) : (self::$memo["p:{$id}"] ??= [Position::find($id)])[0];
+    }
+
+    private static function superiorOf(Position $position): ?Position
+    {
+        return self::$memo === null ? $position->superior() : (self::$memo["s:{$position->id}"] ??= [$position->superior()])[0];
     }
 
     /** Active accounts of the active employees in a position (whatever the request's access scope). */

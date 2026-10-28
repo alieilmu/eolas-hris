@@ -38,6 +38,7 @@ import {
     ScrollText,
     BadgeCheck,
     Rocket,
+    Workflow,
 } from 'lucide-react';
 import type { NavModule } from '@/types';
 
@@ -114,6 +115,7 @@ export const APP_MODULES: NavModule[] = [
         items: [
             { id: 'setup', label: 'Sesi Awal', icon: Rocket, href: '/setup', menu: 'settings', setupOnly: true },
             { id: 'users', label: 'Pengguna & Akses', icon: ShieldCheck, href: '/settings/users', menu: 'settings' },
+            { id: 'workflows', label: 'Alur Persetujuan', icon: Workflow, href: '/settings/workflows', menu: 'settings' },
             { id: 'branding', label: 'Branding', icon: Palette, href: '/settings/branding', menu: 'settings' },
             { id: 'audit-log', label: 'Audit Log', icon: ScrollText, href: '/settings/audit-log', menu: 'settings' },
             { id: 'license', label: 'Lisensi', icon: BadgeCheck, href: '/settings/license', menu: 'settings', clientOnly: true },
