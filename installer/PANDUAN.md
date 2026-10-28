@@ -41,7 +41,7 @@ Installer akan:
 3. menanyakan nama perusahaan, alamat aplikasi, mode HTTPS, serta nama, email, dan password Super Admin;
 4. memasang aplikasi di `/opt/eolas` dengan password database acak;
 5. menyiapkan data awal dan akun Super Admin, lalu memasang lisensi;
-6. mengaktifkan backup harian pukul 02:30 ke `/var/backups/eolas`.
+6. mengaktifkan backup harian pukul 02:30 WIB ke `/var/backups/eolas`.
 
 Untuk instalasi otomatis tanpa tanya jawab:
 
@@ -87,7 +87,7 @@ docker exec -u www-data eolas-app php artisan eolas:license:check
 
 ## 6. Backup & pemulihan
 
-- Backup otomatis berjalan setiap hari pukul 02:30. Isinya database, file (lampiran, logo, lisensi), dan `.env`.
+- Backup otomatis berjalan setiap hari pukul 02:30 WIB (apa pun zona waktu server). Isinya database, file (lampiran, logo, lisensi), dan `.env`.
 - Retensi: 7 backup harian, 4 mingguan, 6 bulanan, di `/var/backups/eolas`.
 - **Salin folder backup ke luar server** (NAS, storage cloud perusahaan). Backup di server yang sama tidak melindungi dari kerusakan disk.
 
@@ -113,10 +113,11 @@ Disarankan **uji pemulihan setiap 3 bulan** di server uji.
 
 ## 7. Update
 
-Eolas mengirim paket versi baru (`eolas-hris-<versi>.tar.gz`). Ekstrak, lalu:
+Eolas mengirim paket versi baru (`eolas-hris-<versi>.tar.gz`). Ekstrak, lalu jalankan `eolas-update` **dari folder paket baru**, supaya perbaikan proses update di versi baru ikut terpakai:
 
 ```bash
-sudo eolas-update /path/eolas-hris-1.1.0
+tar -xzf eolas-hris-1.1.0.tar.gz && cd eolas-hris-1.1.0
+sudo ./bin/eolas-update "$PWD"
 ```
 
 `eolas-update` akan:
@@ -125,7 +126,8 @@ sudo eolas-update /path/eolas-hris-1.1.0
 2. membuat backup;
 3. memuat versi baru;
 4. menjalankan migrasi database otomatis;
-5. memeriksa kesehatan aplikasi.
+5. memeriksa kesehatan aplikasi;
+6. memperbarui perintah `eolas-*` dan jadwal backup.
 
 Bila versi baru gagal, aplikasi **otomatis kembali** ke versi lama beserta database dari backup tadi.
 

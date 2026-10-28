@@ -32,7 +32,8 @@ class PayslipController extends Controller
                 'pay_date' => $s->run->pay_date?->toDateString(), 'take_home_pay' => $s->take_home_pay,
             ]),
             'slip' => $chosen ? PayrollRunController::slipData($chosen) : null,
-            'password' => (bool) PayrollSetting::current()->payslip_password,
+            // How the PDF opens: with the birth date, without a password because the date is missing, or no password at all.
+            'password' => ! PayrollSetting::current()->payslip_password ? null : ($chosen && PayslipPdf::password($chosen) === null ? 'missing' : 'birth_date'),
             // 1721-A1 summaries: the years with approved slips.
             'tax_years' => $slips->map(fn (Payslip $s) => (int) substr($s->run->period, 0, 4))->unique()->sortDesc()->values(),
         ]);

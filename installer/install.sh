@@ -51,10 +51,11 @@ VERSION=$(cat "$HERE/VERSION")
 
 say "Eolas HRIS $VERSION — pemeriksaan server"
 if [ "$SKIP_OS" = 0 ]; then
-    . /etc/os-release 2>/dev/null || die "Sistem operasi tidak dikenali"
-    case "$ID:${VERSION_ID:-}" in
+    # Read in a subshell: os-release defines VERSION too, which would replace the package version.
+    os=$( . /etc/os-release 2>/dev/null && echo "$ID:${VERSION_ID:-}|${PRETTY_NAME:-?}" ) || die "Sistem operasi tidak dikenali"
+    case "${os%%|*}" in
         ubuntu:22.04|ubuntu:24.04|debian:12) ;;
-        *) die "Didukung: Ubuntu 22.04/24.04, Debian 12 (ini: ${PRETTY_NAME:-?}). Pakai --skip-os-check bila yakin." ;;
+        *) die "Didukung: Ubuntu 22.04/24.04, Debian 12 (ini: ${os#*|}). Pakai --skip-os-check bila yakin." ;;
     esac
     cpus=$(nproc); mem=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo); disk=$(df -Pm "$(dirname "$EOLAS_DIR")" | awk 'NR==2 {print $4}')
     [ "$cpus" -ge 2 ] || die "Minimal 2 vCPU (ada $cpus)"
@@ -164,31 +165,8 @@ if [ -n "$LICENSE" ]; then
     dc exec -T -u www-data app php artisan eolas:license:check || warn "Lisensi tidak berlaku: pasang ulang dari menu Administrasi → Lisensi"
 fi
 
-say "Backup harian (02:30) dan perintah eolas-*"
-for t in eolas-backup eolas-restore eolas-update; do ln -sf "$EOLAS_DIR/bin/$t" "/usr/local/bin/$t"; done
-if command -v systemctl >/dev/null && [ -d /run/systemd/system ]; then
-    cat > /etc/systemd/system/eolas-backup.service <<UNIT
-[Unit]
-Description=Eolas HRIS backup
-After=docker.service
-[Service]
-Type=oneshot
-Environment=EOLAS_DIR=$EOLAS_DIR BACKUP_DIR=$BACKUP_DIR
-ExecStart=$EOLAS_DIR/bin/eolas-backup
-UNIT
-    cat > /etc/systemd/system/eolas-backup.timer <<UNIT
-[Unit]
-Description=Eolas HRIS backup harian
-[Timer]
-OnCalendar=*-*-* 02:30:00
-Persistent=true
-[Install]
-WantedBy=timers.target
-UNIT
-    systemctl daemon-reload && systemctl enable --now eolas-backup.timer >/dev/null
-else
-    warn "systemd tidak ada: jadwalkan '$EOLAS_DIR/bin/eolas-backup' sendiri (cron 30 2 * * *)"
-fi
+say "Backup harian (02:30 WIB) dan perintah eolas-*"
+install_backup_timer || warn "systemd tidak ada: jadwalkan '$EOLAS_DIR/bin/eolas-backup' sendiri (cron 30 2 * * *, WIB)"
 
 cat <<DONE
 

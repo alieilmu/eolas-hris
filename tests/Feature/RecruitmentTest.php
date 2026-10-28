@@ -189,6 +189,18 @@ class RecruitmentTest extends TestCase
         $this->delete("/recruitment/candidate/{$c->id}")->assertSessionHasErrors('candidate');
     }
 
+    public function test_a_hired_applicant_keeps_the_birth_date_from_the_form(): void
+    {
+        $this->apply();
+        $a = Applicant::firstOrFail();
+        $this->actingAs($this->admin());
+        $this->post("/recruitment/applicants/{$a->id}/tracking", ['position' => 'Operator Excavator'])->assertSessionHasNoErrors();
+        $c = Candidate::firstOrFail();
+        $this->post("/recruitment/candidate/{$c->id}/employee", ['employee_number' => '11526160', 'name' => 'Andi Saputra', 'position_id' => OrgStructureSeeder::$created['OPR-PRD']])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('1998-05-17', Employee::with('profile')->where('employee_number', '11526160')->firstOrFail()->profile->birth_date->toDateString());
+    }
+
     public function test_forms_are_built_question_by_question(): void
     {
         $this->actingAs($this->admin());

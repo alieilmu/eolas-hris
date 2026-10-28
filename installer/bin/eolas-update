@@ -22,6 +22,9 @@ for img in "$pkg"/images/*.tar.gz; do gunzip -c "$img" | docker load; done
 cp "$pkg/docker-compose.yml" "$EOLAS_DIR/docker-compose.yml"
 cp -r "$pkg/bin" "$pkg/lib.sh" "$EOLAS_DIR/"
 chmod +x "$EOLAS_DIR"/bin/*
+# The new version's tools and backup schedule.
+. "$EOLAS_DIR/lib.sh"
+install_backup_timer || true
 env_set EOLAS_VERSION "$new"
 echo "$new" > "$EOLAS_DIR/VERSION"
 # Compose fails when the app never turns healthy; the health check below decides.

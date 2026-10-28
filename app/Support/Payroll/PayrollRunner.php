@@ -7,6 +7,7 @@ use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\PayrollInput;
 use App\Models\PayrollRun;
+use App\Models\PayrollSetting;
 use App\Models\Payslip;
 use App\Models\PayslipLine;
 use Carbon\CarbonImmutable;
@@ -66,14 +67,15 @@ class PayrollRunner
         $run->update(['status' => 'calculating', 'progress' => 0, 'employee_count' => $ids->count(), 'rejection_note' => null]);
         Payslip::where('payroll_run_id', $run->id)->delete();
         $previous = self::previousPay($run, $ids->all());
+        $password = (bool) PayrollSetting::current()->payslip_password;
 
         foreach ($ids->chunk(50) as $n => $chunk) {
             $employees = Employee::with(['profile.children', 'workLocation', 'jobLevel', 'position', 'department', 'salaries.salaryScale.grade', 'payrollProfile'])
                 ->whereIn('id', $chunk)->get()->keyBy('id');
-            DB::transaction(function () use ($chunk, $employees, $period, $run, $previous) {
+            DB::transaction(function () use ($chunk, $employees, $period, $run, $previous, $password) {
                 foreach ($chunk as $id) {
                     $result = $run->type === 'thr' ? ThrCalculator::for($employees[$id], $run) : PayrollCalculator::month($employees[$id], $period, $run->id);
-                    self::store($run, $employees[$id], $result, $run->type === 'regular' ? ($previous[$id] ?? null) : null);
+                    self::store($run, $employees[$id], $result, $run->type === 'regular' ? ($previous[$id] ?? null) : null, $password);
                 }
             });
             $run->update(['progress' => min($ids->count(), ($n + 1) * 50)]);
@@ -85,13 +87,16 @@ class PayrollRunner
         ]);
     }
 
-    private static function store(PayrollRun $run, Employee $k, array $r, ?int $before): void
+    private static function store(PayrollRun $run, Employee $k, array $r, ?int $before, bool $password = false): void
     {
         $p = $k->profile;
         $warnings = $r['warnings'];
         if (! isset($r['error'])) {
             if (blank($p?->bank_account_number)) {
                 $warnings[] = 'Nomor rekening kosong: tidak bisa masuk file transfer bank.';
+            }
+            if ($password && blank($p?->birth_date)) {
+                $warnings[] = 'Tanggal lahir kosong: PDF slip di portal tidak berpassword.';
             }
             if (! $r['has_tax_id']) {
                 $warnings[] = 'NPWP/NIK kosong: PPh21 dikenakan 20% lebih tinggi.';

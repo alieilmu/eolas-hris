@@ -163,7 +163,8 @@ class DemoRecruitmentSeeder extends Seeder
                 ...($position ? [...PositionComposer::employeePlacementOf($position), 'position_id' => $position->id] : []),
             ]);
             $k->forceFill(['created_at' => $today->subDays(5), 'updated_at' => $today->subDays(5)])->saveQuietly();
-            $k->profile()->create(['hire_date' => $today->subDays(5)->toDateString(), 'employment_status' => 'PKWT', 'phone' => $c->phone, 'whatsapp_number' => $c->phone, 'personal_email' => $c->email]);
+            $k->profile()->create(['hire_date' => $today->subDays(5)->toDateString(), 'employment_status' => 'PKWT', 'phone' => $c->phone, 'whatsapp_number' => $c->phone, 'personal_email' => $c->email,
+                'birth_date' => Application::birthDate($a)]);
             CandidateStageHistory::create(['candidate_id' => $c->id, 'from' => $stage->title, 'to' => "Menjadi karyawan (NRP {$employee_number})", 'changed_by' => $by]);
         }
     }

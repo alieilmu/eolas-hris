@@ -132,7 +132,7 @@ class PayrollRunTest extends TestCase
         $this->assertSame('approved', $run->fresh()->status);
 
         $this->actingAs($employee)->get('/self-service/payslips')->assertInertia(fn (Assert $p) => $p->component('SelfService/Payslips')
-            ->has('slips', 1)->where('slip.id', $slip->id)->where('slip.take_home_pay', $slip->take_home_pay));
+            ->has('slips', 1)->where('slip.id', $slip->id)->where('slip.take_home_pay', $slip->take_home_pay)->where('password', 'birth_date'));
         $pdf = $this->get("/self-service/payslips/{$slip->id}/pdf")->assertOk()->assertHeader('Content-Type', 'application/pdf');
         $this->assertStringStartsWith('%PDF', $pdf->getContent());
         $this->assertStringContainsString('/Encrypt', $pdf->getContent()); // opened with the birth date
@@ -147,6 +147,26 @@ class PayrollRunTest extends TestCase
 
         $this->get("/compensation/payroll/{$run->id}/export")->assertOk()->assertDownload("payroll-2026-10-all.xlsx");
         $this->get("/compensation/payroll/{$run->id}/slips/{$slip->id}/pdf")->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_a_slip_without_a_birth_date_is_flagged_and_the_portal_says_so(): void
+    {
+        $employee = Employee::whereHas('profile')->firstOrFail();
+        $employee->profile->update(['birth_date' => null]);
+        $this->signIn($this->admin())->post('/compensation/payroll', ['period' => '2026-10', 'pay_date' => '2026-10-28']);
+        $run = PayrollRun::sole();
+        $this->post("/compensation/payroll/{$run->id}/calculate");
+        $slip = Payslip::where('payroll_run_id', $run->id)->where('employee_id', $employee->id)->firstOrFail();
+        $this->assertContains('Tanggal lahir kosong: PDF slip di portal tidak berpassword.', $slip->warnings);
+
+        $run->update(['status' => 'approved']);
+        $user = User::create(['name' => $employee->name, 'email' => uniqid('k').'@test.local', 'password' => 'rahasia-123', 'role' => User::ROLE_EMPLOYEE,
+            'employee_id' => $employee->id, 'is_active' => true]);
+        $this->actingAs($user)->get('/self-service/payslips')->assertInertia(fn (Assert $p) => $p->where('password', 'missing'));
+
+        // With the password setting off: nothing to say.
+        PayrollSetting::current()->update(['payslip_password' => false]);
+        $this->actingAs($user)->get('/self-service/payslips')->assertInertia(fn (Assert $p) => $p->where('password', null));
     }
 
     public function test_a_run_sent_back_can_be_worked_out_again(): void

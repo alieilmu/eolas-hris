@@ -7,7 +7,7 @@ import { fmtDate } from '@/lib/format';
 interface Props {
     slips: { id: number; period: string; label: string; pay_date: string | null; take_home_pay: number }[];
     slip: (Slip & { id: number }) | null;
-    password: boolean;
+    password: 'birth_date' | 'missing' | null;
     tax_years: number[];
 }
 
@@ -64,9 +64,14 @@ export default function Payslips({ slips, slip, password, tax_years }: Props) {
                                         <FileText size={15} /> Unduh PDF
                                     </a>
                                 </div>
-                                {password && (
+                                {password === 'birth_date' && (
                                     <p className="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-600">
                                         <KeyRound size={14} /> PDF dibuka dengan password tanggal lahir Anda (ddmmyyyy), mis. 17081990.
+                                    </p>
+                                )}
+                                {password === 'missing' && (
+                                    <p className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                        <KeyRound size={14} /> Tanggal lahir Anda belum tercatat, jadi PDF ini tidak berpassword. Lengkapi lewat Data Saya atau hubungi HR.
                                     </p>
                                 )}
                                 <SlipView slip={slip} />

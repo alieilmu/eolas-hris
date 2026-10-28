@@ -276,7 +276,7 @@ class PipelineController extends Controller
 
     /**
      * Hired: an employee with the NRP and position chosen (as in Tambah Karyawan), linked to this
-     * candidate, with what is known (start date, phone, email) already in the profile.
+     * candidate, with what is known (start date, phone, email, birth date) already in the profile.
      */
     public function convert(Request $request, Candidate $candidate): RedirectResponse
     {
@@ -303,6 +303,7 @@ class PipelineController extends Controller
                 'phone' => $candidate->phone,
                 'whatsapp_number' => $candidate->phone,
                 'personal_email' => $candidate->email ?: null,
+                'birth_date' => Application::birthDate($candidate->applicant),
             ]);
             CandidateStageHistory::create(['candidate_id' => $candidate->id, 'from' => $candidate->status, 'to' => "Menjadi karyawan (NRP {$employee->employee_number})", 'changed_by' => $request->user()->name]);
 

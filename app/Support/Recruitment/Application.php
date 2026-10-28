@@ -150,4 +150,23 @@ class Application
 
         return null;
     }
+
+    /** The birth date asked on the form (a question labelled "Tanggal Lahir"), as Y-m-d, when it reads as a date. */
+    public static function birthDate(?Applicant $a): ?string
+    {
+        foreach ($a?->data ?? [] as $answer) {
+            $value = $answer['value'] ?? null;
+            if (is_string($value) && $value !== '' && str_contains(mb_strtolower($answer['label'] ?? ''), 'tanggal lahir')) {
+                try {
+                    $date = \Carbon\CarbonImmutable::parse($value);
+                } catch (\Throwable) {
+                    return null;
+                }
+
+                return $date->isPast() ? $date->toDateString() : null;
+            }
+        }
+
+        return null;
+    }
 }
