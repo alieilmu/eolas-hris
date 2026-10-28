@@ -4,6 +4,9 @@ namespace App\Models;
 
 use App\Support\Access\AccessScope;
 use App\Support\Notifications\RequestNotifier;
+use App\Support\Time\LeaveTravelWriter;
+use App\Support\Workflow\Approvable;
+use App\Support\Workflow\Workflow;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,7 +15,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
-/** A business trip (dinas) or leave (cuti); it fills its days in Absensi. */
+/**
+ * A business trip (dinas) or leave (cuti); it fills its days in Absensi. One from the employee
+ * portal goes through its Workflow ("leave" / "business_trip") and fills Absensi, and counts
+ * against the leave balance, only once the last step approves it.
+ */
 #[Fillable([
     'employee_id', 'type', 'leave_category', 'leave_days', 'annual_leave_deducted', 'long_service_leave_deducted', 'long_service_period', 'start_date', 'end_date', 'origin_city', 'destination_city', 'description', 'cash_advance_status', 'created_by',
     'needs_flight', 'departure_airport', 'arrival_airport', 'is_round_trip', 'return_date', 'return_departure_airport', 'return_arrival_airport',
@@ -20,7 +27,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
     'outbound_ticket_issued_at', 'outbound_ticket_issued_by', 'return_ticket_issued_at', 'return_ticket_issued_by',
     'status', 'source', 'verified_by', 'verified_at', 'verification_notes',
 ])]
-class LeaveTravelRequest extends Model
+class LeaveTravelRequest extends Model implements Approvable
 {
     /** diajukan: from the employee portal, waiting for HR (not in Absensi yet); disetujui fills Absensi; ditolak does not. */
     public const STATUS = ['pending', 'approved', 'rejected'];
@@ -61,6 +68,45 @@ class LeaveTravelRequest extends Model
         });
         // Its attachments (and their files) go with it.
         static::deleting(fn (self $m) => $m->attachments()->get()->each->delete());
+        // Deleted while waiting: its flow ends with it.
+        static::deleted(fn (self $m) => Workflow::withdraw($m, 'Pengajuan dihapus.'));
+    }
+
+    public function workflowNotice(): array
+    {
+        return RequestNotifier::leaveTravelNotice($this);
+    }
+
+    /** The last step approved: as HR verifying it before Workflow (Absensi filled); rejected: with the note; withdrawn: gone. */
+    public function workflowCompleted(WorkflowInstance $instance): void
+    {
+        if ($instance->status === WorkflowInstance::CANCELLED) {
+            $this->delete();
+
+            return;
+        }
+        $approved = $instance->status === WorkflowInstance::APPROVED;
+        if ($approved) {
+            LeaveTravelWriter::codeFor($this->type);
+        }
+        $last = Workflow::lastDecision($instance);
+        $this->update([
+            'status' => $approved ? 'approved' : 'rejected',
+            'verified_by' => $last?->user_id,
+            'verified_at' => now(),
+            'verification_notes' => $last?->notes,
+        ]);
+        LeaveTravelWriter::fill($this);
+    }
+
+    /** What the step conditions of its flow look at. */
+    public function workflowFacts(): array
+    {
+        return array_filter([
+            'days' => $this->type === 'leave' ? ($this->leave_days ?? $this->durationDays()) : $this->durationDays(),
+            'category' => $this->leave_category,
+            'amount' => $this->needs_cash_advance ? (int) $this->cash_advance_amount : null,
+        ], fn ($v) => $v !== null);
     }
 
     public function attachments(): MorphMany

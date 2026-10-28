@@ -15,6 +15,7 @@ use App\Support\Time\Period;
 use App\Support\Time\Roll;
 use App\Support\Time\LeaveTravelImport;
 use App\Support\Time\LeaveTravelWriter;
+use App\Support\Workflow\Workflow;
 use App\Support\Leave\LeaveLedger;
 use App\Support\Leave\FieldLeaveAllowanceRate;
 use App\Support\Excel\TableExcel;
@@ -97,8 +98,10 @@ class LeaveTravelController extends Controller
             ->orderByDesc('start_date')
             ->orderByDesc('id')
             ->paginate(10)
-            ->withQueryString()
-            ->through(fn (LeaveTravelRequest $t) => self::tripData($t, $today));
+            ->withQueryString();
+        // Pengajuan in a Workflow: the step they are at, and whether this account decides it.
+        $flows = Workflow::pendingOf(LeaveTravelRequest::class, $leave_travel_requests->pluck('id'));
+        $leave_travel_requests->through(fn (LeaveTravelRequest $t) => [...self::tripData($t, $today), 'workflow' => Workflow::brief($flows->get($t->id), $request->user())]);
 
         return Inertia::render('Time/TravelRequests', [
             'leave_travel_requests' => $leave_travel_requests,
@@ -293,7 +296,10 @@ class LeaveTravelController extends Controller
         return back();
     }
 
-    /** Approves (fills Absensi) or rejects (with a note) a cuti / dinas from the employee portal. */
+    /**
+     * Approves (fills Absensi) or rejects (with a note) a cuti / dinas from the employee portal:
+     * its step in the Workflow, or, sent before Workflow, straight away as before.
+     */
     public function verify(Request $request, LeaveTravelRequest $leave_travel): RedirectResponse
     {
         $data = $request->validate([
@@ -304,6 +310,21 @@ class LeaveTravelController extends Controller
             throw ValidationException::withMessages(['decision' => 'Pengajuan ini sudah diverifikasi.']);
         }
         $approve = $data['decision'] === 'approve';
+        if ($flow = Workflow::of($leave_travel)) {
+            if (! Workflow::canDecide($flow, $request->user())) {
+                $brief = Workflow::brief($flow, $request->user());
+                throw ValidationException::withMessages(['decision' => "Menunggu langkah \"{$brief['step']}\"".($brief['waiting_for'] ? ': '.implode(', ', $brief['waiting_for']) : '').'.']);
+            }
+            $flow = $approve ? Workflow::approve($flow, $request->user(), $data['notes'] ?? null) : Workflow::reject($flow, $request->user(), $data['notes']);
+            $done = ! $flow->isPending();
+            Inertia::flash('success', LeaveTravelRequest::JENIS[$leave_travel->type].' '.$leave_travel->employee->name.' '.match (true) {
+                ! $approve => 'ditolak.',
+                $done => 'disetujui; Absensi ikut terisi.',
+                default => 'disetujui; lanjut ke langkah berikutnya.',
+            });
+
+            return back();
+        }
         if ($approve) {
             LeaveTravelWriter::codeFor($leave_travel->type);
         }

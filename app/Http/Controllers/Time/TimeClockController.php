@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceLog;
 use App\Models\Employee;
 use App\Models\OvertimeRecord;
+use App\Support\Audit\Audit;
+use App\Support\Workflow\Workflow;
 use App\Models\AttendanceDevice;
 use App\Models\WorkLocation;
 use App\Support\Access\AccessScope;
@@ -178,19 +180,64 @@ class TimeClockController extends Controller
             'notes' => ['nullable', 'string', 'max:255'],
         ]);
         $visible = Employee::pluck('id'); // scoped
-        $n = OvertimeRecord::whereIn('id', $data['ids'])->whereIn('employee_id', $visible)->update([
-            'status' => $data['decision'],
-            'verified_by' => $data['decision'] === 'pending' ? null : $request->user()->id,
-            'verified_at' => $data['decision'] === 'pending' ? null : now(),
-            'verification_notes' => $data['notes'] ?? null,
-            'updated_at' => now(),
-        ]);
-        Inertia::flash('success', "{$n} lembur ".['approved' => 'disetujui', 'rejected' => 'ditolak', 'pending' => 'dikembalikan ke menunggu'][$data['decision']].'.');
+        $records = OvertimeRecord::whereIn('id', $data['ids'])->whereIn('employee_id', $visible)->get();
+        $flows = Workflow::pendingOf(OvertimeRecord::class, $records->pluck('id'));
+        $user = $request->user();
+        $label = ['approved' => 'disetujui', 'rejected' => 'ditolak', 'pending' => 'dikembalikan ke menunggu'][$data['decision']];
+
+        // Overtime in a Workflow: its step, for whoever approves it now; overtime from before: straight away, as before.
+        [[$n, $skipped]] = Workflow::quietly(function () use ($records, $flows, $data, $user) {
+            $n = 0;
+            $skipped = 0;
+            $since = Workflow::since('overtime');
+            foreach ($records as $o) {
+                $flow = $flows->get($o->id);
+                if ($data['decision'] === 'pending') {
+                    if ($o->status === 'pending') {
+                        continue;
+                    }
+                    $o->update(['status' => 'pending', 'verified_by' => null, 'verified_at' => null, 'verification_notes' => $data['notes'] ?? null]);
+                    // Back to waiting: through its flow again from the first step.
+                    if ($since && $o->created_at >= $since) {
+                        Workflow::start($o, 'overtime', $o->employee, null, $o->workflowFacts(), $o->summary(), '/time/clock?tab=overtime&status=pending');
+                    }
+                    $n++;
+                } elseif ($flow) {
+                    if (! Workflow::canDecide($flow, $user)) {
+                        $skipped++;
+
+                        continue;
+                    }
+                    $data['decision'] === 'approved' ? Workflow::approve($flow, $user, $data['notes'] ?? null) : Workflow::reject($flow, $user, $data['notes'] ?? null);
+                    $n++;
+                } elseif ($o->status === 'pending') {
+                    $o->update(['status' => $data['decision'], 'verified_by' => $user->id, 'verified_at' => now(), 'verification_notes' => $data['notes'] ?? null]);
+                    $n++;
+                }
+            }
+
+            return [$n, $skipped];
+        });
+        if ($flows->isNotEmpty() && $data['decision'] !== 'pending' && $n > 0) {
+            Audit::log($data['decision'] === 'approved' ? 'workflow.approved' : 'workflow.rejected', null, "Lembur · {$n} {$label}".($data['notes'] ?? null ? " — {$data['notes']}" : ''));
+        }
+        Inertia::flash('success', "{$n} lembur {$label}.".($skipped ? " {$skipped} dilewati: menunggu langkah lain di alur persetujuannya." : ''));
 
         return back();
     }
 
     // --- pieces ------------------------------------------------------------------------------------
+
+    private static function overtimeRow(OvertimeRecord $l): array
+    {
+        return [
+            'id' => $l->id, 'date' => $l->date->toDateString(), 'employee_number' => $l->employee?->employee_number, 'name' => $l->employee?->name,
+            'location' => $l->employee?->workLocation?->name, 'day_type' => $l->day_type,
+            'start_date' => $l->start_date?->format('d/m H:i'), 'end_date' => $l->end_date?->format('d/m H:i'),
+            'work_hours' => round($l->worked_minutes / 60, 2), 'paid_hours' => $l->paid_hours, 'weighted_hours' => $l->weighted_hours,
+            'status' => $l->status, 'verification_notes' => $l->verification_notes, 'verifier' => $l->verifier?->name,
+        ];
+    }
 
     /** @return array{0: CarbonImmutable, 1: CarbonImmutable} */
     private function range(Request $request): array
@@ -267,13 +314,12 @@ class TimeClockController extends Controller
             'overtime_records' => (clone $base)->when(in_array($status, array_keys(OvertimeRecord::STATUS), true), fn ($q) => $q->where('status', $status))
                 ->with(['employee:id,employee_number,name,work_location_id', 'employee.workLocation:id,name,work_schedule_scheme', 'verifier:id,name'])
                 ->orderByDesc('date')->limit(1500)->get()
-                ->map(fn (OvertimeRecord $l) => [
-                    'id' => $l->id, 'date' => $l->date->toDateString(), 'employee_number' => $l->employee?->employee_number, 'name' => $l->employee?->name,
-                    'location' => $l->employee?->workLocation?->name, 'day_type' => $l->day_type,
-                    'start_date' => $l->start_date?->format('d/m H:i'), 'end_date' => $l->end_date?->format('d/m H:i'),
-                    'work_hours' => round($l->worked_minutes / 60, 2), 'paid_hours' => $l->paid_hours, 'weighted_hours' => $l->weighted_hours,
-                    'status' => $l->status, 'verification_notes' => $l->verification_notes, 'verifier' => $l->verifier?->name,
-                ]),
+                ->pipe(function (Collection $rows) {
+                    // Overtime in a Workflow: the step it waits at, and whether this account decides it.
+                    $flows = Workflow::pendingOf(OvertimeRecord::class, $rows->pluck('id'));
+
+                    return $rows->map(fn (OvertimeRecord $l) => [...self::overtimeRow($l), 'workflow' => Workflow::glance($flows->get($l->id), auth()->user())]);
+                }),
             'overtime_status' => $status,
         ];
     }

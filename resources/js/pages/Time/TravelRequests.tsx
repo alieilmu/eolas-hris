@@ -6,6 +6,7 @@ import { LeaveTravelImportDialog } from '@/components/time/LeaveTravelImportDial
 import { AttendanceHeader, TypeBadge, Modal, secondaryButton, smallInput } from '@/components/time/ui';
 import { fmtDate } from '@/lib/format';
 import { StatusBadge, VerifyButtons } from '@/components/Verification';
+import { FlowNote, type WorkflowBrief } from '@/components/ApprovalHistory';
 import { TiketBadges, type Airport } from '@/components/time/AirportPicker';
 import { AttachmentButton } from '@/components/attachment/AttachmentPicker';
 import type { LampiranLimits } from '@/lib/attachment';
@@ -32,7 +33,7 @@ interface Filters {
 }
 
 interface Props {
-    leave_travel_requests: Paginated<TripData>;
+    leave_travel_requests: Paginated<TripData & { workflow: WorkflowBrief | null }>;
     filters: Filters;
     cash_advance_status: string[];
     people: TripPerson[];
@@ -301,6 +302,7 @@ export default function RequestNotifier({ leave_travel_requests, filters, cash_a
                                             </td>
                                             <td className="px-3 py-3">
                                                 <StatusBadge status={t.status} source={t.source} notes={t.verification_notes} />
+                                                {t.workflow && <FlowNote flow={t.workflow} />}
                                             </td>
                                             <td className="px-3 py-3 whitespace-nowrap">
                                                 <span
@@ -331,7 +333,7 @@ export default function RequestNotifier({ leave_travel_requests, filters, cash_a
                                             </td>
                                             <td className="py-3 pr-5">
                                                 <div className="flex justify-end gap-1">
-                                                    {can_edit && t.status === 'pending' && (
+                                                    {can_edit && t.status === 'pending' && (!t.workflow || t.workflow.can_decide) && (
                                                         <VerifyButtons
                                                             url={`/time/leave-travel/${t.id}/verification`}
                                                             what={`${label(REQUEST_TYPE, t.type)} ${t.name} ke ${t.destination_city}`}

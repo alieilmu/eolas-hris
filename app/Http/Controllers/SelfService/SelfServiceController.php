@@ -18,6 +18,7 @@ use App\Support\Compensation\Usage;
 use App\Support\Leave\LeaveLedger;
 use App\Support\Attachments\Attachments;
 use App\Support\Notifications\RequestNotifier;
+use App\Support\Workflow\Workflow;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -46,6 +47,8 @@ class SelfServiceController extends Controller
         $k = $this->me($request);
         $today = CarbonImmutable::today();
         $month = AccountingMonth::of($today);
+        $trips = LeaveTravelRequest::with(LeaveTravelController::WITH)->where('employee_id', $k->id)->latest('start_date')->limit(20)->get();
+        $flows = Workflow::pendingOf(LeaveTravelRequest::class, $trips->pluck('id'));
 
         return Inertia::render('SelfService/Home', [
             'employee' => BenefitClaimController::identity($k),
@@ -54,8 +57,9 @@ class SelfServiceController extends Controller
             'today' => $today->toDateString(),
             'benefit_claims' => BenefitClaim::with(['employee.position', 'items.children', 'attachments'])->where('employee_id', $k->id)->latest('date')->latest('id')->limit(20)->get()
                 ->map(fn (BenefitClaim $d) => BenefitClaimController::row($d)),
-            'leave_travel_requests' => LeaveTravelRequest::with(LeaveTravelController::WITH)->where('employee_id', $k->id)->latest('start_date')->limit(20)->get()
-                ->map(fn (LeaveTravelRequest $t) => LeaveTravelController::tripData($t, $today)),
+            'leave_travel_requests' => $trips->map(fn (LeaveTravelRequest $t) => [...LeaveTravelController::tripData($t, $today),
+                // Where it waits in its approval flow.
+                'workflow' => Workflow::brief($flows->get($t->id), $request->user())]),
             'cities' => LeaveTravelRequest::query()->select('origin_city as city')->union(LeaveTravelRequest::query()->select('destination_city as city'))->pluck('city')->unique()->sort()->values(),
             'provider_options' => BenefitClaim::whereNotNull('provider_name')->distinct()->orderBy('provider_name')->pluck('provider_name'),
             'airport' => Airport::options(),
@@ -144,11 +148,13 @@ class SelfServiceController extends Controller
                 'source' => 'self_service',
             ]);
             Attachments::sync($request, $leave_travel, 'leave_travel');
+            // Its approval flow (by default HR of the location, as before); the first approvers are notified.
+            Workflow::start($leave_travel, $leave_travel->type, $leave_travel->employee, $request->user(), $leave_travel->workflowFacts(),
+                $leave_travel->workflowNotice()['body'], $leave_travel->workflowNotice()['url']);
 
             return $leave_travel;
         });
-        RequestNotifier::leaveTravel($leave_travel);
-        Inertia::flash('success', 'Pengajuan '.LeaveTravelRequest::JENIS[$leave_travel->type]." ke {$leave_travel->destination_city} terkirim dan menunggu persetujuan HR.");
+        Inertia::flash('success', 'Pengajuan '.LeaveTravelRequest::JENIS[$leave_travel->type]." ke {$leave_travel->destination_city} terkirim dan menunggu persetujuan.");
 
         return back();
     }
@@ -158,7 +164,9 @@ class SelfServiceController extends Controller
     {
         $model = $type === 'claim' ? BenefitClaim::class : LeaveTravelRequest::class;
         $item = $model::where('employee_id', $request->user()->employee_id)->where('status', 'pending')->findOrFail($id);
-        $item->delete();
+        // In a Workflow: withdrawn there (which removes it); from before Workflow: removed here.
+        $flow = Workflow::of($item);
+        $flow?->isPending() ? Workflow::cancel($flow, $request->user()) : $item->delete();
         Inertia::flash('success', 'Pengajuan dibatalkan.');
 
         return back();

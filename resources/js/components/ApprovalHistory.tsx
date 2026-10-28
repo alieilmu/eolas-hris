@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Check, CircleDashed, Clock, MinusCircle, Send, X } from 'lucide-react';
+import { Modal } from '@/components/time/ui';
 
 export interface ApprovalAction {
     decision: 'submitted' | 'approved' | 'rejected' | 'cancelled';
@@ -87,5 +89,33 @@ export function ApprovalHistory({ steps, events = [] }: { steps: ApprovalStep[];
                 </li>
             ))}
         </ol>
+    );
+}
+
+/** A pending pengajuan's place in its Workflow, as a module's list gets it. */
+export interface WorkflowBrief {
+    id: number;
+    step: string | null;
+    waiting_for: string[];
+    can_decide: boolean;
+    steps: ApprovalStep[];
+    events: ApprovalAction[];
+}
+
+/** Under a pengajuan's status in a list: the step it waits at and for whom, with the whole flow a click away. */
+export function FlowNote({ flow }: { flow: WorkflowBrief }) {
+    const [open, setOpen] = useState(false);
+    return (
+        <>
+            <button onClick={() => setOpen(true)} className="mt-0.5 block max-w-52 text-left text-[10px] font-semibold text-amber-700 hover:underline">
+                {flow.step}
+                {flow.waiting_for.length > 0 && ` · ${flow.waiting_for.slice(0, 2).join(', ')}${flow.waiting_for.length > 2 ? ` +${flow.waiting_for.length - 2}` : ''}`}
+            </button>
+            {open && (
+                <Modal title="Riwayat persetujuan" onClose={() => setOpen(false)}>
+                    <ApprovalHistory steps={flow.steps} events={flow.events} />
+                </Modal>
+            )}
+        </>
     );
 }

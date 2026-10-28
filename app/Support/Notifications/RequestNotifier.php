@@ -15,7 +15,10 @@ use App\Models\WorkflowInstance;
 use App\Notifications\RequestReceived;
 use App\Support\Access\AccessScope;
 use App\Support\Leave\LeaveLedger;
+use App\Support\Workflow\Approvable;
+use App\Support\Workflow\Approvers;
 use App\Support\Workflow\Workflow;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
@@ -50,12 +53,20 @@ class RequestNotifier
 
     public static function leaveTravel(LeaveTravelRequest $t): void
     {
+        $n = self::leaveTravelNotice($t);
+        self::send($n['type'], $n['ref'], 'travel-requests', $t->employee, $n['title'], $n['body'], $n['url']);
+    }
+
+    /** @return array{type: string, ref: string, title: string, body: string, url: string} */
+    public static function leaveTravelNotice(LeaveTravelRequest $t): array
+    {
         $date = $t->start_date->format('d.m.Y').($t->end_date->ne($t->start_date) ? ' – '.$t->end_date->format('d.m.Y') : '');
         $body = $t->type === 'leave'
             ? (LeaveLedger::KATEGORI[$t->leave_category] ?? 'Cuti').' '.($t->leave_days ?? $t->durationDays())." hari, {$date}"
             : "ke {$t->destination_city}, {$date}".($t->needs_cash_advance ? ' · uang muka Rp '.number_format((int) $t->cash_advance_amount, 0, ',', '.') : '');
-        self::send($t->type, "leave_travel:{$t->id}", 'travel-requests', $t->employee,
-            'Pengajuan '.LeaveTravelRequest::JENIS[$t->type], $body, "/time/travel-requests?type={$t->type}&status=pending");
+
+        return ['type' => $t->type, 'ref' => "leave_travel:{$t->id}", 'title' => 'Pengajuan '.LeaveTravelRequest::JENIS[$t->type], 'body' => $body,
+            'url' => "/time/travel-requests?type={$t->type}&status=pending"];
     }
 
     public static function longServiceLeave(LongServiceLeave $c): void
@@ -129,7 +140,11 @@ class RequestNotifier
             "/core-hr/workforce-planning?location={$r->plan->work_location_id}&period={$r->plan->code()}", ['id' => null, 'employee_number' => null, 'name' => $r->approver?->name])));
     }
 
-    /** A step of a Workflow began: for whoever approves it (Persetujuan Saya). */
+    /**
+     * A step of a Workflow began: for whoever approves it. The pengajuan's own notification
+     * (Approvable::workflowNotice), so HR get what they got before Workflow; a superior or a
+     * named position is sent to Persetujuan Saya instead of the HR page.
+     */
     public static function workflowStep(WorkflowInstance $i): void
     {
         $to = User::whereIn('id', $i->current_approvers ?? [])->where('is_active', true)->get();
@@ -137,20 +152,44 @@ class RequestNotifier
         if ($to->isEmpty() || ! $k) {
             return;
         }
-        $label = Workflow::TYPES[$i->definition->type]['label'];
-        self::safely(fn () => Notification::send($to, new RequestReceived('approval', "workflow:{$i->id}:{$i->current_step}", "Menunggu persetujuan Anda: {$label}",
-            "{$k->name} ({$k->employee_number})".($i->summary ? " · {$i->summary}" : ''), '/approvals', ['id' => $k->id, 'employee_number' => $k->employee_number, 'name' => $k->name])));
+        $notice = self::workflowNotice($i);
+        $url = $i->step()?->approver_type === Approvers::MENU ? $notice['url'] : '/approvals';
+        self::safely(fn () => Notification::send($to, new RequestReceived($notice['type'], $notice['ref'], $notice['title'],
+            "{$k->name} ({$k->employee_number}) {$notice['body']}", $url, ['id' => $k->id, 'employee_number' => $k->employee_number, 'name' => $k->name])));
     }
 
     /** A step was decided: closed for everyone, or (a step all must agree on) only for $only. */
-    public static function workflowDone(WorkflowInstance $i, ?int $step, ?User $only = null): void
+    public static function workflowDone(WorkflowInstance $i, ?int $step, ?User $only = null, ?Model $subject = null): void
     {
-        if ($step === null) {
+        if ($step === null || Workflow::quiet()) {
             return;
         }
-        self::safely(fn () => DatabaseNotification::where('ref', "workflow:{$i->id}:{$step}")->whereNull('read_at')
+        $ref = self::workflowNotice($i, $subject)['ref'];
+        self::safely(fn () => DatabaseNotification::where('ref', $ref)->whereNull('read_at')
             ->when($only, fn ($q) => $q->where('notifiable_type', $only->getMorphClass())->where('notifiable_id', $only->id))
             ->update(['read_at' => now()]));
+    }
+
+    /** @return array{type: string, ref: string, title: string, body: string, url: string} */
+    private static function workflowNotice(WorkflowInstance $i, ?Model $subject = null): array
+    {
+        $subject ??= Workflow::subject($i);
+        if ($subject instanceof Approvable) {
+            return $subject->workflowNotice();
+        }
+
+        return ['type' => 'approval', 'ref' => "workflow:{$i->id}", 'title' => 'Menunggu persetujuan Anda: '.Workflow::TYPES[$i->definition->type]['label'],
+            'body' => $i->summary ? "· {$i->summary}" : '', 'url' => '/approvals'];
+    }
+
+    /** Overtime from the machines waiting for superiors: one notification each, not one per day. */
+    public static function workflowWaiting(array $counts, string $label, string $url = '/approvals'): void
+    {
+        foreach (User::whereIn('id', array_keys($counts))->where('is_active', true)->get() as $u) {
+            $n = $counts[$u->id];
+            self::safely(fn () => $u->notify(new RequestReceived('approval', 'workflow-batch:'.now()->format('YmdHis').":{$u->id}", "{$n} {$label} menunggu persetujuan Anda",
+                "{$n} {$label} baru dari proses data mesin absen.", $url, ['id' => null, 'employee_number' => null, 'name' => null])));
+        }
     }
 
     /** The end of a Workflow: for the employee, and whoever filed it for them (not the one who decided). */
@@ -163,8 +202,13 @@ class RequestNotifier
             return;
         }
         $agree = $i->status === WorkflowInstance::APPROVED;
-        self::safely(fn () => Notification::send($to, new RequestReceived('approval-result', "workflow-result:{$i->id}", "{$label} ".($agree ? 'disetujui' : 'ditolak'),
-            trim(($i->summary ?? '').($by ? ' · oleh '.$by->name : '').($notes ? " — {$notes}" : ''), ' ·'), $i->url ?? '/approvals?tab=mine', ['id' => $i->employee_id, 'employee_number' => null, 'name' => $by?->name])));
+        $body = trim(($i->summary ?? '').($by ? ' · oleh '.$by->name : '').($notes ? " — {$notes}" : ''), ' ·');
+        foreach ($to as $u) {
+            // The employee follows it in Persetujuan Saya; HR who filed it, on the module's page.
+            $url = $u->isEmployee() ? '/approvals?tab=mine' : ($i->url ?? '/approvals');
+            self::safely(fn () => $u->notify(new RequestReceived('approval-result', "workflow-result:{$i->id}", "{$label} ".($agree ? 'disetujui' : 'ditolak'),
+                $body, $url, ['id' => $i->employee_id, 'employee_number' => null, 'name' => $by?->name])));
+        }
     }
 
     /** HR decided, or the employee withdrew it: nothing left to do for anyone. */

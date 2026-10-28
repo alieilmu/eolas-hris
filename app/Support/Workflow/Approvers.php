@@ -30,6 +30,23 @@ class Approvers
         self::MENU => 'HR dengan akses menu di lokasi karyawan',
     ];
 
+    /** @var array<string, Collection>|null answers kept while many pengajuan start at once (Workflow::quietly) */
+    private static ?array $memo = null;
+
+    public static function remember(bool $on): void
+    {
+        self::$memo = $on ? [] : null;
+    }
+
+    private static function memo(string $key, callable $find): Collection
+    {
+        if (self::$memo === null) {
+            return $find();
+        }
+
+        return self::$memo[$key] ??= $find();
+    }
+
     /** @return Collection<int, User> */
     public static function forStep(WorkflowStep $step, Employee $employee, string $hrMenu): Collection
     {
@@ -43,7 +60,7 @@ class Approvers
             $users = self::hr($hrMenu, $employee);
         }
         if ($users->isEmpty()) {
-            $users = User::where('role', User::ROLE_ADMIN)->where('is_active', true)->get();
+            $users = self::memo('admins', fn () => User::where('role', User::ROLE_ADMIN)->where('is_active', true)->get());
         }
 
         return $users->reject(fn (User $u) => self::isRequester($u, $employee))->values();
@@ -78,14 +95,16 @@ class Approvers
     /** Active accounts of the active employees in a position (whatever the request's access scope). */
     public static function holders(Position $position): Collection
     {
-        $ids = Employee::withoutGlobalScopes()->where('position_id', $position->id)->where('status', Employee::STATUS_ACTIVE)->pluck('id');
+        return self::memo("position:{$position->id}", function () use ($position) {
+            $ids = Employee::withoutGlobalScopes()->where('position_id', $position->id)->where('status', Employee::STATUS_ACTIVE)->pluck('id');
 
-        return $ids->isEmpty() ? collect() : User::where('is_active', true)->whereIn('employee_id', $ids)->get();
+            return $ids->isEmpty() ? collect() : User::where('is_active', true)->whereIn('employee_id', $ids)->get();
+        });
     }
 
     private static function hr(string $menu, Employee $employee): Collection
     {
-        return RequestNotifier::recipients($menu, $employee)->reject(fn (User $u) => self::isRequester($u, $employee))->values();
+        return self::memo("hr:{$menu}:{$employee->work_location_id}:{$employee->sub_location_id}", fn () => RequestNotifier::recipients($menu, $employee))->reject(fn (User $u) => self::isRequester($u, $employee))->values();
     }
 
     private static function isRequester(User $u, Employee $employee): bool

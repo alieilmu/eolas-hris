@@ -82,7 +82,9 @@ class WorkflowTest extends TestCase
     /** @param  list<array{0: string, 1: ?string, 2?: ?array, 3?: string}>  $steps  approver type, value, conditions, mode */
     private function flow(array $steps, string $type = 'leave'): void
     {
-        $d = WorkflowDefinition::create(['type' => $type, 'name' => 'Alur Uji', 'version' => 1, 'is_active' => true]);
+        // HR changes the flow: a new version, the default one stays for what started on it.
+        WorkflowDefinition::where('type', $type)->update(['is_active' => false]);
+        $d = WorkflowDefinition::create(['type' => $type, 'name' => 'Alur Uji', 'version' => (int) WorkflowDefinition::where('type', $type)->max('version') + 1, 'is_active' => true]);
         foreach ($steps as $i => $step) {
             $d->steps()->create(['sequence' => $i + 1, 'name' => 'Langkah '.($i + 1), 'approver_type' => $step[0], 'approver_value' => $step[1],
                 'conditions' => $step[2] ?? null, 'mode' => $step[3] ?? WorkflowStep::ANY]);
@@ -94,8 +96,11 @@ class WorkflowTest extends TestCase
         $hr = $this->hr();
         $i = Workflow::start($this->request(), 'leave', $this->employee, $hr);
 
+        // Made by the migration for cuti; a kind without one gets it on first use.
         $d = WorkflowDefinition::where('type', 'leave')->sole();
         $this->assertSame([1, 'menu', 'travel-requests'], [$d->version, $d->steps->sole()->approver_type, $d->steps->sole()->approver_value]);
+        $this->assertFalse(WorkflowDefinition::where('type', 'loan')->exists());
+        $this->assertSame('payroll-approval', Workflow::definition('loan')->steps->sole()->approver_value);
         $this->assertSame(1, $i->current_step);
         $this->assertContains($hr->id, $i->current_approvers);
 
@@ -228,7 +233,7 @@ class WorkflowTest extends TestCase
         $running = Workflow::start($this->request(), 'leave', $this->employee);
 
         WorkflowDefinition::where('type', 'leave')->update(['is_active' => false]);
-        $v2 = WorkflowDefinition::create(['type' => 'leave', 'name' => 'Alur Cuti', 'version' => 2, 'is_active' => true]);
+        $v2 = WorkflowDefinition::create(['type' => 'leave', 'name' => 'Alur Cuti', 'version' => 3, 'is_active' => true]);
         $v2->steps()->create(['sequence' => 1, 'name' => 'Atasan', 'approver_type' => Approvers::SUPERIOR, 'approver_value' => '1']);
 
         $this->assertSame($v2->id, Workflow::start($this->request(), 'leave', $this->employee)->workflow_definition_id);
@@ -302,13 +307,18 @@ class WorkflowTest extends TestCase
         $this->flow([[Approvers::SUPERIOR, '1'], [Approvers::MENU, 'travel-requests']]);
 
         $i = Workflow::start($this->request(), 'leave', $this->employee, $requester, summary: 'Cuti Tahunan 3 hari');
-        $mine = fn (User $u, string $ref) => DatabaseNotification::where('notifiable_id', $u->id)->where('ref', $ref)->first();
-        $this->assertStringContainsString('Cuti Tahunan 3 hari', $mine($bossUser, "workflow:{$i->id}:1")->data['body']);
-        $this->assertNull($mine($hr, "workflow:{$i->id}:1"), 'HR is told at its own step');
+        // The pengajuan's own notification (as before Workflow); a superior is sent to Persetujuan Saya.
+        $ref = "leave_travel:{$i->subject_id}";
+        $mine = fn (User $u) => DatabaseNotification::where('notifiable_id', $u->id)->where('ref', $ref)->first();
+        $this->assertStringContainsString('11.01.2027 – 13.01.2027', $mine($bossUser)->data['body']);
+        $this->assertSame('/approvals', $mine($bossUser)->data['url']);
+        $this->assertNull($mine($hr), 'HR is told at its own step');
 
         $i = Workflow::approve($i, $bossUser);
-        $this->assertNotNull($mine($bossUser, "workflow:{$i->id}:1")->read_at, 'closed once decided');
-        $this->assertNotNull($mine($hr, "workflow:{$i->id}:2"));
+        $this->assertNotNull($mine($bossUser)->read_at, 'closed once decided');
+        $this->assertNull($mine($hr)->read_at);
+        $this->assertSame('/time/travel-requests?type=leave&status=pending', $mine($hr)->data['url'], 'HR to their page');
+        $mine = fn (User $u, string $ref) => DatabaseNotification::where('notifiable_id', $u->id)->where('ref', $ref)->first();
 
         Workflow::reject($i, $hr, 'Kuota cuti site penuh');
         $result = $mine($requester, "workflow-result:{$i->id}");

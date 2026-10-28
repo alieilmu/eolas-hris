@@ -97,6 +97,14 @@ Tanggal mengikuti peta jalan (Fase 1 mulai Januari 2027). Bila minggu 0 selesai 
 - Saldo cuti dan kehadiran hanya berubah setelah langkah terakhir disetujui.
 - Test regresi: semua test cuti, dinas, dan lembur yang ada harus tetap lolos.
 
+**Status 28 Okt 2026: selesai.**
+- Migrasi `2026_11_06` membuat alur bawaan `leave`, `business_trip`, `overtime` (1 langkah HR, menu + lokasi). Waktu pembuatannya (`Workflow::since`) menandai perpindahan: lembur yang tercatat sebelumnya selesai dengan cara lama.
+- Cuti & dinas dari portal: `Workflow::start` dengan fakta hari, jenis cuti, uang muka. Notifikasi untuk HR tetap sama persis (ref, isi, link); atasan diarahkan ke Persetujuan Saya. Tombol setujui/tolak HR di Pengajuan Dinas memutus langkah Workflow (ditolak dengan pesan "Menunggu langkah …" bila bukan gilirannya); pengajuan tanpa Workflow diverifikasi seperti dulu. Absensi terisi dan saldo cuti terpotong hanya setelah langkah terakhir (`LeaveTravelRequest::workflowCompleted`). Batal di portal / Persetujuan Saya / dihapus HR menutup alurnya.
+- Lembur: dibuat massal oleh proses mesin absen lewat `Workflow::startMany` (insert per 500, tanpa notifikasi/audit per baris); atasan mendapat satu notifikasi ringkasan per proses; lembur yang hilang saat proses ulang menarik alurnya. Verifikasi HR di Kehadiran → Lembur memutus langkah Workflow (yang bukan gilirannya dilewati dan dihitung), satu entri Audit Log per aksi massal; "batalkan" mengulang alur dari langkah pertama. Karyawan tidak bisa membatalkan lembur mesin.
+- Tampilan: langkah yang sedang berjalan + riwayat (`FlowNote`) di Pengajuan Dinas, portal karyawan, dan tabel lembur.
+- Syarat baru: `hours` (jam lembur); `category` untuk lembur = jenis hari.
+- Test: `Time/ApprovalFlowTest` (7); 231 test lama tetap lolos tanpa diubah (kecuali `WorkflowTest` menyesuaikan alur bawaan dari migrasi). Regresi browser 41 halaman bersih.
+
 ## Minggu 4 — Migrasi sisa pengajuan; delegasi & eskalasi
 
 - Migrasi: deklarasi benefit, pinjaman, pengajuan update data, persetujuan rekrutmen (penawaran kerja).

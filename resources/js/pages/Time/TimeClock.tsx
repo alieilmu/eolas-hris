@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     AlertTriangle,
     Check,
@@ -71,6 +71,8 @@ interface LemburRow {
     status: 'pending' | 'approved' | 'rejected';
     verification_notes: string | null;
     verifier: string | null;
+    /** In a Workflow: the step it waits at, and whether this account decides it. */
+    workflow: { id: number; step: string | null; can_decide: boolean } | null;
 }
 
 interface LogRow {
@@ -460,7 +462,8 @@ function KoreksiModal({ initial, options, onClose }: { initial: { employee_id: n
 function LemburTab({ overtime_summary = [], overtime_records = [], overtime_status = 'pending', can, go }: Props & { go: (p: Record<string, string | number | null>) => void }) {
     const [selected, setSelected] = useState<number[]>([]);
     const [busy, setBusy] = useState(false);
-    const selectable = overtime_records.filter((l) => l.status === 'pending').map((l) => l.id);
+    const decidable = (l: LemburRow) => l.status === 'pending' && (!l.workflow || l.workflow.can_decide);
+    const selectable = overtime_records.filter(decidable).map((l) => l.id);
     const all = selectable.length > 0 && selectable.every((id) => selected.includes(id));
     const total = useMemo(() => overtime_records.reduce((s, l) => ({ paid: s.paid + l.paid_hours, weighted: s.weighted + l.weighted_hours }), { paid: 0, weighted: 0 }), [overtime_records]);
 
@@ -547,7 +550,7 @@ function LemburTab({ overtime_summary = [], overtime_records = [], overtime_stat
                                 <tr key={l.id} className="border-t border-slate-100 hover:bg-slate-50/60">
                                     {can.approve && (
                                         <td className="px-3 py-2">
-                                            {l.status === 'pending' && (
+                                            {decidable(l) && (
                                                 <input
                                                     type="checkbox"
                                                     checked={selected.includes(l.id)}
@@ -581,10 +584,15 @@ function LemburTab({ overtime_summary = [], overtime_records = [], overtime_stat
                                         <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${LEMBUR_TONE[l.status]}`}>{label(APPROVAL_STATUS, l.status)}</span>
                                         {l.verifier && <span className="block text-[10px] text-slate-400">oleh {l.verifier}</span>}
                                         {l.verification_notes && <span className="block text-[10px] text-rose-500">{l.verification_notes}</span>}
+                                        {l.workflow && l.status === 'pending' && (
+                                            <Link href={`/approvals?type=overtime`} className="block text-[10px] font-semibold text-amber-700 hover:underline">
+                                                {l.workflow.step}
+                                            </Link>
+                                        )}
                                     </td>
                                     {can.approve && (
                                         <td className="px-3 py-2 whitespace-nowrap">
-                                            {l.status === 'pending' ? (
+                                            {l.status === 'pending' && !decidable(l) ? null : l.status === 'pending' ? (
                                                 <>
                                                     <button onClick={() => decide([l.id], 'approved')} title="Setujui" className="rounded-lg p-1 text-brand-600 hover:bg-brand-50">
                                                         <Check size={15} />

@@ -8,7 +8,7 @@ use App\Models\WorkLocation;
 /**
  * When a step applies. A step's conditions are a list of rules, all of which must hold:
  * {"field": "amount", "op": ">", "value": 5000000}. A step without conditions always applies.
- * The facts come from the pengajuan (amount, days, category) and the employee (work location,
+ * The facts come from the pengajuan (amount, days, hours, category) and the employee (work location,
  * job level), fixed when it starts. A rule on a fact the pengajuan does not have fails.
  */
 class Conditions
@@ -16,8 +16,9 @@ class Conditions
     public const FIELDS = [
         'amount' => 'Nominal',
         'days' => 'Jumlah hari',
+        'hours' => 'Jam lembur',
         'work_location' => 'Lokasi kerja',
-        'category' => 'Jenis cuti / klaim',
+        'category' => 'Jenis (cuti, klaim, hari lembur)',
         'job_level' => 'Golongan jabatan',
     ];
 
@@ -67,6 +68,7 @@ class Conditions
             $shown = match ($field) {
                 'amount' => 'Rp '.number_format((float) $value, 0, ',', '.'),
                 'days' => "{$value} hari",
+                'hours' => "{$value} jam",
                 'work_location' => WorkLocation::whereIn('id', (array) $value)->pluck('name')->join(', '),
                 'job_level' => JobLevel::whereIn('id', (array) $value)->pluck('name')->join(', '),
                 default => implode(', ', (array) $value),

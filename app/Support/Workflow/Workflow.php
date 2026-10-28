@@ -11,8 +11,12 @@ use App\Models\WorkflowInstance;
 use App\Models\WorkflowStep;
 use App\Support\Audit\Audit;
 use App\Support\Notifications\RequestNotifier;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -28,16 +32,51 @@ use InvalidArgumentException;
  */
 class Workflow
 {
-    /** type => label and the menu of the HR who approve it by default (and when nobody else can). */
+    /**
+     * type => label, the menu of the HR who approve it by default (and when nobody else can), and
+     * whether the employee may withdraw it (overtime comes from the attendance machines: no).
+     */
     public const TYPES = [
         'leave' => ['label' => 'Cuti', 'menu' => 'travel-requests'],
         'business_trip' => ['label' => 'Perjalanan Dinas', 'menu' => 'travel-requests'],
-        'overtime' => ['label' => 'Lembur', 'menu' => 'overtime-approval'],
+        'overtime' => ['label' => 'Lembur', 'menu' => 'overtime-approval', 'cancellable' => false],
         'claim' => ['label' => 'Deklarasi Benefit', 'menu' => 'benefit-claims'],
         'loan' => ['label' => 'Pinjaman', 'menu' => 'payroll-approval'],
         'data-change' => ['label' => 'Pengajuan Update Data', 'menu' => 'data-change-requests'],
         'job-offer' => ['label' => 'Penawaran Kerja', 'menu' => 'recruitment'],
     ];
+
+    /** Inside quietly(): pengajuan made or decided in bulk, notified and audited once by the caller. */
+    private static bool $quiet = false;
+
+    /** @var array<int, int> approver user id => pengajuan now waiting for them, while quiet */
+    private static array $waiting = [];
+
+    /**
+     * Runs $work without a notification or an audit entry per pengajuan (overtime from the
+     * machines: hundreds a day). Returns what $work returned and, per approver of a step other
+     * than HR, how many pengajuan now wait for them, for one notification each.
+     *
+     * @return array{0: mixed, 1: array<int, int>}
+     */
+    public static function quietly(callable $work): array
+    {
+        [$wasQuiet, $wasWaiting] = [self::$quiet, self::$waiting];
+        self::$quiet = true;
+        self::$waiting = [];
+        Approvers::remember(true);
+        try {
+            return [$work(), self::$waiting];
+        } finally {
+            [self::$quiet, self::$waiting] = [$wasQuiet, $wasWaiting];
+            Approvers::remember(false);
+        }
+    }
+
+    public static function quiet(): bool
+    {
+        return self::$quiet;
+    }
 
     /** The flow new pengajuan of a type follow: its active version, else the default one. */
     public static function definition(string $type): WorkflowDefinition
@@ -68,7 +107,8 @@ class Workflow
     public static function start(Model $subject, string $type, Employee $employee, ?User $by = null, array $facts = [], ?string $summary = null, ?string $url = null): WorkflowInstance
     {
         $definition = self::definition($type)->load('steps');
-        $by ??= auth()->user();
+        // Made in bulk by the system (machine overtime): nobody filed it.
+        $by ??= self::$quiet ? null : auth()->user();
         $facts += ['work_location' => $employee->work_location_id, 'job_level' => $employee->job_level_id];
 
         return DB::transaction(function () use ($subject, $type, $employee, $by, $definition, $facts, $summary, $url) {
@@ -79,11 +119,71 @@ class Workflow
             ]);
             $instance->setRelation('definition', $definition);
             self::record($instance, $by, 'submitted', null);
-            Audit::log('workflow.started', $subject, self::TYPES[$type]['label']." · {$employee->name} ({$employee->employee_number}) · {$definition->name} v{$definition->version}", ['instance' => $instance->id], $by);
+            self::$quiet || Audit::log('workflow.started', $subject, self::TYPES[$type]['label']." · {$employee->name} ({$employee->employee_number}) · {$definition->name} v{$definition->version}", ['instance' => $instance->id], $by);
             self::advance($instance);
 
             return $instance;
         });
+    }
+
+    /**
+     * start() for many pengajuan of one kind at once, written in bulk (overtime from the
+     * machines: thousands in a demo or a first import). Quiet: no notification or audit entry
+     * per pengajuan; returns, per approver of a step other than HR, how many now wait for them.
+     *
+     * @param  iterable<Model>  $subjects
+     * @param  callable(Model): array{0: Employee, 1: array, 2: ?string}  $describe  employee, facts, summary
+     * @return array<int, int>
+     */
+    public static function startMany(string $type, iterable $subjects, callable $describe, ?string $url = null): array
+    {
+        $definition = self::definition($type)->load('steps');
+        $hrMenu = self::TYPES[$type]['menu'];
+        $waiting = [];
+        $now = now();
+        Approvers::remember(true);
+        try {
+            foreach (collect($subjects)->chunk(500) as $chunk) {
+                $rows = [];
+                $alone = [];
+                foreach ($chunk as $subject) {
+                    [$employee, $facts, $summary] = $describe($subject);
+                    $facts += ['work_location' => $employee->work_location_id, 'job_level' => $employee->job_level_id];
+                    $step = $definition->steps->first(fn (WorkflowStep $s) => Conditions::pass($s->conditions, $facts));
+                    if (! $step) {
+                        $alone[] = $subject; // approved at once: through start(), which tells the pengajuan
+
+                        continue;
+                    }
+                    $approvers = Approvers::forStep($step, $employee, $hrMenu)->pluck('id')->all();
+                    if ($step->approver_type !== Approvers::MENU) {
+                        foreach ($approvers as $id) {
+                            $waiting[$id] = ($waiting[$id] ?? 0) + 1;
+                        }
+                    }
+                    $rows[] = [
+                        'workflow_definition_id' => $definition->id, 'subject_type' => $subject->getMorphClass(), 'subject_id' => $subject->getKey(),
+                        'employee_id' => $employee->id, 'current_step' => $step->sequence, 'current_approvers' => json_encode($approvers),
+                        'status' => WorkflowInstance::PENDING, 'facts' => json_encode($facts), 'summary' => $summary, 'url' => $url,
+                        'created_at' => $now, 'updated_at' => $now,
+                    ];
+                }
+                $rows && DB::transaction(function () use ($rows, $now) {
+                    WorkflowInstance::insert($rows);
+                    $ids = WorkflowInstance::where('subject_type', $rows[0]['subject_type'] ?? '')->whereIn('subject_id', array_column($rows, 'subject_id'))
+                        ->where('status', WorkflowInstance::PENDING)->where('created_at', $now)->pluck('id');
+                    WorkflowAction::insert($ids->map(fn ($id) => ['workflow_instance_id' => $id, 'step' => null, 'decision' => 'submitted', 'created_at' => $now])->all());
+                });
+                foreach ($alone as $subject) {
+                    [$employee, $facts, $summary] = $describe($subject);
+                    self::quietly(fn () => self::start($subject, $type, $employee, null, $facts, $summary, $url));
+                }
+            }
+        } finally {
+            Approvers::remember(false);
+        }
+
+        return $waiting;
     }
 
     /** May this account decide the step the pengajuan is at (and not decided it already)? */
@@ -97,7 +197,82 @@ class Workflow
     /** The employee who asks, or whoever filed it for them, may withdraw it while it waits. */
     public static function canCancel(WorkflowInstance $instance, User $user): bool
     {
-        return $instance->isPending() && ((int) $user->employee_id === (int) $instance->employee_id || (int) $user->id === (int) $instance->started_by);
+        $instance->loadMissing('definition');
+
+        return $instance->isPending() && (self::TYPES[$instance->definition->type]['cancellable'] ?? true)
+            && ((int) $user->employee_id === (int) $instance->employee_id || ($instance->started_by && (int) $user->id === (int) $instance->started_by));
+    }
+
+    /**
+     * The pengajuan is gone (deleted, or its overtime no longer worked): its flow ends as
+     * cancelled, by nobody, and its notifications are closed.
+     */
+    public static function withdraw(Model $subject, string $reason): void
+    {
+        self::withdrawAll($subject::class, [$subject->getKey()], $reason, $subject);
+    }
+
+    /** withdraw() for many pengajuan of one kind at once (overtime dropped by the machines). */
+    public static function withdrawAll(string $subjectClass, array $ids, string $reason, ?Model $subject = null): void
+    {
+        if (! $ids) {
+            return;
+        }
+        foreach (self::pendingOf($subjectClass, $ids) as $instance) {
+            $step = $instance->current_step;
+            self::record($instance, null, 'cancelled', $reason);
+            $instance->update(['status' => WorkflowInstance::CANCELLED, 'current_step' => null, 'current_approvers' => null, 'completed_at' => now()]);
+            RequestNotifier::workflowDone($instance, $step, subject: $subject);
+        }
+    }
+
+    /**
+     * When a kind of pengajuan moved to Workflow (its first flow was made). Pengajuan from
+     * before still finish the old way.
+     */
+    public static function since(string $type): ?CarbonInterface
+    {
+        $first = WorkflowDefinition::where('type', $type)->min('created_at');
+
+        return $first ? CarbonImmutable::parse($first) : null;
+    }
+
+    /** For a long list (overtime): only the step and whether this account decides it. */
+    public static function glance(?WorkflowInstance $instance, User $user): ?array
+    {
+        if (! $instance) {
+            return null;
+        }
+
+        return ['id' => $instance->id, 'step' => $instance->step()?->name, 'can_decide' => self::canDecide($instance, $user)];
+    }
+
+    /** The pending flow of each pengajuan, keyed by its id: for the module's own list. */
+    public static function pendingOf(string $subjectClass, iterable $ids): Collection
+    {
+        $ids = collect($ids)->all();
+
+        return $ids ? WorkflowInstance::where('subject_type', (new $subjectClass)->getMorphClass())->whereIn('subject_id', $ids)
+            ->where('status', WorkflowInstance::PENDING)->with('definition.steps')->get()->keyBy('subject_id') : collect();
+    }
+
+    /** Where a pending pengajuan is, for its row in a module's list: the step, who it waits for, and the whole flow. */
+    public static function brief(?WorkflowInstance $instance, User $user): ?array
+    {
+        if (! $instance) {
+            return null;
+        }
+        $steps = self::history($instance);
+        $current = collect($steps)->firstWhere('state', 'current');
+
+        return [
+            'id' => $instance->id,
+            'step' => $current['name'] ?? null,
+            'waiting_for' => $current['waiting_for'] ?? [],
+            'can_decide' => self::canDecide($instance, $user),
+            'steps' => $steps,
+            'events' => self::events($instance),
+        ];
     }
 
     public static function approve(WorkflowInstance $instance, User $by, ?string $notes = null): WorkflowInstance
@@ -259,19 +434,40 @@ class Workflow
         $hrMenu = self::TYPES[$instance->definition->type]['menu'];
         $employee = Employee::withoutGlobalScopes()->findOrFail($instance->employee_id);
         $instance->update(['current_step' => $next->sequence, 'current_approvers' => Approvers::forStep($next, $employee, $hrMenu)->pluck('id')->all()]);
-        RequestNotifier::workflowStep($instance);
+        if (! self::$quiet) {
+            RequestNotifier::workflowStep($instance);
+        } elseif ($next->approver_type !== Approvers::MENU) {
+            // HR were never notified of machine overtime; superiors are, once per batch.
+            foreach ($instance->current_approvers as $id) {
+                self::$waiting[$id] = (self::$waiting[$id] ?? 0) + 1;
+            }
+        }
     }
 
     private static function finish(WorkflowInstance $instance, string $status, ?User $by = null, ?string $notes = null): void
     {
         $instance->update(['status' => $status, 'current_step' => null, 'current_approvers' => null, 'completed_at' => now()]);
-        if ($status !== WorkflowInstance::CANCELLED) {
+        if ($status !== WorkflowInstance::CANCELLED && ! self::$quiet) {
             RequestNotifier::workflowResult($instance, $by, $notes);
         }
-        $subject = $instance->subject;
+        $subject = self::subject($instance);
         if ($subject instanceof Approvable) {
             $subject->workflowCompleted($instance);
         }
+    }
+
+    /** The pengajuan itself, whatever the access scope of the request deciding it. */
+    public static function subject(WorkflowInstance $instance): ?Model
+    {
+        $class = Relation::getMorphedModel($instance->subject_type) ?? $instance->subject_type;
+
+        return class_exists($class) ? $class::withoutGlobalScopes()->find($instance->subject_id) : null;
+    }
+
+    /** The last decision on it: who and with which note (for the module's verified_by / notes). */
+    public static function lastDecision(WorkflowInstance $instance): ?WorkflowAction
+    {
+        return WorkflowAction::where('workflow_instance_id', $instance->id)->whereIn('decision', ['approved', 'rejected', 'cancelled'])->latest('id')->first();
     }
 
     private static function record(WorkflowInstance $instance, ?User $by, string $decision, ?string $notes): void
@@ -284,11 +480,14 @@ class Workflow
 
     private static function audit(string $action, WorkflowInstance $instance, User $by, ?string $notes, ?int $step): void
     {
+        if (self::$quiet) {
+            return;
+        }
         $definition = $instance->definition;
         $total = $definition->steps->count();
         $where = $step ? "langkah {$step}/{$total}" : '';
         $end = $instance->isPending() ? '' : ' · '.WorkflowInstance::STATUS_LABELS[$instance->status];
-        Audit::log($action, $instance->subject, trim(self::TYPES[$definition->type]['label']." · {$where}{$end}".($notes ? " — {$notes}" : '')),
+        Audit::log($action, self::subject($instance), trim(self::TYPES[$definition->type]['label']." · {$where}{$end}".($notes ? " — {$notes}" : '')),
             ['instance' => $instance->id, 'step' => $step], $by);
     }
 }

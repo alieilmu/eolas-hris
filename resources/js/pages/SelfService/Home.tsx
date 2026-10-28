@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { Briefcase, ChevronRight, Clock, Glasses, Palmtree, Plus, Stethoscope, UserPen, X } from 'lucide-react';
 import { BenefitClaimForm } from '@/components/compensation/BenefitClaimForm';
 import { LeaveTravelForm, type TripData } from '@/components/time/LeaveTravelForm';
+import { FlowNote, type WorkflowBrief } from '@/components/ApprovalHistory';
 import { Modal } from '@/components/time/ui';
 import { rupiah, type DeklarasiRow, type PlafonInfo } from '@/lib/compensation';
 import { fmtDate } from '@/lib/format';
@@ -19,7 +20,7 @@ interface Props {
     /** The server's date: a deklarasi from the portal is always dated today. */
     today: string;
     benefit_claims: (DeklarasiRow & { status: Status; verification_notes: string | null })[];
-    leave_travel_requests: (TripData & { status: Status; verification_notes: string | null })[];
+    leave_travel_requests: (TripData & { status: Status; verification_notes: string | null; workflow: WorkflowBrief | null })[];
     cities: string[];
     provider_options: string[];
     airport: Airport[];
@@ -204,7 +205,12 @@ export default function PortalHome({
                                 note={t.verification_notes}
                                 title={`${t.type === 'business_trip' ? 'Dinas' : 'Cuti'} ke ${t.destination_city} · ${t.old} hari`}
                                 subtitle={`${fmtDate(t.start_date)} – ${fmtDate(t.end_date)}`}
-                                extra={<TiketBadges leave_travel={t} />}
+                                extra={
+                                    <>
+                                        <TiketBadges leave_travel={t} />
+                                        {t.workflow && <FlowNote flow={t.workflow} />}
+                                    </>
+                                }
                                 attachment={t.attachment}
                                 attachmentTitle={`Form ${label(REQUEST_TYPE, t.type)}`}
                                 onCancel={t.status === 'pending' ? () => cancel('leave-travel', t.id) : undefined}

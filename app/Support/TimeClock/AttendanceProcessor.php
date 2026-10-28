@@ -5,6 +5,8 @@ namespace App\Support\TimeClock;
 use App\Models\Employee;
 use App\Models\OvertimeRecord;
 use App\Models\ShiftCode;
+use App\Support\Notifications\RequestNotifier;
+use App\Support\Workflow\Workflow;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -14,8 +16,9 @@ use Illuminate\Support\Facades\DB;
  *    shift whose start is nearest to CI); a scheduled day without any becomes Mangkir;
  *    an unworked day off stays Off. Days set by hand (manual / import) or by a trip are
  *    left alone; the others are marked sumber "mesin".
- *  - Lembur: overtime of employees entitled to it, waiting for approval. A day already
- *    approved or rejected is kept; a waiting one without overtime any more is removed.
+ *  - Lembur: overtime of employees entitled to it, waiting for approval in its Workflow. A
+ *    day already approved or rejected is kept; a waiting one without overtime any more is
+ *    removed (and its flow withdrawn).
  */
 class AttendanceProcessor
 {
@@ -92,6 +95,7 @@ class AttendanceProcessor
             }
             // In bulk: a company of hundreds has thousands of overtime days in a period.
             foreach (array_chunk($drop, 500) as $part) {
+                Workflow::withdrawAll(OvertimeRecord::class, $part, 'Lembur tidak terhitung lagi saat data mesin diproses ulang.');
                 OvertimeRecord::whereIn('id', $part)->delete();
             }
             foreach (array_chunk($overtime, 500) as $part) {
@@ -103,7 +107,33 @@ class AttendanceProcessor
             $attendance += count($write);
         }
 
+        self::startFlows($employees->pluck('id')->all(), $from, $until);
+
         return ['attendance' => $attendance, 'overtime' => $lemburCount];
+    }
+
+    /**
+     * Overtime counted since Workflow, not in a flow yet, starts one (quietly: hundreds at a
+     * time). Superiors in the flow get one notification each for the lot.
+     */
+    private static function startFlows(array $employeeIds, CarbonImmutable $from, CarbonImmutable $until): void
+    {
+        $since = Workflow::since('overtime');
+        if (! $since) {
+            return;
+        }
+        $waiting = [];
+        foreach (array_chunk($employeeIds, 500) as $ids) {
+            $new = OvertimeRecord::whereIn('employee_id', $ids)->where('status', 'pending')->where('created_at', '>=', $since)
+                ->whereBetween('date', [$from->toDateString(), $until->toDateString()])
+                ->whereNotExists(fn ($q) => $q->from('workflow_instances')->whereColumn('workflow_instances.subject_id', 'overtime_records.id')
+                    ->where('workflow_instances.subject_type', (new OvertimeRecord)->getMorphClass()))
+                ->with(['employee' => fn ($q) => $q->withoutGlobalScopes()])->get();
+            foreach (Workflow::startMany('overtime', $new, fn (OvertimeRecord $o) => [$o->employee, $o->workflowFacts(), $o->summary()], '/time/clock?tab=overtime&status=pending') as $id => $n) {
+                $waiting[$id] = ($waiting[$id] ?? 0) + $n;
+            }
+        }
+        RequestNotifier::workflowWaiting($waiting, 'lembur', '/approvals?type=overtime');
     }
 
     /** The work shift whose start is nearest to $at (time of day), for a day off worked. */
