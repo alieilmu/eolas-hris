@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Support\License\License;
+use App\Support\Modules;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -17,6 +18,7 @@ class IssueLicense extends Command
         {company : nama perusahaan klien}
         {--tier=starter : starter, growth, enterprise atau custom}
         {--max= : jumlah karyawan aktif maksimum (bawaan sesuai tier)}
+        {--modules=core : modul yang dibeli, dipisah koma: core, talent, lms}
         {--support-until= : tanggal akhir support Y-m-d (bawaan: 1 tahun)}
         {--key= : file kunci privat Eolas}
         {--out=license.json : file hasil}';
@@ -45,17 +47,25 @@ class IssueLicense extends Command
 
             return self::FAILURE;
         }
+        $asked = array_filter(array_map('trim', explode(',', (string) $this->option('modules'))));
+        if ($unknown = array_diff($asked, Modules::keys())) {
+            $this->error('Modul tidak dikenal: '.implode(', ', $unknown).'. Pilihan: '.implode(', ', Modules::keys()));
+
+            return self::FAILURE;
+        }
+        $modules = Modules::normalize($asked);
         $until = $this->option('support-until') ? CarbonImmutable::parse($this->option('support-until')) : CarbonImmutable::today()->addYear();
         $payload = [
             'license_id' => 'EOL-'.strtoupper(Str::random(8)),
             'company' => (string) $this->argument('company'),
             'tier' => $tier,
             'max_employees' => $max,
+            'modules' => $modules,
             'support_until' => $until->toDateString(),
             'issued_at' => CarbonImmutable::now()->toDateString(),
         ];
         file_put_contents($this->option('out'), License::sign($payload, trim(file_get_contents($keyFile))));
-        $this->info("Lisensi {$payload['license_id']} untuk {$payload['company']}: {$max} karyawan, support s.d. {$payload['support_until']} → ".$this->option('out'));
+        $this->info("Lisensi {$payload['license_id']} untuk {$payload['company']}: {$max} karyawan, modul ".implode('+', $modules).", support s.d. {$payload['support_until']} → ".$this->option('out'));
 
         return self::SUCCESS;
     }

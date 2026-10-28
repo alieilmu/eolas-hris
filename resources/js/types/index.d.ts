@@ -66,6 +66,8 @@ export interface NavItem {
     setupOnly?: boolean;
     /** Only in a client installation (the license). */
     clientOnly?: boolean;
+    /** The add-on package (Modules) that brings this item; none = Core. */
+    module?: 'talent' | 'lms';
 }
 
 export interface NavModule {
@@ -84,6 +86,8 @@ declare module '@inertiajs/core' {
             /** Sesi awal of this workspace (Super Admin only): pending | completed | dismissed, or null when there is none. */
             setup: 'pending' | 'completed' | 'dismissed' | null;
             edition: 'saas' | 'client';
+            /** The packages this installation may use: core, talent, lms. */
+            modules: string[];
         };
         /** One-off messages set with Inertia::flash() before a redirect. */
         flashDataType: {

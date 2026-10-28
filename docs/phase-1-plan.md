@@ -68,6 +68,12 @@ Tanggal mengikuti peta jalan (Fase 1 mulai Januari 2027). Bila minggu 0 selesai 
 
 **Selesai bila:** lisensi `core` saja menyembunyikan menu modul tambahan, dan satu pengajuan uji bisa melewati alur 2 langkah (atasan → HR) di test.
 
+**Status 28 Okt 2026: selesai** (dikerjakan lebih awal dari jadwal Januari).
+- Lisensi: `App\Support\Modules` (`core`, `talent`, `lms`); menu add-on tertutup lewat `User::menuLevel`, jadi sidebar, rute `menu:` dan halaman awal ikut tertutup; middleware `module:<nama>`; prop `modules` untuk sidebar dan portal (`module` di item menu); `eolas:license:issue --modules=core,talent`; halaman Lisensi dan `eolas:license:check` menampilkan modul. Talent dan LMS belum punya menu; menunya didaftarkan di `Modules::MENUS` saat Fase 2–3.
+- Workflow: tabel `workflow_definitions/steps/instances/actions`; `App\Support\Workflow\Workflow` (`start`, `approve`, `reject`, `cancel`, `canDecide`, `canCancel`, `of`) dan `Approvers`. Tipe penyetuju: `superior` (nilai = naik N tingkat; 1 = atasan langsung), `position`, `menu`. Penyetuju dihitung saat langkah dimulai (`current_approvers`); keputusan dikunci per baris supaya tidak dobel; pemohon tidak pernah menyetujui pengajuannya sendiri. Jenis tanpa alur otomatis mendapat alur bawaan 1 langkah HR (menu + lokasi). Model pengajuan yang mengimplementasikan `Approvable` diberi tahu saat alur selesai. Semua keputusan masuk Audit Log (grup "Persetujuan").
+- Belum ada modul yang memakai Workflow; migrasi cuti/dinas/lembur di minggu 3.
+- Test: `ModuleLicenseTest` (5), `WorkflowTest` (7); total 226 test lolos.
+
 ## Minggu 2 — Syarat, notifikasi, kotak persetujuan
 
 - Syarat per langkah: nominal (klaim, pinjaman), jumlah hari (cuti, dinas), lokasi, jenis cuti/klaim, golongan jabatan. Contoh: klaim di atas Rp5 juta menambah langkah direktur.

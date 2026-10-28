@@ -11,7 +11,7 @@ use Throwable;
 
 /**
  * The audit log of sensitive actions (Administrasi → Audit Log): salary data and payroll runs,
- * exports and imports of employee data, passwords and two-factor sign-in. Writing it never
+ * exports and imports of employee data, decisions on pengajuan (Workflow), passwords and two-factor sign-in. Writing it never
  * stops the action itself.
  */
 class Audit
@@ -64,6 +64,12 @@ class Audit
             'payroll.loan_paid_off' => 'Pinjaman dilunasi',
             'salary.changed' => 'Data gaji diubah',
             'salary.deleted' => 'Riwayat gaji dihapus',
+        ],
+        'Persetujuan' => [
+            'workflow.started' => 'Pengajuan masuk alur persetujuan',
+            'workflow.approved' => 'Pengajuan disetujui',
+            'workflow.rejected' => 'Pengajuan ditolak',
+            'workflow.cancelled' => 'Pengajuan dibatalkan pemohon',
         ],
         'Data karyawan' => [
             'employees.export' => 'Data karyawan diekspor',

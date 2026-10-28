@@ -3,13 +3,15 @@
 namespace App\Support\License;
 
 use App\Models\Employee;
+use App\Support\Modules;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\File;
 
 /**
  * The license of a client installation: a JSON file {"payload": base64 JSON, "signature":
  * base64} signed by Eolas with Ed25519. The payload names the company, the tier, the most
- * active employees allowed and until when support (updates) runs. Without a valid license the
+ * active employees allowed, the modules bought (Modules; none named = Core only) and until when
+ * support (updates) runs. Without a valid license the
  * client edition opens only the license page; past the support date it keeps working but takes
  * no updates.
  */
@@ -55,7 +57,7 @@ class License
     /**
      * The license as checked: ['valid' => bool, 'reason' => ?string, ...payload].
      *
-     * @return array{valid: bool, reason: ?string, license_id?: string, company?: string, tier?: string, max_employees?: int, support_until?: string, issued_at?: string}
+     * @return array{valid: bool, reason: ?string, license_id?: string, company?: string, tier?: string, max_employees?: int, modules?: list<string>, support_until?: string, issued_at?: string}
      */
     public static function check(?string $contents = null): array
     {
@@ -132,6 +134,7 @@ class License
             'max_employees' => isset($l['max_employees']) ? (int) $l['max_employees'] : null, 'active_employees' => $used,
             'support_until' => $l['support_until'] ?? null, 'issued_at' => $l['issued_at'] ?? null,
             'supported' => self::supported(),
+            'modules' => $l['valid'] ? array_map(fn (string $m) => ['key' => $m, 'label' => Modules::LABELS[$m]], Modules::normalize($l['modules'] ?? null)) : [],
         ];
     }
 }

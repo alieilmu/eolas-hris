@@ -1,5 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
-import { AlertTriangle, BadgeCheck, FileKey, Loader2, Upload } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, FileKey, Loader2, Lock, Upload } from 'lucide-react';
 import { AttendanceHeader, primaryButton } from '@/components/time/ui';
 
 interface Summary {
@@ -14,7 +14,10 @@ interface Summary {
     support_until: string | null;
     issued_at: string | null;
     supported: boolean;
+    modules: { key: string; label: string }[];
 }
+
+const ADDONS: Record<string, string> = { talent: 'Talent (KPI, Kompetensi, Jalur Karier, Suksesi)', lms: 'LMS (Kursus, Ujian, Sertifikat)' };
 
 /** Administrasi → Lisensi (client installation): the license in use, the employee count against it, a new license file. */
 export default function License({ license, can_upload }: { license: Summary; can_upload: boolean }) {
@@ -57,6 +60,23 @@ export default function License({ license, can_upload }: { license: Summary; can
                                             : 'Hampir mencapai batas lisensi. Karyawan baru tidak bisa ditambahkan setelah batas tercapai; hubungi Eolas untuk menambah kapasitas.'}
                                     </p>
                                 )}
+                            </div>
+                            <div>
+                                <p className="text-sm text-slate-500">Modul</p>
+                                <ul className="mt-1.5 space-y-1 text-sm">
+                                    {license.modules.map((m) => (
+                                        <li key={m.key} className="flex items-center gap-2 font-semibold text-slate-700">
+                                            <BadgeCheck size={15} className="text-brand-600" /> {m.label}
+                                        </li>
+                                    ))}
+                                    {Object.entries(ADDONS)
+                                        .filter(([key]) => !license.modules.some((m) => m.key === key))
+                                        .map(([key, label]) => (
+                                            <li key={key} className="flex items-center gap-2 text-slate-400">
+                                                <Lock size={14} /> {label} · belum termasuk lisensi
+                                            </li>
+                                        ))}
+                                </ul>
                             </div>
                             <div className={`rounded-xl px-3 py-2 text-sm ${license.supported ? 'bg-brand-50 text-brand-800' : 'bg-amber-50 text-amber-800'}`}>
                                 {license.supported

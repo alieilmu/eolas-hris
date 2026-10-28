@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Support\Audit\Audit;
 use App\Support\Edition;
 use App\Support\License\License;
+use App\Support\Modules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -38,7 +39,7 @@ class LicenseController extends Controller
         File::ensureDirectoryExists(dirname(License::path()));
         File::put(License::path(), $contents);
         License::forget();
-        Audit::log('license.installed', null, "{$checked['license_id']} · {$checked['company']} · {$checked['max_employees']} karyawan · support s.d. {$checked['support_until']}");
+        Audit::log('license.installed', null, "{$checked['license_id']} · {$checked['company']} · {$checked['max_employees']} karyawan · modul ".implode('+', Modules::normalize($checked['modules'] ?? null))." · support s.d. {$checked['support_until']}");
         Inertia::flash('success', "Lisensi {$checked['company']} terpasang.");
 
         return redirect()->route('settings.license');

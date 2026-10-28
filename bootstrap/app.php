@@ -7,6 +7,7 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\MenuAccess;
 use App\Http\Middleware\RequireTwoFactor;
 use App\Http\Middleware\EnsureLicensed;
+use App\Http\Middleware\EnsureModule;
 use App\Http\Middleware\SaasOnly;
 use App\Http\Middleware\TwoFactorChallenge;
 use App\Http\Middleware\UseTenant;
@@ -46,6 +47,8 @@ return Application::configure(basePath: dirname(__DIR__))
             // Client edition: a license is needed; the demo service's pages are not there.
             'licensed' => EnsureLicensed::class,
             'saas' => SaasOnly::class,
+            // module:talent — an add-on package the license must include.
+            'module' => EnsureModule::class,
         ]);
         // The demo workspace is opened right after the session starts, before anyone is authenticated.
         $middleware->prependToPriorityList(before: \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class, prepend: UseTenant::class);

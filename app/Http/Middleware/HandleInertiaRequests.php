@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Branding;
 use App\Models\User;
 use App\Models\WorkspaceSetup;
+use App\Support\Modules;
 use App\Support\Tenancy\Tenant;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -51,6 +52,8 @@ class HandleInertiaRequests extends Middleware
             'setup' => fn () => $user?->isAdmin() ? WorkspaceSetup::current()?->status : null,
             // "client": a company's own installation (license page, no demo pages).
             'edition' => config('eolas.edition'),
+            // The packages this installation may use (Modules): menus of the others stay hidden.
+            'modules' => fn () => Modules::active(),
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,

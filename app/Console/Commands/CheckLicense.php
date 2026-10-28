@@ -20,7 +20,7 @@ class CheckLicense extends Command
 
             return self::FAILURE;
         }
-        $this->line("{$s['license_id']} · {$s['company']} · {$s['active_employees']}/{$s['max_employees']} karyawan aktif · support s.d. {$s['support_until']}");
+        $this->line("{$s['license_id']} · {$s['company']} · {$s['active_employees']}/{$s['max_employees']} karyawan aktif · modul ".implode('+', array_column($s['modules'], 'key'))." · support s.d. {$s['support_until']}");
         if ($this->option('for-update') && ! $s['supported']) {
             $this->error('Masa support sudah berakhir: perpanjang support untuk mendapat update.');
 

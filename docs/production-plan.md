@@ -120,7 +120,7 @@ Penamaan tabel dan kode mengikuti refactor (English); teks UI tetap Bahasa Indon
 |---|---|
 | **Edisi klien** | `EOLAS_EDITION=client`: satu perusahaan, tanpa landing, `/demo`, trial, maupun workspace. Login langsung ke sesi awal. |
 | **Lisensi** | File `license.json` ditandatangani Ed25519 (`sodium`). Isinya: nama perusahaan, tier, batas karyawan aktif, dan masa support. Public key ditanam di aplikasi; private key hanya di tim Production.<ul><li>Karyawan melebihi batas → tidak bisa menambah karyawan.</li><li>Support habis → aplikasi tetap jalan, tetapi update ditolak.</li><li>Banner di Pengaturan.</li></ul> |
-| **Generator lisensi** | Perintah internal `eolas:license:issue` (tidak ikut dikirim ke klien). |
+| **Generator lisensi** | Perintah internal `eolas:license:issue` (tidak ikut dikirim ke klien). Modul yang dibeli: `--modules=core,talent,lms` (bawaan `core`). |
 | **Installer** | `install.sh` untuk Ubuntu 22.04/24.04 dan Debian 12:<ul><li>cek spesifikasi;</li><li>pasang Docker;</li><li>buat `.env` dan password acak;</li><li>pasang lisensi;</li><li>`docker compose up`;</li><li>HTTPS (Caddy/Let's Encrypt atau sertifikat klien).</li></ul> |
 | **Distribusi** | Image Docker siap pakai (`docker save` tarball atau registry privat). Klien tidak build dari source. |
 | **Backup & update** | `eolas-backup` harian (mysqldump + storage, retensi 7/4/6). `eolas-update`: backup otomatis → ganti image → migrate → cek kesehatan → rollback bila gagal. |

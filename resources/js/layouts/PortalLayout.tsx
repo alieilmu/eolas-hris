@@ -4,7 +4,8 @@ import { Award, HandCoins, Home, KeyRound, LogOut, ReceiptText, UserPen } from '
 import { BrandLogo, brandLine, useBranding } from '@/components/BrandLogo';
 import { FlashToast } from '@/components/FlashToast';
 
-const NAV = [
+// module: an add-on package (Modules) the license must include; none = Core.
+const NAV: { href: string; label: string; icon: typeof Home; module?: 'talent' | 'lms' }[] = [
     { href: '/self-service', label: 'Beranda', icon: Home },
     { href: '/self-service/payslips', label: 'Slip Gaji', icon: ReceiptText },
     { href: '/self-service/loans', label: 'Pinjaman', icon: HandCoins },
@@ -14,7 +15,8 @@ const NAV = [
 
 /** Portal Karyawan: a simple top bar instead of the admin sidebar; on a phone the menu is a row of tabs under it. */
 export default function PortalLayout({ children }: { children: ReactNode }) {
-    const { auth } = usePage().props;
+    const { auth, modules } = usePage().props;
+    const nav = NAV.filter((item) => !item.module || modules.includes(item.module));
     const url = usePage().url.split('?')[0];
     const user = auth.user;
     const branding = useBranding();
@@ -31,7 +33,7 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                         </div>
                     </Link>
                     <nav className="ml-4 hidden items-center gap-1 sm:flex">
-                        {NAV.map((item) => (
+                        {nav.map((item) => (
                             <Link
                                 key={item.href}
                                 href={item.href}
@@ -68,7 +70,7 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                 </div>
                 {/* Phone: the menu as tabs. */}
                 <nav className="grid grid-cols-2 gap-1 border-t border-slate-100 px-3 py-1.5 sm:hidden">
-                    {NAV.map((item) => (
+                    {nav.map((item) => (
                         <Link
                             key={item.href}
                             href={item.href}

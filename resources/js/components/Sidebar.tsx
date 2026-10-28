@@ -22,6 +22,7 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
         !(item.setupOnly && !props.setup) &&
         !(item.clientOnly && props.edition !== 'client') &&
         !(item.centralOnly && props.edition === 'client') &&
+        !(item.module && !props.modules.includes(item.module)) &&
         (!item.menu ||
             (item.menu === 'settings' ? props.auth.can.manageUsers : [item.menu].flat().some((m) => props.auth.menus?.[m] !== undefined)));
     const modules = allModules

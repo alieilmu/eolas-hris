@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Support\Access\Menu;
+use App\Support\Modules;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -83,6 +84,11 @@ class User extends Authenticatable
     /** "edit", "view" or null for a menu (see Menu). */
     public function menuLevel(string $menu): ?string
     {
+        // A menu of an add-on the license does not include is closed to everyone.
+        if (! Modules::menuEnabled($menu)) {
+            return null;
+        }
+
         return match ($this->role) {
             self::ROLE_ADMIN => Menu::EDIT,
             self::ROLE_HR => $this->permissions[$menu] ?? null,

@@ -68,6 +68,7 @@ class ClientEditionTest extends TestCase
         $this->post('/demo', [])->assertNotFound();
         $this->get('/login')->assertInertia(fn (Assert $p) => $p->where('client_edition', true)->where('edition', 'client'));
         file_put_contents($this->path, $this->license());
+        License::forget();
         $this->actingAs($this->admin())->withSession([TwoFactor::SESSION_PASSED => true])->get('/settings/trial-accounts')->assertNotFound();
     }
 
