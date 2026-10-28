@@ -13,6 +13,7 @@ use App\Support\Compensation\BenefitEntitlement;
 use App\Support\Compensation\Usage;
 use App\Support\Excel\TableExcel;
 use App\Support\Attachments\Attachments;
+use App\Support\Workflow\Workflow;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -43,12 +44,13 @@ class BenefitClaimController extends Controller
         $benefit_claims = self::query($filters)
             ->with(['employee.position', 'employee.jobLevel', 'items.children', 'attachments'])
             // Waiting for HR first.
-            ->orderByRaw("case when status = 'diajukan' then 0 else 1 end")
+            ->orderByRaw("case when status = 'pending' then 0 else 1 end")
             ->orderByDesc('date')
             ->orderByDesc('id')
             ->paginate(15)
-            ->withQueryString()
-            ->through(fn (BenefitClaim $d) => self::row($d));
+            ->withQueryString();
+        $flows = Workflow::pendingOf(BenefitClaim::class, $benefit_claims->getCollection()->where('status', 'pending')->pluck('id'));
+        $benefit_claims->through(fn (BenefitClaim $d) => self::row($d) + ['workflow' => Workflow::brief($flows->get($d->id), $request->user())]);
 
         $today = CarbonImmutable::today();
         $current = AccountingMonth::of($today);
@@ -246,6 +248,16 @@ class BenefitClaimController extends Controller
             throw ValidationException::withMessages(['decision' => "Deklarasi {$claim->claim_number} sudah diverifikasi."]);
         }
         $approve = $data['decision'] === 'approve';
+        // In a Workflow: this account's step decided there (the last approval checks the plafon).
+        if (($done = Workflow::verify($claim, $request->user(), $approve, $data['notes'] ?? null)) !== null) {
+            Inertia::flash('success', "Deklarasi {$claim->claim_number} ".match (true) {
+                ! $approve => 'ditolak.',
+                $done => 'disetujui.',
+                default => 'disetujui; lanjut ke langkah berikutnya.',
+            });
+
+            return back();
+        }
         if ($approve) {
             $employee = Employee::with(self::RELATIONS)->findOrFail($claim->employee_id);
             $items = $claim->items->map(fn (BenefitClaimItem $i) => $i->only(['type', 'beneficiary', 'employee_child_id', 'amount']))->all();

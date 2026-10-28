@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * One pengajuan going through its flow: the step it is at and who may decide it there
  * (current_approvers, user ids worked out when the step began), or how it ended.
  */
-#[Fillable(['workflow_definition_id', 'subject_type', 'subject_id', 'employee_id', 'current_step', 'current_approvers', 'status', 'started_by', 'completed_at', 'facts', 'summary', 'url'])]
+#[Fillable(['workflow_definition_id', 'subject_type', 'subject_id', 'employee_id', 'current_step', 'current_approvers', 'step_started_at', 'reminded_at', 'escalated_at', 'status', 'started_by', 'completed_at', 'facts', 'summary', 'url'])]
 class WorkflowInstance extends Model
 {
     public const PENDING = 'pending';
@@ -27,7 +27,8 @@ class WorkflowInstance extends Model
 
     protected function casts(): array
     {
-        return ['current_approvers' => 'array', 'facts' => 'array', 'current_step' => 'integer', 'completed_at' => 'datetime'];
+        return ['current_approvers' => 'array', 'facts' => 'array', 'current_step' => 'integer', 'completed_at' => 'datetime',
+            'step_started_at' => 'datetime', 'reminded_at' => 'datetime', 'escalated_at' => 'datetime'];
     }
 
     public function definition(): BelongsTo

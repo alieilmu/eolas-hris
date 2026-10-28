@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Candidate;
 use App\Models\CandidateNote;
 use App\Models\Employee;
+use App\Models\JobOffer;
+use App\Models\Position;
 use App\Models\RecruitmentStage;
 use App\Models\CandidateStageHistory;
 use App\Support\Employees\EmployeeFormOptions;
@@ -199,10 +201,13 @@ class PipelineController extends Controller
     }
 
     /** Everything about one candidate for the detail window. */
-    public function show(Candidate $candidate): JsonResponse
+    public function show(Request $request, Candidate $candidate): JsonResponse
     {
-        $candidate->load(['notes', 'statusHistories', 'employee:id,employee_number,name,candidate_id', 'applicant.form:id,title,position_id', 'applicant.form.position:id,name,work_location_id', 'stage:id,title,color']);
+        $candidate->load(['notes', 'statusHistories', 'employee:id,employee_number,name,candidate_id', 'applicant.form:id,title,position_id', 'applicant.form.position:id,name,work_location_id', 'stage:id,title,color', 'offers']);
         $last = RecruitmentStage::orderByDesc('sort_order')->value('id');
+        // The offer approved last: the candidate is hired into its position.
+        $offer = $candidate->offers->firstWhere('status', 'approved');
+        $offered = $offer?->position_id ? Position::find($offer->position_id) : null;
 
         return response()->json([
             'id' => $candidate->id,
@@ -219,7 +224,11 @@ class PipelineController extends Controller
             'employee' => $candidate->employee ? ['id' => $candidate->employee->id, 'employee_number' => $candidate->employee->employee_number] : null,
             'form' => $candidate->applicant?->form?->title,
             // A vacancy opened from Man Power Planning: hired into that position.
-            'job_position' => ($j = $candidate->applicant?->form?->position) ? ['id' => $j->id, 'name' => $j->name, 'work_location_id' => $j->work_location_id] : null,
+            'job_position' => ($j = $offered ?? $candidate->applicant?->form?->position) ? ['id' => $j->id, 'name' => $j->name, 'work_location_id' => $offer?->work_location_id ?? $j->work_location_id] : null,
+            'hire_date' => $offer?->start_date?->toDateString(),
+            'offers' => $candidate->offers->map(fn (JobOffer $o) => JobOfferController::share($o, $request->user()))->values(),
+            'offer_positions' => Position::with('workLocation:id,name')->orderBy('name')->get(['id', 'name', 'work_location_id'])
+                ->map(fn (Position $p) => ['id' => $p->id, 'label' => $p->name.($p->workLocation ? " · {$p->workLocation->name}" : ''), 'work_location_id' => $p->work_location_id]),
             'answers' => $candidate->applicant ? Application::view($candidate->applicant) : [],
             'notes' => $candidate->notes->map(fn (CandidateNote $n) => ['id' => $n->id, 'author' => $n->author, 'content' => $n->content, 'created_at' => $n->created_at->toIso8601String()]),
             'history' => $candidate->statusHistories->map(fn (CandidateStageHistory $h) => ['from' => $h->from, 'to' => $h->to, 'by' => $h->changed_by, 'created_at' => $h->created_at->toIso8601String()]),
@@ -282,6 +291,9 @@ class PipelineController extends Controller
     {
         if ($candidate->employee()->exists()) {
             throw ValidationException::withMessages(['employee_number' => "{$candidate->name} sudah menjadi karyawan."]);
+        }
+        if ($candidate->offers()->where('status', 'pending')->exists()) {
+            throw ValidationException::withMessages(['employee_number' => "Penawaran {$candidate->name} masih menunggu persetujuan."]);
         }
         $request->merge(['employee_number' => EmployeeNumber::normalize($request->input('employee_number'))]);
         $data = $request->validate([

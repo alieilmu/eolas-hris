@@ -49,14 +49,15 @@ class SelfServiceController extends Controller
         $month = AccountingMonth::of($today);
         $trips = LeaveTravelRequest::with(LeaveTravelController::WITH)->where('employee_id', $k->id)->latest('start_date')->limit(20)->get();
         $flows = Workflow::pendingOf(LeaveTravelRequest::class, $trips->pluck('id'));
+        $claims = BenefitClaim::with(['employee.position', 'items.children', 'attachments'])->where('employee_id', $k->id)->latest('date')->latest('id')->limit(20)->get();
+        $claimFlows = Workflow::pendingOf(BenefitClaim::class, $claims->pluck('id'));
 
         return Inertia::render('SelfService/Home', [
             'employee' => BenefitClaimController::identity($k),
             'benefit_limit' => Usage::summary($k, AccountingMonth::year($month)),
             'accounting_month' => ['value' => $month, 'label' => AccountingMonth::label($month), 'span' => AccountingMonth::span($month)],
             'today' => $today->toDateString(),
-            'benefit_claims' => BenefitClaim::with(['employee.position', 'items.children', 'attachments'])->where('employee_id', $k->id)->latest('date')->latest('id')->limit(20)->get()
-                ->map(fn (BenefitClaim $d) => BenefitClaimController::row($d)),
+            'benefit_claims' => $claims->map(fn (BenefitClaim $d) => BenefitClaimController::row($d) + ['workflow' => Workflow::brief($claimFlows->get($d->id), $request->user())]),
             'leave_travel_requests' => $trips->map(fn (LeaveTravelRequest $t) => [...LeaveTravelController::tripData($t, $today),
                 // Where it waits in its approval flow.
                 'workflow' => Workflow::brief($flows->get($t->id), $request->user())]),
@@ -124,11 +125,13 @@ class SelfServiceController extends Controller
             ]);
             $claim->items()->createMany($items);
             Attachments::sync($request, $claim, 'claim');
+            // Its approval flow (by default HR of the location, as before); the first approvers are notified.
+            $notice = $claim->workflowNotice();
+            Workflow::start($claim, 'claim', $claim->employee, $request->user(), $claim->workflowFacts(), "{$notice['title']} {$notice['body']}", $notice['url']);
 
             return $claim;
         });
-        RequestNotifier::claim($claim);
-        Inertia::flash('success', "Deklarasi {$claim->claim_number} terkirim dan menunggu verifikasi HR. Nominalnya sudah ditahan dari sisa plafon.");
+        Inertia::flash('success', "Deklarasi {$claim->claim_number} terkirim dan menunggu persetujuan. Nominalnya sudah ditahan dari sisa plafon.");
 
         return back();
     }

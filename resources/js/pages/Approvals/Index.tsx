@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Check, ChevronDown, ExternalLink, Inbox, Loader2, X } from 'lucide-react';
+import { Check, ChevronDown, ExternalLink, Inbox, Loader2, UserRoundCheck, X } from 'lucide-react';
 import { ApprovalHistory, type ApprovalAction, type ApprovalStep } from '@/components/ApprovalHistory';
 import { AttendanceHeader, Modal, ghostButton, inputClass, primaryButton } from '@/components/time/ui';
+import { DelegationDialog } from '@/components/DelegationDialog';
 
 type Tab = 'pending' | 'decided' | 'mine';
 
@@ -29,6 +30,8 @@ interface Props {
     types: { value: string; label: string }[];
     counts: { pending: number };
     has_own: boolean;
+    /** Approvers this account stands in for today. */
+    acting_for: string[];
     items: Item[];
 }
 
@@ -42,7 +45,7 @@ const STATUS_TONE: Record<Item['status'], string> = {
 const date = (at: string | null) => (at ? new Date(at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 
 /** Persetujuan Saya: pengajuan waiting for this account, decided one by one or many at once; past decisions; own pengajuan. */
-export default function Approvals({ tab, type, types, counts, has_own, items }: Props) {
+export default function Approvals({ tab, type, types, counts, has_own, acting_for, items }: Props) {
     const portal = usePage().props.auth.user?.role === 'employee';
     const [selected, setSelected] = useState<number[]>([]);
     const [open, setOpen] = useState<number | null>(null);
@@ -50,6 +53,7 @@ export default function Approvals({ tab, type, types, counts, has_own, items }: 
     const [notes, setNotes] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    const [delegating, setDelegating] = useState(false);
 
     const go = (params: Record<string, string | null>) =>
         router.get('/approvals', { tab, type, ...params }, { preserveState: false, preserveScroll: true });
@@ -86,6 +90,9 @@ export default function Approvals({ tab, type, types, counts, has_own, items }: 
                         </button>
                     ))}
                 </div>
+                <button onClick={() => setDelegating(true)} className="ml-auto inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold text-slate-600 hover:bg-white">
+                    <UserRoundCheck size={15} /> Delegasi
+                </button>
                 <select value={type ?? ''} onChange={(e) => go({ type: e.target.value || null })} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm">
                     <option value="">Semua jenis</option>
                     {types.map((t) => (
@@ -95,6 +102,12 @@ export default function Approvals({ tab, type, types, counts, has_own, items }: 
                     ))}
                 </select>
             </div>
+
+            {acting_for.length > 0 && (
+                <p className="rounded-2xl bg-sky-50 px-4 py-2.5 text-sm text-sky-800">
+                    Hari ini Anda juga menyetujui atas nama <b>{acting_for.join(', ')}</b> (delegasi).
+                </p>
+            )}
 
             {tab === 'pending' && decidable.length > 1 && (
                 <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-slate-200">
@@ -204,6 +217,7 @@ export default function Approvals({ tab, type, types, counts, has_own, items }: 
                     </main>
                 </>
             )}
+            {delegating && <DelegationDialog onClose={() => (setDelegating(false), router.reload())} />}
             {deciding && (
                 <Modal
                     title={`${deciding.decision === 'approve' ? 'Setujui' : 'Tolak'} ${deciding.ids.length > 1 ? `${deciding.ids.length} pengajuan` : 'pengajuan'}`}

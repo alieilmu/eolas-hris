@@ -128,9 +128,10 @@ class NotificationTest extends TestCase
             ->assertJsonPath('items.0.url', '/compensation/claims?status=pending');
         $this->getJson('/notifications/quantity')->assertJsonPath('latest.type', 'claim');
 
-        // HR approves: it is done for everyone.
+        // HR approves: it is done for everyone; the employee hears the result.
         $this->post("/compensation/claims/{$d->id}/verification", ['decision' => 'approve'])->assertSessionHasNoErrors();
-        $this->assertSame(0, DatabaseNotification::whereNull('read_at')->count());
+        $this->assertSame(0, DatabaseNotification::where('ref', "claim:{$d->id}")->whereNull('read_at')->count());
+        $this->assertSame('Deklarasi Benefit disetujui', $user->unreadNotifications()->sole()->data['title']);
     }
 
     public function test_dinas_and_cuti_go_to_pengajuan_dinas_and_close_when_withdrawn(): void

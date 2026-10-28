@@ -5,6 +5,7 @@ import { LoanSchedule } from '@/components/compensation/LoanSchedule';
 import { LoanFields } from '@/components/compensation/LoanFields';
 import { rupiah } from '@/lib/compensation';
 import { LOAN_TONE, periodLabel, type LoanRow } from '@/lib/loans';
+import { FlowNote } from '@/components/ApprovalHistory';
 
 interface Props {
     loans: LoanRow[];
@@ -63,7 +64,10 @@ export default function Loans({ loans, next_period, max_ratio, has_pending }: Pr
                                     {l.status === 'active' && ` · sisa Rp ${rupiah(l.remaining)}`}
                                 </p>
                             </div>
-                            <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${LOAN_TONE[l.status]}`}>{l.status_label}</span>
+                            <div className="text-right">
+                                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${LOAN_TONE[l.status]}`}>{l.status_label}</span>
+                                {l.workflow && <FlowNote flow={l.workflow} />}
+                            </div>
                         </div>
                         {l.rejection_note && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{l.rejection_note}</p>}
                         <LoanSchedule loan={l} />

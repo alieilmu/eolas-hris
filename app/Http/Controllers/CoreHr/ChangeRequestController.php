@@ -5,6 +5,7 @@ namespace App\Http\Controllers\CoreHr;
 use App\Http\Controllers\Controller;
 use App\Models\EmployeeChangeRequest;
 use App\Support\Employees\DataUpdate;
+use App\Support\Workflow\Workflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,8 +30,10 @@ class ChangeRequestController extends Controller
             ->when(trim($filters['q'] ?? ''), fn ($q, $s) => $q->whereHas('employee', fn ($k) => $k->where('name', 'like', "%{$s}%")->orWhere('employee_number', 'like', "%{$s}%")))
             ->orderBy($status === 'pending' ? 'created_at' : 'verified_at', $status === 'pending' ? 'asc' : 'desc')
             ->paginate(15)
-            ->withQueryString()
-            ->through(fn (EmployeeChangeRequest $p) => DataUpdate::row($p) + ['now' => $status === 'pending' ? $this->now($p) : null]);
+            ->withQueryString();
+        $flows = Workflow::pendingOf(EmployeeChangeRequest::class, $status === 'pending' ? $items->getCollection()->pluck('id') : []);
+        $items->through(fn (EmployeeChangeRequest $p) => DataUpdate::row($p) + ['now' => $status === 'pending' ? $this->now($p) : null,
+            'workflow' => Workflow::brief($flows->get($p->id), $request->user())]);
 
         return Inertia::render('CoreHr/ChangeRequests', [
             'items' => $items,
@@ -51,6 +54,16 @@ class ChangeRequestController extends Controller
             throw ValidationException::withMessages(['decision' => 'Pengajuan ini sudah diverifikasi.']);
         }
         $approve = $data['decision'] === 'approve';
+        // In a Workflow: this account's step decided there (the last approval updates the profile).
+        if (($done = Workflow::verify($submission, $request->user(), $approve, $data['notes'] ?? null)) !== null) {
+            Inertia::flash('success', 'Pengajuan update data '.$submission->employee->name.' '.match (true) {
+                ! $approve => 'ditolak.',
+                $done => 'disetujui; profilnya sudah diperbarui.',
+                default => 'disetujui; lanjut ke langkah berikutnya.',
+            });
+
+            return back();
+        }
 
         DB::transaction(function () use ($submission, $approve, $data, $request) {
             if ($approve) {

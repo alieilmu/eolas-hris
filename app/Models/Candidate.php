@@ -27,6 +27,8 @@ class Candidate extends Model
 
     protected static function booted(): void
     {
+        // Its offers go with it, and their approval flows end.
+        static::deleting(fn (self $m) => $m->offers()->get()->each->delete());
         // A CV HR uploaded goes with the card (one from the application stays with the application).
         static::deleted(function (self $m) {
             if ($m->cv_path && str_starts_with($m->cv_path, 'recruitment/candidate/')) {
@@ -53,6 +55,11 @@ class Candidate extends Model
     public function statusHistories(): HasMany
     {
         return $this->hasMany(CandidateStageHistory::class)->latest();
+    }
+
+    public function offers(): HasMany
+    {
+        return $this->hasMany(JobOffer::class)->latest('id');
     }
 
     public function employee(): HasOne

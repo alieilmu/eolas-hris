@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * whether one approver is enough ("any") or all of them must agree ("all").
  * approver_value: the levels to climb (superior), a position id (position) or a menu (menu).
  */
-#[Fillable(['workflow_definition_id', 'sequence', 'name', 'approver_type', 'approver_value', 'conditions', 'mode'])]
+#[Fillable(['workflow_definition_id', 'sequence', 'name', 'approver_type', 'approver_value', 'conditions', 'mode', 'due_days'])]
 class WorkflowStep extends Model
 {
     public const ANY = 'any';
@@ -22,7 +22,7 @@ class WorkflowStep extends Model
 
     protected function casts(): array
     {
-        return ['conditions' => 'array', 'sequence' => 'integer'];
+        return ['conditions' => 'array', 'sequence' => 'integer', 'due_days' => 'integer'];
     }
 
     public function definition(): BelongsTo

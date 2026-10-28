@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /** One decision on a pengajuan in its flow: who, at which step, what, with which note. */
-#[Fillable(['workflow_instance_id', 'step', 'user_id', 'user_name', 'decision', 'notes', 'created_at'])]
+#[Fillable(['workflow_instance_id', 'step', 'user_id', 'on_behalf_of', 'user_name', 'decision', 'notes', 'created_at'])]
 class WorkflowAction extends Model
 {
     public const UPDATED_AT = null;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
+import { FlowNote } from '@/components/ApprovalHistory';
 import { Check, ChevronLeft, ChevronRight, ExternalLink, Eye, Search, UserPen, X } from 'lucide-react';
 import { AttendanceHeader, Modal, ghostButton, smallInput } from '@/components/time/ui';
 import { ChangesTable } from '@/components/profile/ChangesTable';
@@ -158,6 +159,7 @@ export default function ChangeRequests({ items, filters, counts, fields, can_edi
                                             <p className="text-xs font-bold text-slate-700">{row.quantity} perubahan</p>
                                             <p className="text-[11px] text-slate-500">{summary(row)}</p>
                                             {row.notes && <p className="mt-0.5 text-[11px] text-slate-400 italic">“{row.notes}”</p>}
+                                            {row.workflow && <FlowNote flow={row.workflow} />}
                                             {row.now && Object.keys(row.now).length > 0 && (
                                                 <p className="mt-0.5 text-[11px] font-bold text-amber-700">
                                                     Sebagian data sudah diubah HR setelah diajukan
@@ -223,7 +225,7 @@ export default function ChangeRequests({ items, filters, counts, fields, can_edi
                                 <ExternalLink size={14} /> Buka profil
                             </Link>
                             {open.attachment.length > 0 && <AttachmentButton files={open.attachment} title={`Dokumen ${open.name}`} />}
-                            {open.status === 'pending' && can_edit && (
+                            {open.status === 'pending' && can_edit && (!open.workflow || open.workflow.can_decide) && (
                                 <>
                                     <button
                                         onClick={() => decide(open, 'reject')}

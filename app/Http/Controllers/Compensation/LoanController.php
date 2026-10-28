@@ -12,9 +12,11 @@ use App\Support\Notifications\RequestNotifier;
 use App\Support\Payroll\Loans;
 use App\Support\Payroll\PayrollPeriod;
 use App\Support\Payroll\PayrollPeriods;
+use App\Support\Workflow\Workflow;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -36,8 +38,10 @@ class LoanController extends Controller
             ->orderByRaw("case status when 'pending' then 0 when 'active' then 1 else 2 end")->orderByDesc('id')->get();
         $user = $request->user();
 
+        $flows = Workflow::pendingOf(Loan::class, $loans->where('status', 'pending')->pluck('id'));
+
         return Inertia::render('Compensation/Loans', [
-            'loans' => $loans->map(fn (Loan $l) => self::share($l) + ['own' => $l->created_by === $user->id]),
+            'loans' => $loans->map(fn (Loan $l) => self::share($l) + ['own' => $l->created_by === $user->id, 'workflow' => Workflow::brief($flows->get($l->id), $user)]),
             'status' => $status,
             'statuses' => Loan::STATUS,
             'employees' => Employee::query()->where('status', '!=', Employee::STATUS_TERMINATED)->orderBy('name')->get(['id', 'employee_number', 'name'])
@@ -52,7 +56,12 @@ class LoanController extends Controller
     {
         $data = self::validated($request);
         $employee = Employee::findOrFail($request->integer('employee_id')); // scoped
-        $loan = Loan::create($data + ['employee_id' => $employee->id, 'status' => 'pending', 'source' => 'hr', 'created_by' => $request->user()->id]);
+        $loan = DB::transaction(function () use ($data, $employee, $request) {
+            $loan = Loan::create($data + ['employee_id' => $employee->id, 'status' => 'pending', 'source' => 'hr', 'created_by' => $request->user()->id]);
+            $loan->startWorkflow($request->user());
+
+            return $loan;
+        });
         Audit::log('payroll.loan_created', $loan, "{$employee->employee_number} {$employee->name} · Rp ".number_format($loan->principal, 0, ',', '.')." × {$loan->tenor} bln");
         Inertia::flash('success', 'Pinjaman dicatat, menunggu persetujuan.');
 
@@ -64,6 +73,12 @@ class LoanController extends Controller
         $this->assertVisible($loan);
         abort_unless($loan->status === 'pending', 422);
         abort_if($loan->created_by === $request->user()->id && ! $request->user()->isAdmin(), 403, 'Pinjaman yang Anda catat disetujui oleh akun lain.');
+        // In a Workflow: this account's step decided there (the last approval activates it).
+        if (($done = Workflow::verify($loan, $request->user(), true, null)) !== null) {
+            Inertia::flash('success', $done ? "Pinjaman disetujui: {$loan->tenor} angsuran mulai ".PayrollPeriod::fromCode($loan->start_period, 31)->label().'.' : 'Pinjaman disetujui; lanjut ke langkah berikutnya.');
+
+            return back();
+        }
         Loans::assertAffordable($loan->employee, $loan->installment, $loan);
         if (PayrollPeriods::closed($loan->employee, $loan->start_period)) {
             throw ValidationException::withMessages(['tenor' => 'Gaji periode mulai sudah disetujui. Ubah periode mulai ke periode berikutnya.']);
@@ -81,6 +96,11 @@ class LoanController extends Controller
         $this->assertVisible($loan);
         abort_unless($loan->status === 'pending', 422);
         $note = $request->validate(['note' => ['required', 'string', 'max:255']])['note'];
+        if (Workflow::verify($loan, $request->user(), false, $note) !== null) {
+            Inertia::flash('success', 'Pinjaman ditolak.');
+
+            return back();
+        }
         $loan->update(['status' => 'rejected', 'rejection_note' => $note]);
         RequestNotifier::close("loan:{$loan->id}");
         Audit::log('payroll.loan_rejected', $loan, $note);
@@ -95,6 +115,9 @@ class LoanController extends Controller
         $this->assertVisible($loan);
         abort_unless($loan->status === 'pending', 422);
         $loan->update(self::validated($request));
+        // The amount its flow's conditions look at.
+        $flow = Workflow::of($loan);
+        $flow?->isPending() && $flow->update(['facts' => [...($flow->facts ?? []), ...$loan->workflowFacts()]]);
         Inertia::flash('success', 'Pinjaman diperbarui.');
 
         return back();

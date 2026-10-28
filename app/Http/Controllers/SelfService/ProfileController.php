@@ -9,7 +9,7 @@ use App\Support\Employees\DataUpdate;
 use App\Support\Employees\LookupValues;
 use App\Support\Employees\ProfileSections;
 use App\Support\Attachments\Attachments;
-use App\Support\Notifications\RequestNotifier;
+use App\Support\Workflow\Workflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,7 +39,9 @@ class ProfileController extends Controller
                 'child_employment_status' => ProfileSections::STATUS_BEKERJA_ANAK,
                 'child_marital_status' => ProfileSections::STATUS_MENIKAH_ANAK,
             ],
-            'pending' => ($pending = $history->firstWhere('status', 'pending')) ? DataUpdate::row($pending) : null,
+            'pending' => ($pending = $history->firstWhere('status', 'pending'))
+                ? DataUpdate::row($pending) + ['workflow' => Workflow::brief(Workflow::pendingOf(EmployeeChangeRequest::class, [$pending->id])->first(), $request->user())]
+                : null,
             'history' => $history->where('status', '!=', 'pending')->map(fn (EmployeeChangeRequest $p) => DataUpdate::row($p))->values(),
             'attachment_limits' => Attachments::limits(),
         ]);
@@ -65,18 +67,23 @@ class ProfileController extends Controller
                 'created_by' => $request->user()->id,
             ]);
             Attachments::sync($request, $p, 'data-change-requests');
+            // Its approval flow (by default HR of the location, as before); the first approvers are notified.
+            $notice = $p->workflowNotice();
+            Workflow::start($p, 'data-change', $k, $request->user(), [], ucfirst($notice['body']), $notice['url']);
 
             return $p;
         });
-        RequestNotifier::updateData($p);
-        Inertia::flash('success', 'Pengajuan update data terkirim ('.(count($changes) + count($children)).' perubahan). Data berubah setelah disetujui HR.');
+        Inertia::flash('success', 'Pengajuan update data terkirim ('.(count($changes) + count($children)).' perubahan). Data berubah setelah disetujui.');
 
         return back();
     }
 
     public function cancel(Request $request, int $id): RedirectResponse
     {
-        EmployeeChangeRequest::where('employee_id', $request->user()->employee_id)->where('status', 'pending')->findOrFail($id)->delete();
+        $p = EmployeeChangeRequest::where('employee_id', $request->user()->employee_id)->where('status', 'pending')->findOrFail($id);
+        // In a Workflow: withdrawn there (which removes it); from before Workflow: removed here.
+        $flow = Workflow::of($p);
+        $flow?->isPending() ? Workflow::cancel($flow, $request->user()) : $p->delete();
         Inertia::flash('success', 'Pengajuan update data dibatalkan.');
 
         return back();

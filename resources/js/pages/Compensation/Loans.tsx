@@ -4,6 +4,7 @@ import { Check, Loader2, Plus, Search, Trash2, Wallet, X } from 'lucide-react';
 import { AttendanceHeader, Field, Modal, ghostButton, inputClass, primaryButton, secondaryButton, smallInput } from '@/components/time/ui';
 import { LoanSchedule } from '@/components/compensation/LoanSchedule';
 import { LoanFields } from '@/components/compensation/LoanFields';
+import { FlowNote } from '@/components/ApprovalHistory';
 import { rupiah } from '@/lib/compensation';
 import { LOAN_TONE, periodLabel, periodsFrom, type LoanRow } from '@/lib/loans';
 
@@ -90,7 +91,10 @@ export default function Loans({ loans, status, statuses, employees, next_period,
                                         <h2 className="text-lg font-bold text-slate-800">{loan.name}</h2>
                                         <p className="text-sm text-slate-500">{loan.purpose ?? 'Tanpa keterangan keperluan'}</p>
                                     </div>
-                                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${LOAN_TONE[loan.status]}`}>{loan.status_label}</span>
+                                    <div className="text-right">
+                                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${LOAN_TONE[loan.status]}`}>{loan.status_label}</span>
+                                        {loan.workflow && <FlowNote flow={loan.workflow} />}
+                                    </div>
                                 </div>
                                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                                     {[
@@ -107,9 +111,12 @@ export default function Loans({ loans, status, statuses, employees, next_period,
                                 </div>
                                 {loan.rejection_note && <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">Ditolak: {loan.rejection_note}</p>}
                                 <div className="mt-4 flex flex-wrap gap-2">
-                                    {loan.status === 'pending' && can.approve && (!loan.own || can.approve_own) && (
+                                    {loan.status === 'pending' && (loan.workflow ? loan.workflow.can_decide : can.approve) && (!loan.own || can.approve_own) && (
                                         <>
-                                            <button onClick={() => router.post(`${BASE}/${loan.id}/approve`, {}, visit)} className={primaryButton}>
+                                            <button
+                                                onClick={() => router.post(`${BASE}/${loan.id}/approve`, {}, { ...visit, onError: (e) => alert(Object.values(e)[0]) })}
+                                                className={primaryButton}
+                                            >
                                                 <Check size={15} /> Setujui
                                             </button>
                                             <button onClick={() => setDialog({ type: 'reject', loan })} className={secondaryButton}>

@@ -3,6 +3,7 @@
 namespace App\Support\Workflow;
 
 use App\Models\Employee;
+use App\Models\PublicHoliday;
 use App\Models\Position;
 use App\Models\User;
 use App\Models\WorkflowAction;
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 /**
@@ -29,6 +31,8 @@ use InvalidArgumentException;
  * the approvers of each step and, at the end, the employee are notified.
  * A type without a definition gets the default flow: one step for HR with "ubah" on its menu
  * and the employee's location, which is how pengajuan were approved before Workflow.
+ * An approver's delegate (Delegations) decides in their name while the delegation applies; a
+ * step with a time limit (due_days) reminds its approvers, then passes up to their superiors.
  */
 class Workflow
 {
@@ -110,16 +114,21 @@ class Workflow
         // Made in bulk by the system (machine overtime): nobody filed it.
         $by ??= self::$quiet ? null : auth()->user();
         $facts += ['work_location' => $employee->work_location_id, 'job_level' => $employee->job_level_id];
+        // Not an employee yet (a job offer's candidate): its approvers are found from the position offered.
+        if (! $employee->exists) {
+            $facts += ['position' => $employee->position_id];
+        }
 
         return DB::transaction(function () use ($subject, $type, $employee, $by, $definition, $facts, $summary, $url) {
             $instance = WorkflowInstance::create([
                 'workflow_definition_id' => $definition->id, 'subject_type' => $subject->getMorphClass(), 'subject_id' => $subject->getKey(),
-                'employee_id' => $employee->id, 'status' => WorkflowInstance::PENDING, 'started_by' => $by?->id,
+                'employee_id' => $employee->exists ? $employee->id : null, 'status' => WorkflowInstance::PENDING, 'started_by' => $by?->id,
                 'facts' => $facts, 'summary' => $summary, 'url' => $url,
             ]);
             $instance->setRelation('definition', $definition);
             self::record($instance, $by, 'submitted', null);
-            self::$quiet || Audit::log('workflow.started', $subject, self::TYPES[$type]['label']." · {$employee->name} ({$employee->employee_number}) · {$definition->name} v{$definition->version}", ['instance' => $instance->id], $by);
+            $who = $employee->exists ? "{$employee->name} ({$employee->employee_number})" : ($summary ?? '-');
+            self::$quiet || Audit::log('workflow.started', $subject, self::TYPES[$type]['label']." · {$who} · {$definition->name} v{$definition->version}", ['instance' => $instance->id], $by);
             self::advance($instance);
 
             return $instance;
@@ -163,7 +172,7 @@ class Workflow
                     }
                     $rows[] = [
                         'workflow_definition_id' => $definition->id, 'subject_type' => $subject->getMorphClass(), 'subject_id' => $subject->getKey(),
-                        'employee_id' => $employee->id, 'current_step' => $step->sequence, 'current_approvers' => json_encode($approvers),
+                        'employee_id' => $employee->id, 'current_step' => $step->sequence, 'current_approvers' => json_encode($approvers), 'step_started_at' => $now,
                         'status' => WorkflowInstance::PENDING, 'facts' => json_encode($facts), 'summary' => $summary, 'url' => $url,
                         'created_at' => $now, 'updated_at' => $now,
                     ];
@@ -189,9 +198,29 @@ class Workflow
     /** May this account decide the step the pengajuan is at (and not decided it already)? */
     public static function canDecide(WorkflowInstance $instance, User $user): bool
     {
-        return $instance->isPending()
-            && in_array($user->id, array_map('intval', $instance->current_approvers ?? []), true)
-            && ! in_array($user->id, self::approvedAtStep($instance), true);
+        return self::actingFor($instance, $user) !== null;
+    }
+
+    /**
+     * The approver this account decides as at the current step: itself, or an approver it stands
+     * in for today (Delegations) who has not decided yet. Null: not this account's to decide —
+     * also never the employee who asks, nor an account that already approved this step.
+     */
+    public static function actingFor(WorkflowInstance $instance, User $user): ?int
+    {
+        if (! $instance->isPending() || ($instance->employee_id && (int) $user->employee_id === (int) $instance->employee_id)) {
+            return null;
+        }
+        $approved = self::approvedAtStep($instance);
+        if (in_array($user->id, $approved, true)) {
+            return null;
+        }
+        $waiting = array_values(array_diff(array_map('intval', $instance->current_approvers ?? []), $approved));
+        if (in_array($user->id, $waiting, true)) {
+            return $user->id;
+        }
+
+        return collect(Delegations::principalsOf($user))->first(fn (int $p) => in_array($p, $waiting, true));
     }
 
     /** The employee who asks, or whoever filed it for them, may withdraw it while it waits. */
@@ -275,12 +304,37 @@ class Workflow
         ];
     }
 
+    /**
+     * The HR page's verify button on a pengajuan in a Workflow: its step decided by this account,
+     * or a validation error on $field saying which step it waits at. Null: the pengajuan has no
+     * pending flow (from before Workflow), for the module to verify the old way. Else whether the
+     * flow ended with it.
+     */
+    public static function verify(Model $subject, User $user, bool $approve, ?string $notes, string $field = 'decision'): ?bool
+    {
+        $flow = self::of($subject);
+        if (! $flow?->isPending()) {
+            return null;
+        }
+        if (! self::canDecide($flow, $user)) {
+            $brief = self::brief($flow, $user);
+            throw ValidationException::withMessages([$field => "Menunggu langkah \"{$brief['step']}\"".($brief['waiting_for'] ? ': '.implode(', ', $brief['waiting_for']) : '').'.']);
+        }
+        $flow = $approve ? self::approve($flow, $user, $notes) : self::reject($flow, $user, $notes);
+
+        return ! $flow->isPending();
+    }
+
     public static function approve(WorkflowInstance $instance, User $by, ?string $notes = null): WorkflowInstance
     {
         return self::decide($instance, function (WorkflowInstance $i) use ($by, $notes) {
-            abort_unless(self::canDecide($i, $by), 403, 'Anda bukan penyetuju langkah ini.');
+            $as = self::actingFor($i, $by) ?? abort(403, 'Anda bukan penyetuju langkah ini.');
             $step = $i->current_step;
-            self::record($i, $by, 'approved', $notes);
+            $subject = self::subject($i);
+            if ($subject instanceof ChecksDecision) {
+                $subject->workflowCheck($i, $by, self::lastApproval($i));
+            }
+            self::record($i, $by, 'approved', $notes, $as);
             $mode = $i->step()?->mode ?? WorkflowStep::ANY;
             $waiting = array_diff(array_map('intval', $i->current_approvers ?? []), self::approvedAtStep($i));
             if ($mode === WorkflowStep::ALL && $waiting) {
@@ -296,9 +350,9 @@ class Workflow
     public static function reject(WorkflowInstance $instance, User $by, ?string $notes = null): WorkflowInstance
     {
         return self::decide($instance, function (WorkflowInstance $i) use ($by, $notes) {
-            abort_unless(self::canDecide($i, $by), 403, 'Anda bukan penyetuju langkah ini.');
+            $as = self::actingFor($i, $by) ?? abort(403, 'Anda bukan penyetuju langkah ini.');
             $step = $i->current_step;
-            self::record($i, $by, 'rejected', $notes);
+            self::record($i, $by, 'rejected', $notes, $as);
             RequestNotifier::workflowDone($i, $step);
             self::finish($i, WorkflowInstance::REJECTED, $by, $notes);
             self::audit('workflow.rejected', $i, $by, $notes, $step);
@@ -317,22 +371,123 @@ class Workflow
         });
     }
 
+    /**
+     * Hourly (eolas:workflow:escalate): a step waiting longer than its due_days (working days)
+     * reminds the approvers still waiting once; a working day after that it passes up to their
+     * superiors (added to the approvers; in a step all must agree on, in place of the late ones),
+     * or to the Super Admins when nobody is above them. Once per step.
+     *
+     * @return array{reminded: int, escalated: int}
+     */
+    public static function escalate(?CarbonInterface $now = null): array
+    {
+        $now = CarbonImmutable::instance($now ?? now());
+        $done = ['reminded' => 0, 'escalated' => 0];
+        $instances = WorkflowInstance::where('status', WorkflowInstance::PENDING)->whereNotNull('step_started_at')->whereNull('escalated_at')
+            ->whereHas('definition.steps', fn ($q) => $q->whereNotNull('due_days'))->with('definition.steps')->get();
+        if ($instances->isEmpty()) {
+            return $done;
+        }
+        $holidays = PublicHoliday::pluck('date')->map(fn ($d) => substr((string) $d, 0, 10))->flip()->all();
+        foreach ($instances as $instance) {
+            $days = $instance->step()?->due_days;
+            if (! $days) {
+                continue;
+            }
+            $due = self::addWorkdays(CarbonImmutable::instance($instance->step_started_at), $days, $holidays);
+            if ($now->lt($due)) {
+                continue;
+            }
+            if (! $instance->reminded_at) {
+                RequestNotifier::workflowReminder($instance, $days);
+                $instance->update(['reminded_at' => $now]);
+                $done['reminded']++;
+            } elseif ($now->gte(self::addWorkdays($due, 1, $holidays)) && self::passUp($instance, $days, $now)) {
+                $done['escalated']++;
+            }
+        }
+
+        return $done;
+    }
+
+    /** The late step goes to the superiors of whoever has not decided it. */
+    private static function passUp(WorkflowInstance $instance, int $days, CarbonImmutable $now): bool
+    {
+        return DB::transaction(function () use ($instance, $days, $now) {
+            $i = WorkflowInstance::whereKey($instance->id)->lockForUpdate()->first();
+            if (! $i?->isPending() || $i->escalated_at || $i->current_step !== $instance->current_step) {
+                return false;
+            }
+            $i->load('definition.steps');
+            $current = array_map('intval', $i->current_approvers ?? []);
+            $approved = self::approvedAtStep($i);
+            $late = array_values(array_diff($current, $approved));
+            $employee = self::employeeOf($i);
+            $up = collect($late)->flatMap(fn (int $id) => ($u = User::find($id)) ? Approvers::above($u, $employee) : collect())
+                ->pluck('id')->map(fn ($id) => (int) $id)->unique()->diff($current)->values();
+            if ($up->isEmpty()) {
+                $up = User::where('role', User::ROLE_ADMIN)->where('is_active', true)->pluck('id')->map(fn ($id) => (int) $id)
+                    ->reject(fn (int $id) => in_array($id, $current, true) || ($employee->exists && (int) User::find($id)?->employee_id === $employee->id))->values();
+            }
+            if ($up->isEmpty()) {
+                $i->update(['escalated_at' => $now]);
+
+                return false;
+            }
+            $all = ($i->step()?->mode ?? WorkflowStep::ANY) === WorkflowStep::ALL;
+            $approvers = array_values(array_unique([...($all ? array_intersect($current, $approved) : $current), ...$up->all()]));
+            $names = User::whereIn('id', $up)->orderBy('name')->pluck('name')->implode(', ');
+            self::record($i, null, 'escalated', "Lewat batas {$days} hari kerja; diteruskan ke {$names}.");
+            $i->update(['current_approvers' => $approvers, 'escalated_at' => $now]);
+            RequestNotifier::workflowStep($i, $up->all());
+            Audit::log('workflow.escalated', self::subject($i), self::TYPES[$i->definition->type]['label']." · langkah {$i->current_step} lewat {$days} hari kerja → {$names}", ['instance' => $i->id]);
+
+            return true;
+        });
+    }
+
+    /** $days working days (Monday–Friday, not a public holiday) after $from, at the same time. */
+    private static function addWorkdays(CarbonImmutable $from, int $days, array $holidays): CarbonImmutable
+    {
+        $at = $from;
+        while ($days > 0) {
+            $at = $at->addDay();
+            if (! $at->isWeekend() && ! isset($holidays[$at->toDateString()])) {
+                $days--;
+            }
+        }
+
+        return $at;
+    }
+
     /** The latest flow a pengajuan went through. */
     public static function of(Model $subject): ?WorkflowInstance
     {
         return WorkflowInstance::where('subject_type', $subject->getMorphClass())->where('subject_id', $subject->getKey())->latest('id')->first();
     }
 
-    /** Pengajuan waiting for this account's decision (Persetujuan Saya). */
+    /**
+     * Pengajuan waiting for this account's decision (Persetujuan Saya): as an approver, or for an
+     * approver it stands in for today who has not decided yet. Not its own pengajuan.
+     */
     public static function pendingFor(User $user): Builder
     {
+        $approvedBy = fn (int $id) => fn ($q) => $q->from('workflow_actions')
+            ->whereColumn('workflow_actions.workflow_instance_id', 'workflow_instances.id')
+            ->whereColumn('workflow_actions.step', 'workflow_instances.current_step')
+            ->where('workflow_actions.decision', 'approved')
+            ->where(fn ($w) => $w->where('workflow_actions.user_id', $id)->orWhere('workflow_actions.on_behalf_of', $id));
+        $principals = array_values(array_diff(Delegations::principalsOf($user), [$user->id]));
+
         return WorkflowInstance::where('status', WorkflowInstance::PENDING)
-            ->whereJsonContains('current_approvers', $user->id)
-            ->whereNotExists(fn ($q) => $q->from('workflow_actions')
-                ->whereColumn('workflow_actions.workflow_instance_id', 'workflow_instances.id')
-                ->whereColumn('workflow_actions.step', 'workflow_instances.current_step')
-                ->where('workflow_actions.user_id', $user->id)
-                ->where('workflow_actions.decision', 'approved'));
+            ->when($user->employee_id, fn ($q) => $q->where(fn ($w) => $w->whereNull('employee_id')->orWhere('employee_id', '!=', $user->employee_id)))
+            ->whereNotExists($approvedBy($user->id))
+            ->where(function ($q) use ($user, $principals, $approvedBy) {
+                $q->whereJsonContains('current_approvers', $user->id);
+                foreach ($principals as $p) {
+                    $q->orWhere(fn ($w) => $w->whereJsonContains('current_approvers', $p)->whereNotExists($approvedBy($p)));
+                }
+            });
     }
 
     /**
@@ -405,7 +560,8 @@ class Workflow
         }
 
         return WorkflowAction::where('workflow_instance_id', $instance->id)->where('step', $instance->current_step)
-            ->where('decision', 'approved')->pluck('user_id')->map(fn ($id) => (int) $id)->all();
+            ->where('decision', 'approved')->get(['user_id', 'on_behalf_of'])
+            ->flatMap(fn (WorkflowAction $a) => array_filter([$a->user_id, $a->on_behalf_of]))->map(fn ($id) => (int) $id)->unique()->values()->all();
     }
 
     /** One decision at a time: the instance is locked and read again, so two approvers clicking at once cannot both move it. */
@@ -432,8 +588,10 @@ class Workflow
             return;
         }
         $hrMenu = self::TYPES[$instance->definition->type]['menu'];
-        $employee = Employee::withoutGlobalScopes()->findOrFail($instance->employee_id);
-        $instance->update(['current_step' => $next->sequence, 'current_approvers' => Approvers::forStep($next, $employee, $hrMenu)->pluck('id')->all()]);
+        $instance->update([
+            'current_step' => $next->sequence, 'current_approvers' => Approvers::forStep($next, self::employeeOf($instance), $hrMenu)->pluck('id')->all(),
+            'step_started_at' => now(), 'reminded_at' => null, 'escalated_at' => null,
+        ]);
         if (! self::$quiet) {
             RequestNotifier::workflowStep($instance);
         } elseif ($next->approver_type !== Approvers::MENU) {
@@ -470,12 +628,36 @@ class Workflow
         return WorkflowAction::where('workflow_instance_id', $instance->id)->whereIn('decision', ['approved', 'rejected', 'cancelled'])->latest('id')->first();
     }
 
-    private static function record(WorkflowInstance $instance, ?User $by, string $decision, ?string $notes): void
+    private static function record(WorkflowInstance $instance, ?User $by, string $decision, ?string $notes, ?int $as = null): void
     {
+        $for = $as && $by && $as !== $by->id ? User::find($as) : null;
         WorkflowAction::create([
-            'workflow_instance_id' => $instance->id, 'step' => $instance->current_step, 'user_id' => $by?->id, 'user_name' => $by?->name,
+            'workflow_instance_id' => $instance->id, 'step' => $instance->current_step, 'user_id' => $by?->id, 'on_behalf_of' => $for?->id,
+            'user_name' => $by ? $by->name.($for ? " a.n. {$for->name}" : '') : null,
             'decision' => $decision, 'notes' => $notes ?: null, 'created_at' => now(),
         ]);
+    }
+
+    /** The employee the approvers are found for; for a candidate (job offer), one standing in the position offered. */
+    public static function employeeOf(WorkflowInstance $instance): Employee
+    {
+        if ($instance->employee_id) {
+            return Employee::withoutGlobalScopes()->findOrFail($instance->employee_id);
+        }
+        $facts = $instance->facts ?? [];
+
+        return (new Employee)->forceFill(['position_id' => $facts['position'] ?? null, 'work_location_id' => $facts['work_location'] ?? null, 'job_level_id' => $facts['job_level'] ?? null]);
+    }
+
+    /** Is this approval the last one the flow needs (so the pengajuan takes effect with it)? */
+    private static function lastApproval(WorkflowInstance $instance): bool
+    {
+        if (($instance->step()?->mode ?? WorkflowStep::ANY) === WorkflowStep::ALL
+            && count(array_diff(array_map('intval', $instance->current_approvers ?? []), self::approvedAtStep($instance))) > 1) {
+            return false;
+        }
+
+        return ! $instance->definition->steps->contains(fn (WorkflowStep $s) => $s->sequence > $instance->current_step && Conditions::pass($s->conditions, $instance->facts ?? []));
     }
 
     private static function audit(string $action, WorkflowInstance $instance, User $by, ?string $notes, ?int $step): void

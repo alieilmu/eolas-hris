@@ -70,6 +70,9 @@ class Audit
             'workflow.approved' => 'Pengajuan disetujui',
             'workflow.rejected' => 'Pengajuan ditolak',
             'workflow.cancelled' => 'Pengajuan dibatalkan pemohon',
+            'workflow.escalated' => 'Langkah persetujuan dieskalasi (lewat batas waktu)',
+            'workflow.delegation' => 'Delegasi persetujuan diubah',
+            'recruitment.offer' => 'Penawaran kerja diajukan',
         ],
         'Data karyawan' => [
             'employees.export' => 'Data karyawan diekspor',

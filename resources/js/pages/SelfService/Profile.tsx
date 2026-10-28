@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
+import { FlowNote } from '@/components/ApprovalHistory';
 import { ArrowLeft, Clock, Loader2, Plus, RotateCcw, Send, Trash2, UserPen, X } from 'lucide-react';
 import { FieldInput } from '@/components/profile/FieldInput';
 import { ChangesTable } from '@/components/profile/ChangesTable';
@@ -219,10 +220,11 @@ export default function PortalData({ employee, profile, children: savedChildren,
                     <section className="space-y-3 rounded-3xl border border-amber-200 bg-amber-50/50 p-5">
                         <div className="flex flex-wrap items-center gap-2">
                             <Clock size={16} className="text-amber-600" />
-                            <h2 className="text-sm font-bold text-amber-800">Pengajuan menunggu verifikasi HR</h2>
+                            <h2 className="text-sm font-bold text-amber-800">Pengajuan menunggu persetujuan</h2>
                             <span className="text-xs text-amber-700">
                                 dikirim {fmtDateTime(pending.created_at)} · {pending.quantity} perubahan
                             </span>
+                            {pending.workflow && <FlowNote flow={pending.workflow} />}
                             <span className="ml-auto flex items-center gap-2">
                                 {pending.attachment.length > 0 && <AttachmentButton files={pending.attachment} title="Dokumen pendukung" />}
                                 <button

@@ -6,6 +6,7 @@ import { BenefitClaimForm, type DeklarasiPerson } from '@/components/compensatio
 import { rupiah, type DeklarasiRow } from '@/lib/compensation';
 import { fmtDate } from '@/lib/format';
 import { StatusBadge, VerifyButtons } from '@/components/Verification';
+import { FlowNote } from '@/components/ApprovalHistory';
 import { AttachmentButton } from '@/components/attachment/AttachmentPicker';
 import type { LampiranLimits } from '@/lib/attachment';
 
@@ -187,6 +188,7 @@ export default function BenefitClaim({ benefit_claims, filters, accounting_month
                                         <td className="px-3 py-3 font-mono text-xs whitespace-nowrap text-slate-600">{d.claim_number}</td>
                                         <td className="px-3 py-3">
                                             <StatusBadge status={d.status} source={d.source} notes={d.verification_notes} />
+                                            {d.workflow && <FlowNote flow={d.workflow} />}
                                         </td>
                                         <td className="px-3 py-3 whitespace-nowrap">
                                             <p className="font-bold text-slate-700 tabular-nums">{fmtDate(d.date)}</p>
@@ -219,7 +221,7 @@ export default function BenefitClaim({ benefit_claims, filters, accounting_month
                                         <td className="px-3 py-3 text-right font-black text-slate-800 tabular-nums">{rupiah(d.total)}</td>
                                         <td className="py-3 pr-5">
                                             <div className="flex justify-end gap-1">
-                                                {can_edit && d.status === 'pending' && (
+                                                {can_edit && d.status === 'pending' && (!d.workflow || d.workflow.can_decide) && (
                                                     <VerifyButtons
                                                         url={`/compensation/claims/${d.id}/verification`}
                                                         what={`deklarasi ${d.claim_number} (${d.name})`}

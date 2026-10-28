@@ -10,8 +10,10 @@ use App\Models\PayrollSetting;
 use App\Support\Audit\Audit;
 use App\Support\Notifications\RequestNotifier;
 use App\Support\Payroll\Loans;
+use App\Support\Workflow\Workflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,9 +24,10 @@ class LoanController extends Controller
     {
         $settings = PayrollSetting::current();
         $loans = Loan::with('installments')->where('employee_id', $request->user()->employee_id ?? 0)->orderByDesc('id')->get();
+        $flows = Workflow::pendingOf(Loan::class, $loans->where('status', 'pending')->pluck('id'));
 
         return Inertia::render('SelfService/Loans', [
-            'loans' => $loans->map(fn (Loan $l) => HrLoanController::share($l)),
+            'loans' => $loans->map(fn (Loan $l) => HrLoanController::share($l) + ['workflow' => Workflow::brief($flows->get($l->id), $request->user())]),
             'next_period' => HrLoanController::nextPeriod($settings),
             'max_ratio' => $settings->loan_max_ratio,
             'has_pending' => $loans->contains('status', 'pending'),
@@ -37,10 +40,14 @@ class LoanController extends Controller
         abort_if(Loan::where('employee_id', $employee->id)->where('status', 'pending')->exists(), 422, 'Masih ada pengajuan pinjaman yang menunggu.');
         $data = HrLoanController::validated($request);
         Loans::assertAffordable($employee, $data['installment']);
-        $loan = Loan::create($data + ['employee_id' => $employee->id, 'status' => 'pending', 'source' => 'portal', 'created_by' => $request->user()->id]);
-        RequestNotifier::loan($loan);
+        $loan = DB::transaction(function () use ($data, $employee, $request) {
+            $loan = Loan::create($data + ['employee_id' => $employee->id, 'status' => 'pending', 'source' => 'portal', 'created_by' => $request->user()->id]);
+            $loan->startWorkflow($request->user());
+
+            return $loan;
+        });
         Audit::log('payroll.loan_requested', $loan, 'Rp '.number_format($loan->principal, 0, ',', '.')." × {$loan->tenor} bln");
-        Inertia::flash('success', 'Pengajuan pinjaman terkirim ke HR.');
+        Inertia::flash('success', 'Pengajuan pinjaman terkirim dan menunggu persetujuan.');
 
         return back();
     }
@@ -48,8 +55,14 @@ class LoanController extends Controller
     public function cancel(Request $request, Loan $loan): RedirectResponse
     {
         abort_unless($loan->employee_id === $request->user()->employee_id && $loan->status === 'pending', 404);
-        RequestNotifier::close("loan:{$loan->id}");
-        $loan->delete();
+        // In a Workflow: withdrawn there (which removes it); from before Workflow: removed here.
+        $flow = Workflow::of($loan);
+        if ($flow?->isPending()) {
+            Workflow::cancel($flow, $request->user());
+        } else {
+            RequestNotifier::close("loan:{$loan->id}");
+            $loan->delete();
+        }
         Inertia::flash('success', 'Pengajuan pinjaman dibatalkan.');
 
         return back();

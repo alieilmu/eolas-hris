@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Employee;
 use App\Models\User;
 use App\Models\WorkflowInstance;
+use App\Support\Security\TwoFactor;
+use App\Support\Workflow\Delegations;
 use App\Support\Workflow\Workflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,6 +25,9 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 class ApprovalController extends Controller
 {
     private const TABS = ['pending', 'decided', 'mine'];
+
+    /** Kinds of pengajuan that are payroll data. */
+    private const PAYROLL_TYPES = ['loan'];
 
     public function index(Request $request): Response
     {
@@ -46,6 +51,8 @@ class ApprovalController extends Controller
             'types' => collect(Workflow::TYPES)->map(fn ($t, $k) => ['value' => $k, 'label' => $t['label']])->values(),
             'counts' => ['pending' => Workflow::pendingFor($user)->count()],
             'has_own' => $user->employee_id !== null,
+            // Approvers this account stands in for today (Delegasi).
+            'acting_for' => User::whereIn('id', Delegations::principalsOf($user))->orderBy('name')->pluck('name'),
             'items' => $items->map(fn (WorkflowInstance $i) => $this->item($i, $employees->get($i->employee_id), $user))->values(),
         ]);
     }
@@ -53,6 +60,7 @@ class ApprovalController extends Controller
     public function approve(Request $request, WorkflowInstance $instance): RedirectResponse
     {
         $notes = $request->validate(['notes' => ['nullable', 'string', 'max:500']])['notes'] ?? null;
+        $this->assertTwoFactor($request, $instance);
         Workflow::approve($instance, $request->user(), $notes);
         Inertia::flash('success', 'Pengajuan disetujui.');
 
@@ -62,6 +70,7 @@ class ApprovalController extends Controller
     public function reject(Request $request, WorkflowInstance $instance): RedirectResponse
     {
         $notes = $request->validate(['notes' => ['required', 'string', 'max:500']], ['notes.required' => 'Tulis alasan penolakan.'])['notes'];
+        $this->assertTwoFactor($request, $instance);
         Workflow::reject($instance, $request->user(), $notes);
         Inertia::flash('success', 'Pengajuan ditolak.');
 
@@ -91,11 +100,12 @@ class ApprovalController extends Controller
         $skipped = 0;
         foreach (WorkflowInstance::whereIn('id', $data['ids'])->get() as $instance) {
             try {
+                $this->assertTwoFactor($request, $instance);
                 $data['decision'] === 'approve'
                     ? Workflow::approve($instance, $request->user(), $data['notes'] ?? null)
                     : Workflow::reject($instance, $request->user(), $data['notes']);
                 $done++;
-            } catch (HttpException) {
+            } catch (HttpException|ValidationException) {
                 $skipped++;
             }
         }
@@ -103,6 +113,19 @@ class ApprovalController extends Controller
         Inertia::flash('success', "{$done} pengajuan {$verb}.".($skipped ? " {$skipped} dilewati karena sudah diproses atau bukan giliran Anda." : ''));
 
         return back();
+    }
+
+    /**
+     * A loan is payroll: an admin who must have two-factor sign-in for payroll (the loans page
+     * asks for it) decides one here only with it too.
+     */
+    private function assertTwoFactor(Request $request, WorkflowInstance $instance): void
+    {
+        $user = $request->user();
+        if (in_array($instance->definition->type, self::PAYROLL_TYPES, true) && ! $user->hasTwoFactor() && TwoFactor::required($user)
+            && ! (TwoFactor::skippable() && $request->session()->get(TwoFactor::SESSION_SKIPPED) === true)) {
+            throw ValidationException::withMessages(['notes' => 'Pinjaman hanya bisa diputuskan dengan verifikasi 2 langkah (2FA). Aktifkan dulu di menu Verifikasi 2 Langkah.']);
+        }
     }
 
     private function item(WorkflowInstance $i, ?Employee $k, User $user): array

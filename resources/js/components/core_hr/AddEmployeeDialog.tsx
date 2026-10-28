@@ -38,7 +38,7 @@ export function AddEmployeeDialog({
     onClose: () => void;
     fixedPosition?: FixedJabatan;
     submitUrl?: string;
-    initial?: { name?: string; email?: string | null };
+    initial?: { name?: string; email?: string | null; hire_date?: string | null };
     title?: string;
     /** Ask the start date (written to the profile). */
     hireDate?: boolean;
@@ -49,7 +49,7 @@ export function AddEmployeeDialog({
         employee_number: '',
         name: initial?.name ?? '',
         email: initial?.email ?? '',
-        hire_date: new Date().toISOString().slice(0, 10),
+        hire_date: initial?.hire_date ?? new Date().toISOString().slice(0, 10),
         position_id: fixedPosition ? String(fixedPosition.id) : '',
         ...emptyPlacement(),
         work_location_id: fixedPosition?.work_location_id ? String(fixedPosition.work_location_id) : '',

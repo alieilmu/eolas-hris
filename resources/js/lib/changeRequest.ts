@@ -1,3 +1,4 @@
+import type { WorkflowBrief } from '@/components/ApprovalHistory';
 import { fmtDate } from '@/lib/format';
 import type { LampiranFile } from '@/lib/attachment';
 
@@ -56,6 +57,8 @@ export interface PengajuanRow {
     attachment: LampiranFile[];
     /** HR list: the stored value of fields that changed after the request was sent. */
     now?: Record<string, FieldValue> | null;
+    /** Where a pending one waits in its approval flow. */
+    workflow?: WorkflowBrief | null;
 }
 
 /** key => what the diff table needs to show a field. */

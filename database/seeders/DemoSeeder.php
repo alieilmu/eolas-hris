@@ -19,6 +19,7 @@ use App\Support\Compensation\AccountingMonth;
 use App\Support\Compensation\BenefitClaimCheck;
 use App\Support\Leave\LeaveLedger;
 use App\Support\Notifications\RequestNotifier;
+use App\Support\Workflow\Workflow;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
@@ -319,7 +320,9 @@ class DemoSeeder extends Seeder
             $k = $this->k($name);
             $items = array_map(fn (array $i) => $i + ['employee_child_id' => $i['beneficiary'] === 'children' ? $k->profile?->children->first()?->id : null], $items);
             if ($d = $this->claim($k, $this->today->subDays(mt_rand(1, 4)), $items, $tempatPortal, true)) {
-                RequestNotifier::claim($d);
+                // In its approval flow, as one sent from the portal.
+                $notice = $d->workflowNotice();
+                Workflow::start($d, 'claim', $k, null, $d->workflowFacts(), "{$notice['title']} {$notice['body']}", $notice['url']);
             }
         }
     }
@@ -402,7 +405,8 @@ class DemoSeeder extends Seeder
             if ($status === 'approved') {
                 $k->profile->update($after);
             } else {
-                RequestNotifier::updateData($p);
+                $notice = $p->workflowNotice();
+                Workflow::start($p, 'data-change', $k, null, [], ucfirst($notice['body']), $notice['url']);
             }
         }
     }

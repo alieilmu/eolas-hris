@@ -1,3 +1,4 @@
+import type { WorkflowBrief } from '@/components/ApprovalHistory';
 import type { LampiranFile } from '@/lib/attachment';
 
 /** Shared types and helpers of the Comben module (Deklarasi, Monitoring, Master Data). */
@@ -78,6 +79,8 @@ export interface DeklarasiRow {
     status: 'pending' | 'approved' | 'rejected';
     source: 'hr' | 'self_service';
     verification_notes: string | null;
+    /** Where a pending one waits in its approval flow. */
+    workflow?: WorkflowBrief | null;
     attachment: LampiranFile[];
     items: DeklarasiItemData[];
 }

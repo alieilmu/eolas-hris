@@ -1,3 +1,4 @@
+import type { WorkflowBrief } from '@/components/ApprovalHistory';
 /** Loans: shared shapes of Pinjaman Karyawan (HR) and the portal. */
 export interface LoanInstallmentRow {
     id: number;
@@ -28,6 +29,8 @@ export interface LoanRow {
     remaining: number;
     installments: LoanInstallmentRow[];
     own?: boolean;
+    /** Where a pending one waits in its approval flow. */
+    workflow?: WorkflowBrief | null;
 }
 
 export const LOAN_TONE: Record<LoanRow['status'], string> = {

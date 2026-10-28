@@ -17,6 +17,7 @@ use App\Support\Access\AccessScope;
 use App\Support\Leave\LeaveLedger;
 use App\Support\Workflow\Approvable;
 use App\Support\Workflow\Approvers;
+use App\Support\Workflow\Delegations;
 use App\Support\Workflow\Workflow;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\DatabaseNotification;
@@ -30,14 +31,8 @@ use Illuminate\Support\Facades\Notification;
  */
 class RequestNotifier
 {
-    public static function updateData(EmployeeChangeRequest $p): void
-    {
-        $n = count($p->changes ?? []) + count($p->children ?? []);
-        self::send('data-change-requests', "data-change-requests:{$p->id}", 'data-change-requests', $p->employee,
-            'Pengajuan Update Data', "mengajukan {$n} perubahan data", '/core-hr/change-requests');
-    }
-
-    public static function claim(BenefitClaim $d): void
+    /** @return array{type: string, ref: string, title: string, body: string, url: string} */
+    public static function claimNotice(BenefitClaim $d): array
     {
         $d->loadMissing('items');
         $optical = $d->items->whereIn('type', BenefitClaimItem::KACAMATA)->isNotEmpty();
@@ -47,8 +42,25 @@ class RequestNotifier
             $optical => 'Kacamata',
             default => 'Pengobatan',
         };
-        self::send('claim', "claim:{$d->id}", 'benefit-claims', $d->employee,
-            $title, "{$d->claim_number} · Rp ".number_format((int) $d->items->sum('amount'), 0, ',', '.'), '/compensation/claims?status=pending');
+
+        return ['type' => 'claim', 'ref' => "claim:{$d->id}", 'title' => $title, 'body' => "{$d->claim_number} · Rp ".number_format((int) $d->items->sum('amount'), 0, ',', '.'),
+            'url' => '/compensation/claims?status=pending'];
+    }
+
+    /** @return array{type: string, ref: string, title: string, body: string, url: string} */
+    public static function updateDataNotice(EmployeeChangeRequest $p): array
+    {
+        $n = count($p->changes ?? []) + count($p->children ?? []);
+
+        return ['type' => 'data-change-requests', 'ref' => "data-change-requests:{$p->id}", 'title' => 'Pengajuan Update Data', 'body' => "mengajukan {$n} perubahan data",
+            'url' => '/core-hr/change-requests'];
+    }
+
+    /** @return array{type: string, ref: string, title: string, body: string, url: string} */
+    public static function loanNotice(\App\Models\Loan $l): array
+    {
+        return ['type' => 'loan', 'ref' => "loan:{$l->id}", 'title' => 'Pengajuan Pinjaman',
+            'body' => 'mengajukan pinjaman Rp '.number_format($l->principal, 0, ',', '.')." untuk {$l->tenor} bulan", 'url' => '/compensation/loans?status=pending'];
     }
 
     public static function leaveTravel(LeaveTravelRequest $t): void
@@ -88,14 +100,6 @@ class RequestNotifier
                 "{$c->type->name} {$when}. Segera perpanjang dan kirim salinannya ke HR.", '/self-service/certifications',
                 ['id' => $c->employee_id, 'employee_number' => $c->employee->employee_number, 'name' => $c->employee->name])));
         }
-    }
-
-    /** A loan asked for in the portal: for whoever approves payroll for the employee. */
-    public static function loan(\App\Models\Loan $l): void
-    {
-        $l->loadMissing('employee');
-        self::send('loan', "loan:{$l->id}", 'payroll-approval', $l->employee, 'Pengajuan Pinjaman',
-            'mengajukan pinjaman Rp '.number_format($l->principal, 0, ',', '.')." untuk {$l->tenor} bulan", '/compensation/loans?status=pending');
     }
 
     /** A new application from the public form (no employee yet: every admin of Recruitment). */
@@ -145,17 +149,48 @@ class RequestNotifier
      * (Approvable::workflowNotice), so HR get what they got before Workflow; a superior or a
      * named position is sent to Persetujuan Saya instead of the HR page.
      */
-    public static function workflowStep(WorkflowInstance $i): void
+    public static function workflowStep(WorkflowInstance $i, ?array $only = null): void
     {
-        $to = User::whereIn('id', $i->current_approvers ?? [])->where('is_active', true)->get();
-        $k = Employee::withoutGlobalScopes()->find($i->employee_id);
-        if ($to->isEmpty() || ! $k) {
+        // The approvers (or, escalated, only those just added), and whoever stands in for them today.
+        $ids = array_map('intval', $only ?? $i->current_approvers ?? []);
+        $ids = array_values(array_unique([...$ids, ...array_merge([], ...array_values(Delegations::delegatesOf($ids)))]));
+        $to = User::whereIn('id', $ids)->where('is_active', true)->get();
+        if ($to->isEmpty()) {
             return;
         }
         $notice = self::workflowNotice($i);
-        $url = $i->step()?->approver_type === Approvers::MENU ? $notice['url'] : '/approvals';
+        $url = $i->step()?->approver_type === Approvers::MENU && $only === null ? $notice['url'] : '/approvals';
         self::safely(fn () => Notification::send($to, new RequestReceived($notice['type'], $notice['ref'], $notice['title'],
-            "{$k->name} ({$k->employee_number}) {$notice['body']}", $url, ['id' => $k->id, 'employee_number' => $k->employee_number, 'name' => $k->name])));
+            self::who($i).$notice['body'], $url, self::person($i))));
+    }
+
+    /** A step waited past its time limit: once, for the approvers who have not decided it. */
+    public static function workflowReminder(WorkflowInstance $i, int $days): void
+    {
+        $decided = $i->actions()->where('step', $i->current_step)->where('decision', 'approved')->get(['user_id', 'on_behalf_of'])
+            ->flatMap(fn ($a) => array_filter([$a->user_id, $a->on_behalf_of]))->all();
+        $ids = array_values(array_diff(array_map('intval', $i->current_approvers ?? []), array_map('intval', $decided)));
+        $ids = array_values(array_unique([...$ids, ...array_merge([], ...array_values(Delegations::delegatesOf($ids)))]));
+        $label = Workflow::TYPES[$i->definition->type]['label'];
+        foreach (User::whereIn('id', $ids)->where('is_active', true)->get() as $u) {
+            self::safely(fn () => $u->notify(new RequestReceived('approval', "workflow-reminder:{$i->id}:{$i->current_step}", "Pengingat: {$label} menunggu lebih dari {$days} hari kerja",
+                self::who($i).($i->summary ?? ''), '/approvals', self::person($i))));
+        }
+    }
+
+    /** "Nama (NRP) " of the employee who asks, for the start of a notification; nothing for a candidate. */
+    private static function who(WorkflowInstance $i): string
+    {
+        $k = $i->employee_id ? Employee::withoutGlobalScopes()->find($i->employee_id) : null;
+
+        return $k ? "{$k->name} ({$k->employee_number}) " : '';
+    }
+
+    private static function person(WorkflowInstance $i): array
+    {
+        $k = $i->employee_id ? Employee::withoutGlobalScopes()->find($i->employee_id) : null;
+
+        return ['id' => $k?->id, 'employee_number' => $k?->employee_number, 'name' => $k?->name];
     }
 
     /** A step was decided: closed for everyone, or (a step all must agree on) only for $only. */

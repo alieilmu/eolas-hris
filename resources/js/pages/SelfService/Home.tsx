@@ -191,6 +191,7 @@ export default function PortalHome({
                                 title={`${d.claim_number} · Rp ${rupiah(d.total)}`}
                                 subtitle={`${fmtDate(d.date)} · buku ${d.month_label}`}
                                 attachment={d.attachment}
+                                extra={d.workflow ? <FlowNote flow={d.workflow} /> : undefined}
                                 attachmentTitle={`Nota ${d.claim_number}`}
                                 noun="nota"
                                 onCancel={d.status === 'pending' ? () => cancel('claim', d.id) : undefined}

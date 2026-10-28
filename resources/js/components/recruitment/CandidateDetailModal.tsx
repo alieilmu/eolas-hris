@@ -21,6 +21,7 @@ import {
 import { AddEmployeeDialog } from '@/components/core_hr/AddEmployeeDialog';
 import { CandidateFormDialog } from '@/components/recruitment/CandidateFormDialog';
 import { Answers } from '@/components/recruitment/Answers';
+import { OfferSection } from '@/components/recruitment/OfferSection';
 import { fmtDate } from '@/lib/format';
 import { deleteJson, postJson } from '@/lib/http';
 import { tint, type CandidateDetail, type Stage } from '@/lib/recruitment';
@@ -194,7 +195,7 @@ export function CandidateDetailModal({
                                     </label>
                                 )}
                                 <div className="ml-auto flex flex-wrap gap-1.5">
-                                    {!c.employee && !c.rejected && c.last_stage && canEmployee && (
+                                    {!c.employee && !c.rejected && c.last_stage && canEmployee && !c.offers.some((o) => o.status === 'pending') && (
                                         <button
                                             onClick={() => setDialog('employee')}
                                             className="flex items-center gap-1.5 rounded-xl bg-brand-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-700"
@@ -291,6 +292,8 @@ export function CandidateDetailModal({
                                         <Answers items={c.answers} />
                                     </section>
                                 )}
+
+                                <OfferSection c={c} canEdit={canEdit} onChanged={refresh} />
 
                                 <section>
                                     <h3 className="mb-2 flex items-center gap-2 text-xs font-bold tracking-widest text-slate-500 uppercase">
@@ -402,7 +405,7 @@ export function CandidateDetailModal({
                     <AddEmployeeDialog
                         title={`Jadikan Karyawan — ${c.name}`}
                         submitUrl={`/recruitment/candidate/${c.id}/employee`}
-                        initial={{ name: c.name }}
+                        initial={{ name: c.name, hire_date: c.hire_date }}
                         fixedPosition={c.job_position ?? undefined}
                         hireDate
                         onClose={() => setDialog(null)}

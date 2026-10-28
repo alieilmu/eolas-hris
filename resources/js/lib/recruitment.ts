@@ -1,3 +1,4 @@
+import type { WorkflowBrief } from '@/components/ApprovalHistory';
 /** Modul Recruitment: shapes shared by Tracking, Pelamar, the forms and the public pages. */
 
 export interface StageCard {
@@ -30,6 +31,23 @@ export interface Answers {
     file: { name: string; size: number | null; mime: string | null; url: string } | null;
 }
 
+/** Penawaran Kerja: approved through its Workflow before the candidate is hired. */
+export interface JobOffer {
+    id: number;
+    position: string | null;
+    position_id: number | null;
+    work_location: string | null;
+    work_location_id: number | null;
+    salary: number | null;
+    start_date: string | null;
+    notes: string | null;
+    status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+    status_label: string;
+    decision_notes: string | null;
+    created_at: string | null;
+    workflow: WorkflowBrief | null;
+}
+
 export interface CandidateDetail {
     id: number;
     name: string;
@@ -46,6 +64,10 @@ export interface CandidateDetail {
     form: string | null;
     /** The position of a vacancy opened from Man Power Planning. */
     job_position: { id: number; name: string; work_location_id: number | null } | null;
+    /** The start date of the offer approved last. */
+    hire_date: string | null;
+    offers: JobOffer[];
+    offer_positions: { id: number; label: string; work_location_id: number | null }[];
     answers: Answers[];
     notes: { id: number; author: string; content: string; created_at: string }[];
     history: { from: string; to: string; by: string; created_at: string }[];

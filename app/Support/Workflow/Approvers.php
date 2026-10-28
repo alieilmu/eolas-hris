@@ -66,6 +66,18 @@ class Approvers
         return $users->reject(fn (User $u) => self::isRequester($u, $employee))->values();
     }
 
+    /**
+     * Above an approver (a late step escalates): the holders of the superior position of the
+     * approver's own employee, on up while nobody holds it; none for an account without one.
+     */
+    public static function above(User $approver, Employee $employee): Collection
+    {
+        $own = $approver->employee_id ? Employee::withoutGlobalScopes()->find($approver->employee_id) : null;
+        $position = $own ? Position::find($own->position_id)?->superior() : null;
+
+        return self::fromPosition($position, $employee)->reject(fn (User $u) => $u->id === $approver->id)->values();
+    }
+
     /** The superior $levels up from the employee's position, then on up while nobody holds it. */
     private static function fromSuperior(Employee $employee, int $levels): Collection
     {

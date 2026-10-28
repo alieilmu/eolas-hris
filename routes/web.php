@@ -24,6 +24,7 @@ use App\Http\Controllers\Compensation\PayrollReportController;
 use App\Http\Controllers\Compensation\SalaryController;
 use App\Http\Controllers\Compensation\BenefitBalanceController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DelegationController;
 use App\Http\Controllers\Trial\TrialAccountController;
 use App\Http\Controllers\Trial\TrialRequestController;
 use App\Http\Controllers\Trial\WorkspaceController;
@@ -62,6 +63,7 @@ use App\Http\Controllers\SelfService\SelfServiceController;
 use App\Http\Controllers\SelfService\PayslipController as PortalPayslipController;
 use App\Http\Controllers\SelfService\LoanController as PortalLoanController;
 use App\Http\Controllers\Recruitment\ApplicantController;
+use App\Http\Controllers\Recruitment\JobOfferController;
 use App\Http\Controllers\Recruitment\JobPostingController;
 use App\Http\Controllers\Recruitment\ReportController;
 use App\Http\Controllers\Recruitment\PipelineController;
@@ -145,6 +147,9 @@ Route::middleware(['auth', 'two-factor', 'account.ready', 'licensed'])->group(fu
             Route::post('/candidate/{candidate}/reject', 'reject')->whereNumber('candidate')->name('candidate.reject');
             Route::post('/candidate/{candidate}/employee', 'convert')->whereNumber('candidate')->name('candidate.convert');
         });
+        // Penawaran Kerja: proposed for approval (Workflow "job-offer"), or withdrawn.
+        Route::post('/candidate/{candidate}/offer', [JobOfferController::class, 'store'])->whereNumber('candidate')->name('candidate.offer');
+        Route::post('/offers/{offer}/cancel', [JobOfferController::class, 'cancel'])->whereNumber('offer')->name('offer.cancel');
         Route::controller(ApplicantController::class)->prefix('applicants')->name('applicants')->group(function () {
             Route::get('/', 'index');
             Route::get('/{applicant}', 'show')->whereNumber('applicant')->name('.show');
@@ -528,6 +533,10 @@ Route::middleware(['auth', 'two-factor', 'account.ready', 'licensed'])->group(fu
     Route::controller(ApprovalController::class)->prefix('approvals')->name('approvals')->group(function () {
         Route::get('/', 'index');
         Route::post('/bulk', 'bulk')->name('.bulk');
+        // Delegasi: the substitute who decides in this account's name.
+        Route::get('/delegations', [DelegationController::class, 'index'])->name('.delegations');
+        Route::post('/delegations', [DelegationController::class, 'store'])->name('.delegations.store');
+        Route::delete('/delegations/{delegation}', [DelegationController::class, 'destroy'])->whereNumber('delegation')->name('.delegations.destroy');
         Route::post('/{instance}/approve', 'approve')->whereNumber('instance')->name('.approve');
         Route::post('/{instance}/reject', 'reject')->whereNumber('instance')->name('.reject');
         Route::post('/{instance}/cancel', 'cancel')->whereNumber('instance')->name('.cancel');

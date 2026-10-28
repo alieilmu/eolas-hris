@@ -3,7 +3,7 @@ import { Check, CircleDashed, Clock, MinusCircle, Send, X } from 'lucide-react';
 import { Modal } from '@/components/time/ui';
 
 export interface ApprovalAction {
-    decision: 'submitted' | 'approved' | 'rejected' | 'cancelled';
+    decision: 'submitted' | 'approved' | 'rejected' | 'cancelled' | 'escalated';
     user: string | null;
     notes: string | null;
     at: string | null;
@@ -25,6 +25,7 @@ const DECISION: Record<ApprovalAction['decision'], string> = {
     approved: 'Disetujui',
     rejected: 'Ditolak',
     cancelled: 'Dibatalkan',
+    escalated: 'Dieskalasi',
 };
 
 const when = (at: string | null) =>
