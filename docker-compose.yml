@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------
 # HRIS Eolas — duplikasi dari HR Puspita (hcpuspita), lingkungan terpisah.
 #
-# Domain: https://eolas.zamaludinilmu.com (old eloas.zamaludinilmu.com redirects there) (lewat Traefik, container n8n-traefik-1).
+# Domain: https://hris.eolas.id (old eolas./eloas.zamaludinilmu.com redirect there, except /iclock) (lewat Traefik, container n8n-traefik-1).
 # Image, container, volume & database berdiri sendiri. Akses lokal: 127.0.0.1:8097.
 # Data MySQL ada di volume `hris_eloas_db-data`, upload di `hris_eloas_app-storage`.
 # ---------------------------------------------------------------------------
@@ -33,9 +33,9 @@ services:
       - traefik.http.routers.hris_eloas.tls=true
       - traefik.http.routers.hris_eloas.tls.certresolver=mytlschallenge
       - traefik.http.routers.hris_eloas.service=hris_eloas
-      # The old (misspelt) domain moves permanently to eolas.zamaludinilmu.com.
-      - traefik.http.middlewares.eolas-redirect.redirectregex.regex=^https?://eloas\.zamaludinilmu\.com/(.*)
-      - traefik.http.middlewares.eolas-redirect.redirectregex.replacement=https://eolas.zamaludinilmu.com/$${1}
+      # The old domains move permanently to hris.eolas.id.
+      - traefik.http.middlewares.eolas-redirect.redirectregex.regex=^https?://e(?:o|l)(?:l|o)as\.zamaludinilmu\.com/(.*)
+      - traefik.http.middlewares.eolas-redirect.redirectregex.replacement=https://hris.eolas.id/$${1}
       - traefik.http.middlewares.eolas-redirect.redirectregex.permanent=true
       - traefik.http.routers.hris_eloas.middlewares=eolas-redirect
       - traefik.http.services.hris_eloas.loadbalancer.server.port=80
@@ -45,6 +45,20 @@ services:
       - traefik.http.routers.hris_eolas.tls=true
       - traefik.http.routers.hris_eolas.tls.certresolver=mytlschallenge
       - traefik.http.routers.hris_eolas.service=hris_eloas
+      - traefik.http.routers.hris_eolas.middlewares=eolas-redirect
+      # Attendance machines already set to the old domains keep pushing to /iclock without a redirect.
+      - traefik.http.routers.hris_iclock_old.rule=(Host(`eolas.zamaludinilmu.com`) || Host(`eloas.zamaludinilmu.com`)) && PathPrefix(`/iclock`)
+      - traefik.http.routers.hris_iclock_old.entrypoints=websecure
+      - traefik.http.routers.hris_iclock_old.tls=true
+      - traefik.http.routers.hris_iclock_old.tls.certresolver=mytlschallenge
+      - traefik.http.routers.hris_iclock_old.priority=200
+      - traefik.http.routers.hris_iclock_old.service=hris_eloas
+      # hris.eolas.id: the product domain (own router and certificate).
+      - traefik.http.routers.hris_eolasid.rule=Host(`hris.eolas.id`)
+      - traefik.http.routers.hris_eolasid.entrypoints=websecure
+      - traefik.http.routers.hris_eolasid.tls=true
+      - traefik.http.routers.hris_eolasid.tls.certresolver=mytlschallenge
+      - traefik.http.routers.hris_eolasid.service=hris_eloas
 
   queue:
     image: hris_eloas-app:latest
