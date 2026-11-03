@@ -43,6 +43,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'central' => CentralOnly::class,
             // An account with 2FA gives its code after the password; payroll pages need 2FA.
             'two-factor' => TwoFactorChallenge::class,
+            // The installed app on a phone, opened again: PIN or fingerprint / face first.
+            'app.lock' => \App\Http\Middleware\AppUnlock::class,
             'two-factor.required' => RequireTwoFactor::class,
             // Client edition: a license is needed; the demo service's pages are not there.
             'licensed' => EnsureLicensed::class,
@@ -52,6 +54,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         // The demo workspace is opened right after the session starts, before anyone is authenticated.
         $middleware->prependToPriorityList(before: \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class, prepend: UseTenant::class);
+        // A locked installed app shows nothing, not even a refusal, until its PIN is given.
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: \App\Http\Middleware\AppUnlock::class);
         // Access is settled before route-model binding, so a {karyawan} outside the account's locations is not found.
         $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: MenuAccess::class);
         $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: EnableAccessScope::class);

@@ -11,7 +11,7 @@ use Illuminate\Database\QueryException;
  * White label (one row, Settings → White Label): the app and company name, the logos,
  * the favicon and the two colours. What is left empty falls back to a neutral default.
  */
-#[Fillable(['app_name', 'company_name', 'tagline', 'brand_color', 'accent_color', 'logo_path', 'logo_full_path', 'favicon_path'])]
+#[Fillable(['app_name', 'company_name', 'tagline', 'brand_color', 'accent_color', 'logo_path', 'logo_full_path', 'favicon_path', 'mobile_session_days'])]
 class Branding extends Model
 {
     public const DEFAULT_BRAND = '#15803d';
@@ -61,6 +61,12 @@ class Branding extends Model
     public function fileUrl(string $type): ?string
     {
         return $this->{self::FILES[$type]} ? "/branding/{$type}?v=".$this->version() : null;
+    }
+
+    /** The installed app's icon (see AppIcon), with the same cache key as the files. */
+    public function appIconUrl(int $size, bool $maskable = false): string
+    {
+        return "/app-icon/{$size}".($maskable ? '-maskable' : '').'.png?v='.$this->version();
     }
 
     /**

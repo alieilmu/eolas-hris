@@ -4,8 +4,11 @@ import { CheckCircle2, ShieldAlert, X } from 'lucide-react';
 
 const VISIBLE_MS = 4500;
 
-/** Shows the "success" (or "error") flash message a server action left behind, then fades it out. */
-export function FlashToast() {
+/**
+ * Shows the "success" (or "error") flash message a server action left behind, then fades it out.
+ * aboveBar: the portal on a phone, where the menu bar sits at the bottom.
+ */
+export function FlashToast({ aboveBar = false }: { aboveBar?: boolean }) {
     const { flash } = usePage();
     const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
@@ -22,7 +25,7 @@ export function FlashToast() {
     return (
         <div
             role={message.error ? 'alert' : 'status'}
-            className={`fixed right-6 bottom-6 z-[70] flex max-w-md items-start gap-3 rounded-2xl border bg-white px-4 py-3 text-sm text-slate-700 shadow-xl ${
+            className={`fixed z-[70] flex max-w-md ${aboveBar ? 'right-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] left-3 sm:right-6 sm:bottom-6 sm:left-auto' : 'right-6 bottom-6'} items-start gap-3 rounded-2xl border bg-white px-4 py-3 text-sm text-slate-700 shadow-xl ${
                 message.error ? 'border-rose-200' : 'border-emerald-100'
             }`}
         >

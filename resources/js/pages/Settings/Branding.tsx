@@ -9,7 +9,7 @@ import type { Branding } from '@/types';
 type Jenis = 'logo' | 'logo-full' | 'favicon';
 
 interface Props {
-    values: { app_name: string; company_name: string; tagline: string; brand_color: string; accent_color: string };
+    values: { app_name: string; company_name: string; tagline: string; brand_color: string; accent_color: string; mobile_session_days: number };
     /** URL of each uploaded file, null when none. */
     files: Record<Jenis, string | null>;
     defaults: { app_name: string; brand_color: string; accent_color: string };
@@ -209,6 +209,39 @@ export default function BrandingPage({ values, files, defaults }: Props) {
                                     />
                                 ))}
                             </div>
+                        </Card>
+
+                        <Card title="Aplikasi HP">
+                            <p className="mb-3 text-xs text-slate-500">
+                                Portal bisa dipasang di HP sebagai aplikasi, dengan nama, warna dan logo di atas. Login dari aplikasi itu bisa bertahan
+                                lebih lama; setiap kali aplikasi dibuka lagi, karyawan membukanya dengan PIN atau sidik jari / wajah HP.
+                            </p>
+                            <Field
+                                label="Login di aplikasi HP bertahan (hari)"
+                                error={form.errors.mobile_session_days}
+                                hint="0 = sama seperti di browser (keluar otomatis setelah tidak dipakai). Tanpa PIN, login panjang tidak berlaku."
+                            >
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        max={365}
+                                        value={d.mobile_session_days}
+                                        onChange={(e) => form.setData('mobile_session_days', Number(e.target.value))}
+                                        className={`${smallInput} w-24`}
+                                    />
+                                    {[0, 7, 30, 90].map((n) => (
+                                        <button
+                                            key={n}
+                                            type="button"
+                                            onClick={() => form.setData('mobile_session_days', n)}
+                                            className={`rounded-lg px-2.5 py-1 text-xs font-bold ${d.mobile_session_days === n ? 'bg-brand-50 text-brand-700' : 'text-slate-500 hover:bg-slate-100'}`}
+                                        >
+                                            {n === 0 ? 'Mati' : `${n} hari`}
+                                        </button>
+                                    ))}
+                                </div>
+                            </Field>
                         </Card>
                     </div>
 

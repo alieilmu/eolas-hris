@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { AppGuard } from '@/components/AppGuard';
 import { FlashToast } from '@/components/FlashToast';
 import { Sidebar } from '@/components/Sidebar';
 import { APP_MODULES } from '@/constants/modules';
@@ -10,6 +11,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <Sidebar modules={APP_MODULES} />
             <main className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">{children}</main>
             <FlashToast />
+            <AppGuard />
         </div>
     );
 }

@@ -71,11 +71,21 @@ use App\Http\Controllers\Settings\BrandingController;
 use App\Http\Controllers\Settings\SetupController;
 use App\Http\Controllers\Settings\UserController;
 use App\Http\Controllers\Settings\WorkflowSettingsController;
+use App\Http\Controllers\Account\AppLockController;
+use App\Http\Controllers\PwaController;
 use App\Support\LegacyUrls;
 use Illuminate\Support\Facades\Route;
 
 // White label logos and favicon: also on the login page, so without signing in.
 Route::get('/branding/{type}', [BrandingController::class, 'file'])->whereIn('type', ['logo', 'logo-full', 'favicon'])->name('branding.file');
+
+// The app on the phone (PWA): manifest, icons, service worker and the page shown without a connection.
+Route::controller(PwaController::class)->group(function () {
+    Route::get('/manifest.webmanifest', 'manifest')->name('pwa.manifest');
+    Route::get('/app-icon/{icon}.png', 'icon')->where('icon', '\d+(-maskable)?')->name('pwa.icon');
+    Route::get('/sw.js', 'serviceWorker')->name('pwa.sw');
+    Route::get('/offline', 'offline')->name('pwa.offline');
+});
 
 // Lowongan: the open vacancies and their application forms, for anyone (no sign-in).
 Route::controller(CareersController::class)->prefix('careers')->name('careers')->group(function () {
@@ -103,7 +113,16 @@ Route::middleware('guest')->group(function () {
  * "lihat" and change its data with "ubah"; menus listing employees only show the
  * account's locations. The Super Admin has every menu.
  */
-Route::middleware(['auth', 'two-factor', 'account.ready', 'licensed'])->group(function () {
+// The installed app, opened again: its PIN or the phone's fingerprint / face before anything else.
+Route::middleware(['auth', 'app.lock'])->controller(AppLockController::class)->prefix('app-lock')->name('app-lock')->group(function () {
+    Route::get('/', 'show');
+    Route::post('/lock', 'lock')->name('.lock');
+    Route::post('/pin', 'pin')->middleware('throttle:10,1')->name('.pin');
+    Route::get('/passkey', 'passkeyOptions')->name('.passkey.options');
+    Route::post('/passkey', 'passkey')->middleware('throttle:10,1')->name('.passkey');
+});
+
+Route::middleware(['auth', 'app.lock', 'two-factor', 'account.ready', 'licensed'])->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
     // Dashboard: an overview of every module for the account's locations.
@@ -126,6 +145,16 @@ Route::middleware(['auth', 'two-factor', 'account.ready', 'licensed'])->group(fu
         Route::post('/account/two-factor/recovery-codes', 'recoveryCodes')->name('account.two-factor.recovery');
         Route::post('/account/two-factor/skip', 'skip')->name('account.two-factor.skip');
         Route::delete('/account/two-factor', 'destroy')->name('account.two-factor.destroy');
+    });
+
+    // Keamanan Aplikasi: the PIN and the phone's fingerprint / face that open the installed app.
+    Route::controller(AppLockController::class)->prefix('account/app')->name('account.app')->group(function () {
+        Route::get('/', 'settings');
+        Route::post('/pin', 'savePin')->middleware('throttle:10,1')->name('.pin');
+        Route::delete('/pin', 'destroyPin')->name('.pin.destroy');
+        Route::get('/passkey', 'passkeyCreationOptions')->name('.passkey.options');
+        Route::post('/passkey', 'storePasskey')->name('.passkey');
+        Route::delete('/passkey/{passkey}', 'destroyPasskey')->whereNumber('passkey')->name('.passkey.destroy');
     });
 
     // Modul Recruitment: Tracking (stages and candidates), Pelamar, Pengaturan Form and Laporan.

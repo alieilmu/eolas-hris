@@ -39,6 +39,8 @@ export interface Auth {
     notifications: number;
     /** Pengajuan waiting for this account's decision (Persetujuan Saya). */
     approvals: number;
+    /** Signed in from the installed app on a phone: how it is opened again; null in a browser. */
+    app: { pin: boolean; passkey: boolean; days: number } | null;
 }
 
 /** Eolas: the demo workspace the account works in (null in the main application). */

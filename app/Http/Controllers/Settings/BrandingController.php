@@ -34,6 +34,7 @@ class BrandingController extends Controller
                 'tagline' => $b->tagline ?? '',
                 'brand_color' => $b->brandColor(),
                 'accent_color' => $b->accentColor(),
+                'mobile_session_days' => (int) $b->mobile_session_days,
             ],
             'files' => collect(Branding::FILES)->map(fn (string $column, string $type) => $b->fileUrl($type))->all(),
             'defaults' => ['app_name' => (string) config('app.name', 'HRIS'), 'brand_color' => Branding::DEFAULT_BRAND, 'accent_color' => Branding::DEFAULT_ACCENT],
@@ -49,6 +50,7 @@ class BrandingController extends Controller
             'tagline' => ['nullable', 'string', 'max:120'],
             'brand_color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'accent_color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'mobile_session_days' => ['sometimes', 'integer', 'min:0', 'max:365'],
             'logo' => ['nullable', $image],
             'logo-full' => ['nullable', $image],
             'favicon' => ['nullable', File::types(['png', 'ico', 'webp'])->max(512)],
@@ -63,6 +65,7 @@ class BrandingController extends Controller
             'logo' => 'Logo',
             'logo-full' => 'Logo lengkap',
             'favicon' => 'Favicon',
+            'mobile_session_days' => 'Login di aplikasi HP',
         ]);
 
         $b = Branding::current();
@@ -73,6 +76,9 @@ class BrandingController extends Controller
             'brand_color' => Palette::normalize($data['brand_color']),
             'accent_color' => Palette::normalize($data['accent_color']),
         ];
+        if (array_key_exists('mobile_session_days', $data)) {
+            $values['mobile_session_days'] = (int) $data['mobile_session_days'];
+        }
         foreach (Branding::FILES as $type => $column) {
             $old = $b->{$column};
             if ($request->hasFile($type)) {

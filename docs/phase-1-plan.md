@@ -144,6 +144,15 @@ Tanggal mengikuti peta jalan (Fase 1 mulai Januari 2027). Bila minggu 0 selesai 
 - Sesi login di HP lebih lama (opsi di pengaturan), dengan PIN atau biometrik HP untuk membuka kembali.
 - **Installer:** peringatan bahwa mode `--tls internal` tidak cocok untuk aplikasi mobile; PANDUAN.md menyarankan `letsencrypt` atau `custom`.
 
+**Status 3 Nov 2026: selesai.**
+- **Manifest dan ikon dari Branding:** `/manifest.webmanifest` (nama, nama pendek, warna tema, `start_url /?source=app`, standalone) per workspace (dibaca dengan cookie sesi). Ikon PNG 180/192/512 dan versi *maskable* digambar GD dari logo yang diunggah, atau huruf awal nama aplikasi dengan warna brand (`App\Support\Pwa\AppIcon`). Tag `apple-touch-icon` / `theme-color` di `<head>`.
+- **Service worker** `/sw.js`: menyimpan file build (cache-first) dan halaman `/offline`; halaman lain selalu dari server, jadi data karyawan tidak tersimpan di HP. Versi mengikuti build, rilis baru mengganti cache lama. Bar "Tidak ada koneksi" di semua layout.
+- **Pasang aplikasi:** kartu di Beranda — Android memakai prompt bawaan, iPhone menampilkan langkah Bagikan → Tambahkan ke Layar Utama; bisa ditutup.
+- **Portal untuk HP:** navigasi bawah (Beranda, Slip, Pinjaman, Sertifikat, Data Saya; Persetujuan masuk bar bila ada; lebih dari 5 → "Lainnya"), Beranda dibuka dengan kartu *Kehadiran hari ini* (jam masuk/pulang dari mesin + jadwal shift), tombol Klaim/Cuti/Dinas, ringkasan sisa cuti, slip terbaru, sisa plafon, dan 3 pengajuan terakhir. Toast di atas bar bawah. Tombol absen dari HP menyusul di minggu 7 (kartu kehadiran sudah disiapkan).
+- **Login panjang + kunci:** Pengaturan → Branding → *Aplikasi HP*: lama login di aplikasi (bawaan 30 hari, 0 = mati). Login dari aplikasi terpasang memakai remember-me sepanjang itu + cookie penanda HP. Saat sesi pendek habis atau aplikasi dibuka lagi (sessionStorage baru), muncul layar kunci: PIN 6 angka (bukan angka sama/berurutan, dibuat dengan password) atau sidik jari / wajah (WebAuthn platform, ES256/RS256, verifikasi tanda tangan + counter di server, `Passkeys`). 5× PIN salah → keluar. Tanpa PIN/biometrik, login panjang berakhir dan karyawan diminta masuk lagi. Akun → *Keamanan Aplikasi HP* (`/account/app`) untuk PIN dan perangkat. Tercatat di Audit Log.
+- **Installer:** peringatan untuk `--tls internal` / `none`; PANDUAN.md menjelaskan kebutuhan HTTPS tepercaya untuk aplikasi HP.
+- Test: `MobileAppTest` (7) — manifest/ikon/SW, login panjang + PIN, 5× salah, tanpa PIN, pengaturan 0 hari, aturan PIN, passkey (registrasi + assertion, origin salah, counter mundur); 256 test lolos. Browser (viewport HP, mode standalone): login aplikasi, buat PIN, kunci saat dibuka ulang, PIN salah/benar, cache offline service worker; regresi desktop bersih. Sidik jari belum diuji di HP fisik (minggu 9).
+
 ## Minggu 7 — Absen dari HP
 
 - Lokasi kerja ditambah titik koordinat dan radius (geofence), bisa lebih dari satu titik per lokasi (misalnya pit dan kantor site).

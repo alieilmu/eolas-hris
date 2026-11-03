@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Rules\Turnstile;
 use App\Support\Audit\Audit;
+use App\Support\Security\AppLock;
 use App\Support\Tenancy\Tenant;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
@@ -24,6 +25,9 @@ class LoginRequest extends FormRequest
 
     /** The demo workspace signed in to, or null for the main application. */
     public ?string $tenant = null;
+
+    /** Signed in from the installed app, with the long sign-in of Settings → White Label. */
+    public bool $longSession = false;
 
     /**
      * @return array<string, array<int, mixed>>
@@ -82,7 +86,12 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
-        Auth::login($user, $this->boolean('remember'));
+        // From the installed app on a phone: a sign-in that lasts (opened again with the PIN).
+        $this->longSession = $this->boolean('app') && AppLock::startOnDevice($this);
+        if ($this->longSession) {
+            Auth::guard('web')->setRememberDuration(AppLock::days() * 1440);
+        }
+        Auth::login($user, $this->boolean('remember') || $this->longSession);
         $user->forceFill(['last_login_at' => now()])->save();
     }
 

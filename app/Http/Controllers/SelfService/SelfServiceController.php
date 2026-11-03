@@ -11,6 +11,10 @@ use App\Models\BenefitClaim;
 use App\Models\Employee;
 use App\Models\EmployeeChangeRequest;
 use App\Models\LeaveTravelRequest;
+use App\Models\AttendanceLog;
+use App\Models\AttendanceRecord;
+use App\Models\PayrollRun;
+use App\Models\Payslip;
 use App\Support\Time\Airport;
 use App\Support\Time\LeaveTravelWriter;
 use App\Support\Compensation\AccountingMonth;
@@ -68,7 +72,38 @@ class SelfServiceController extends Controller
             'data_change_request' => EmployeeChangeRequest::where('employee_id', $k->id)->where('status', 'pending')->exists(),
             'leave' => LeaveLedger::info($k),
             'leave_policy' => LeavePolicy::current()->only(['long_service_days', 'long_service_taken_salary_multiplier', 'long_service_cashout_salary_multiplier']),
+            'attendance_today' => $this->attendanceToday($k, $today),
+            'latest_payslip' => $this->latestPayslip($k),
         ]);
+    }
+
+    /** Today's punches (machine or entered by HR) and the planned shift, for the top of Beranda. */
+    private function attendanceToday(Employee $k, CarbonImmutable $today): array
+    {
+        $punches = AttendanceLog::where('employee_id', $k->id)->whereBetween('punched_at', [$today->startOfDay(), $today->endOfDay()])
+            ->orderBy('punched_at')->pluck('punched_at');
+        $shift = AttendanceRecord::with('shiftCode')->where('employee_id', $k->id)->whereDate('date', $today)->first()?->shiftCode;
+
+        return [
+            'in' => $punches->first()?->format('H:i'),
+            'out' => $punches->count() > 1 ? $punches->last()->format('H:i') : null,
+            'shift' => $shift ? trim($shift->code.($shift->start_time && $shift->end_time ? ' · '.substr($shift->start_time, 0, 5).'–'.substr($shift->end_time, 0, 5) : '')) : null,
+        ];
+    }
+
+    /** The newest slip of an approved payroll run (as Slip Gaji shows them). */
+    private function latestPayslip(Employee $k): ?array
+    {
+        $slip = Payslip::with('run')->where('employee_id', $k->id)->whereNull('error')
+            ->whereHas('run', fn ($q) => $q->whereIn('status', PayrollRun::FINAL))->get()
+            ->sortByDesc(fn (Payslip $s) => $s->run->period.'|'.$s->id)->first();
+
+        return $slip ? [
+            'id' => $slip->id,
+            'label' => $slip->run->type === 'regular' || ! $slip->run->type ? $slip->run->periodOf()->label() : ($slip->run->type === 'thr' ? 'THR' : 'Final pay'),
+            'take_home_pay' => $slip->take_home_pay,
+            'pay_date' => $slip->run->pay_date?->toDateString(),
+        ] : null;
     }
 
     /** Own leave balance, for the cuti form. */

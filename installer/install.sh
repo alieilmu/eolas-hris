@@ -100,6 +100,11 @@ case "$TLS" in
     custom) site="$DOMAIN"; tls_line="    tls /certs/cert.pem /certs/key.pem"; url="https://$DOMAIN" ;;
     none) site=":80"; tls_line=""; url="http://$DOMAIN" ;;
 esac
+# The app on the phone (PWA: install, fingerprint, offline page) needs a certificate the phones trust.
+case "$TLS" in
+    internal) warn "--tls internal: aplikasi di HP (PWA) tidak bisa dipasang dan sidik jari / wajah tidak jalan, kecuali root CA Caddy dipasang di setiap HP. Untuk karyawan yang memakai HP, pakai --tls letsencrypt (domain publik) atau --tls custom (sertifikat CA tepercaya)." ;;
+    none) warn "--tls none: hanya untuk uji coba. Aplikasi di HP (PWA), sidik jari / wajah dan login aman butuh HTTPS." ;;
+esac
 [ "$HTTPS_PORT" != 443 ] && [ "$TLS" != none ] && url="$url:$HTTPS_PORT"
 [ "$HTTP_PORT" != 80 ] && [ "$TLS" = none ] && url="$url:$HTTP_PORT"
 cat > "$EOLAS_DIR/Caddyfile" <<CADDY

@@ -55,10 +55,12 @@ Pilihan `--tls`:
 
 | Mode | Kapan dipakai |
 |---|---|
-| `letsencrypt` | Domain publik |
-| `internal` | Jaringan kantor; pasang root CA Caddy di komputer pengguna |
-| `custom` | Sertifikat dari CA perusahaan |
+| `letsencrypt` | Domain publik. **Disarankan** bila karyawan memakai aplikasi di HP |
+| `internal` | Jaringan kantor; pasang root CA Caddy di komputer pengguna. **Tidak cocok untuk aplikasi HP** |
+| `custom` | Sertifikat dari CA perusahaan (harus dipercaya oleh HP karyawan) |
 | `none` | HTTP saja, hanya untuk uji coba |
+
+**Aplikasi di HP (PWA).** Portal karyawan bisa dipasang di HP sebagai aplikasi (Android: tombol "Pasang aplikasi"; iPhone: Bagikan → Tambahkan ke Layar Utama), dibuka dengan PIN atau sidik jari / wajah. HP hanya mengizinkan ini di HTTPS dengan sertifikat yang dipercaya HP itu. Dengan `internal`, root CA Caddy harus dipasang manual di setiap HP — praktis tidak bisa untuk ratusan karyawan. Pakai `letsencrypt` (server bisa dijangkau dari internet di port 80/443) atau `custom` dengan sertifikat dari CA publik. Lama login di aplikasi HP diatur di **Pengaturan → Branding → Aplikasi HP**.
 
 ## 4. Setelah instalasi
 

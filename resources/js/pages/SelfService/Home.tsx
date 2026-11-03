@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
-import { Briefcase, ChevronRight, Clock, Glasses, Palmtree, Plus, Stethoscope, UserPen, X } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Briefcase, ChevronRight, Clock, Fingerprint, Glasses, Palmtree, ReceiptText, ShieldCheck, Stethoscope, UserPen, X } from 'lucide-react';
+import { InstallCard } from '@/components/InstallCard';
 import { BenefitClaimForm } from '@/components/compensation/BenefitClaimForm';
 import { LeaveTravelForm, type TripData } from '@/components/time/LeaveTravelForm';
 import { FlowNote, type WorkflowBrief } from '@/components/ApprovalHistory';
@@ -29,6 +30,9 @@ interface Props {
     data_change_request: boolean;
     leave: CutiInfo;
     leave_policy: { long_service_days: number; long_service_taken_salary_multiplier: number; long_service_cashout_salary_multiplier: number };
+    /** Today's punches (HH:mm) and the planned shift. */
+    attendance_today: { in: string | null; out: string | null; shift: string | null };
+    latest_payslip: { id: number; label: string; take_home_pay: number; pay_date: string | null } | null;
 }
 
 type Status = 'pending' | 'approved' | 'rejected';
@@ -54,7 +58,10 @@ export default function PortalHome({
     data_change_request,
     leave,
     leave_policy,
+    attendance_today,
+    latest_payslip,
 }: Props) {
+    const app = usePage().props.auth.app;
     const [form, setForm] = useState<'claim' | 'leave' | 'business_trip' | null>(null);
     const person = { id: employee.id, employee_number: employee.employee_number, name: employee.name, position: employee.position, work_location: employee.work_location };
     const p = benefit_limit.medical;
@@ -65,36 +72,134 @@ export default function PortalHome({
     };
 
     const actions = [
-        { key: 'claim' as const, label: 'Deklarasi Pengobatan / Kacamata', icon: Stethoscope, tone: 'bg-emerald-600 hover:bg-emerald-700' },
-        { key: 'leave' as const, label: 'Ajukan Cuti', icon: Palmtree, tone: 'bg-violet-600 hover:bg-violet-700' },
-        { key: 'business_trip' as const, label: 'Ajukan Dinas', icon: Briefcase, tone: 'bg-sky-600 hover:bg-sky-700' },
+        { key: 'claim' as const, label: 'Deklarasi Pengobatan / Kacamata', short: 'Klaim', icon: Stethoscope, tone: 'bg-emerald-600 hover:bg-emerald-700' },
+        { key: 'leave' as const, label: 'Ajukan Cuti', short: 'Cuti', icon: Palmtree, tone: 'bg-violet-600 hover:bg-violet-700' },
+        { key: 'business_trip' as const, label: 'Ajukan Dinas', short: 'Dinas', icon: Briefcase, tone: 'bg-sky-600 hover:bg-sky-700' },
     ];
+
+    // The three newest pengajuan of any kind, for the top of the page.
+    const recent = [
+        ...benefit_claims.map((d) => ({
+            key: `c${d.id}`, at: d.date, icon: Stethoscope, status: d.status,
+            title: `Deklarasi · Rp ${rupiah(d.total)}`, subtitle: `${fmtDate(d.date)} · ${d.claim_number}`,
+        })),
+        ...leave_travel_requests.map((t) => ({
+            key: `t${t.id}`, at: t.start_date, icon: t.type === 'business_trip' ? Briefcase : Palmtree, status: t.status,
+            title: `${t.type === 'business_trip' ? 'Dinas' : 'Cuti'} ke ${t.destination_city} · ${t.old} hari`,
+            subtitle: `${fmtDate(t.start_date)} – ${fmtDate(t.end_date)}`,
+        })),
+    ]
+        .sort((a, b) => (b.at ?? '').localeCompare(a.at ?? ''))
+        .slice(0, 3);
 
     return (
         <>
             <Head title="Layanan Mandiri" />
             <div className="space-y-5">
+                <InstallCard />
+
                 <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                    <p className="text-xs font-bold text-slate-400">Selamat datang,</p>
+                    <p className="text-xs font-bold text-slate-400">{greeting()},</p>
                     <h1 className="text-xl font-black text-slate-800">{employee.name}</h1>
                     <p className="mt-0.5 text-sm text-slate-500">
                         {employee.employee_number} · {employee.position ?? 'Belum ditempatkan'}
-                        {employee.work_location ? ` · ${employee.work_location}` : ''} · Status keluarga <b>{benefit_limit.ptkp_status}</b>
+                        {employee.work_location ? ` · ${employee.work_location}` : ''}
+                        <span className="hidden sm:inline"> · Status keluarga <b>{benefit_limit.ptkp_status}</b></span>
                     </p>
-                    <div className="mt-4 grid gap-2 sm:grid-cols-3">
+
+                    {/* Kehadiran hari ini: from the machine or entered by HR. */}
+                    <div className="mt-4 rounded-2xl bg-brand-50/70 p-3 ring-1 ring-brand-100">
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="flex items-center gap-1.5 text-xs font-bold text-brand-700">
+                                <Fingerprint size={14} /> Kehadiran hari ini
+                            </p>
+                            <p className="text-[11px] font-semibold text-slate-500">{fmtDate(today)}</p>
+                        </div>
+                        <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                            <Punch label="Masuk" value={attendance_today.in} />
+                            <Punch label="Pulang" value={attendance_today.out} />
+                            <div className="rounded-xl bg-white px-2 py-2">
+                                <p className="text-[10px] font-bold tracking-wide text-slate-400 uppercase">Jadwal</p>
+                                <p className="truncate text-sm font-black text-slate-700">{attendance_today.shift ?? '-'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-3 gap-2">
                         {actions.map((a) => (
                             <button
                                 key={a.key}
                                 onClick={() => setForm(a.key)}
-                                className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-white shadow-sm ${a.tone}`}
+                                className={`flex flex-col items-center justify-center gap-1 rounded-2xl px-2 py-3 text-xs font-bold text-white shadow-sm sm:flex-row sm:gap-2 sm:px-4 sm:text-sm ${a.tone}`}
                             >
-                                <Plus size={16} />
-                                <a.icon size={16} />
-                                {a.label}
+                                <a.icon size={18} />
+                                <span className="sm:hidden">{a.short}</span>
+                                <span className="hidden sm:inline">{a.label}</span>
                             </button>
                         ))}
                     </div>
                 </section>
+
+                {app && !app.pin && !app.passkey && (
+                    <Link href="/account/app" className="flex items-center gap-3 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-800">
+                        <ShieldCheck size={20} className="shrink-0" />
+                        <span className="min-w-0 flex-1 text-sm">
+                            <b className="block">Buat PIN aplikasi</b>
+                            <span className="text-xs">Agar tetap masuk di HP ini{app.days ? ` sampai ${app.days} hari` : ''}, dan aplikasi dibuka dengan PIN atau sidik jari.</span>
+                        </span>
+                        <ChevronRight size={18} />
+                    </Link>
+                )}
+
+                {/* At a glance: leave left, the newest slip, the medical plafon. */}
+                <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <Tile
+                        href="#cuti"
+                        icon={Palmtree}
+                        tone="text-violet-600"
+                        label="Sisa cuti tahunan"
+                        value={leave.annual.present ? `${(leave.annual.balance ?? 0) - (leave.annual.debt ?? 0)} hari` : '-'}
+                        note={leave.annual.pending ? `${leave.annual.pending} hari menunggu` : undefined}
+                    />
+                    <Tile
+                        href={latest_payslip ? `/self-service/payslips?slip=${latest_payslip.id}` : '/self-service/payslips'}
+                        icon={ReceiptText}
+                        tone="text-brand-600"
+                        label={latest_payslip ? `Slip ${latest_payslip.label}` : 'Slip gaji'}
+                        value={latest_payslip ? `Rp ${rupiah(latest_payslip.take_home_pay)}` : 'Belum ada'}
+                        note={latest_payslip?.pay_date ? `dibayar ${fmtDate(latest_payslip.pay_date)}` : undefined}
+                    />
+                    <Tile
+                        href="#plafon"
+                        icon={Stethoscope}
+                        tone="text-emerald-600"
+                        label="Sisa plafon pengobatan"
+                        value={p.benefit_limit === null ? '-' : `Rp ${rupiah(p.remaining)}`}
+                        className="col-span-2 sm:col-span-1"
+                    />
+                </section>
+
+                {recent.length > 0 && (
+                    <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+                        <h2 className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 text-sm font-bold text-slate-700 sm:px-5">
+                            <Clock size={15} className="text-brand-500" /> Pengajuan terakhir
+                        </h2>
+                        <ul className="divide-y divide-slate-100">
+                            {recent.map((r) => (
+                                <li key={r.key} className="flex items-center gap-3 px-4 py-2.5 sm:px-5">
+                                    <r.icon size={16} className="shrink-0 text-slate-400" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-bold text-slate-700">{r.title}</p>
+                                        <p className="truncate text-[11px] text-slate-400">{r.subtitle}</p>
+                                    </div>
+                                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 ring-inset ${STATUS[r.status].className}`}>
+                                        {STATUS[r.status].label}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
+                )}
 
                 <Link
                     href="/self-service/profile"
@@ -120,7 +225,7 @@ export default function PortalHome({
                 </Link>
 
                 {/* Plafon */}
-                <section className="grid gap-4 md:grid-cols-2 [&>*]:min-w-0">
+                <section id="plafon" className="grid scroll-mt-20 gap-4 md:grid-cols-2 [&>*]:min-w-0">
                     <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                         <h2 className="flex items-center gap-2 text-sm font-bold text-slate-700">
                             <Stethoscope size={16} className="text-emerald-600" />
@@ -254,6 +359,57 @@ export default function PortalHome({
     );
 }
 
+function greeting(): string {
+    const h = new Date().getHours();
+    return h < 11 ? 'Selamat pagi' : h < 15 ? 'Selamat siang' : h < 19 ? 'Selamat sore' : 'Selamat malam';
+}
+
+function Punch({ label, value }: { label: string; value: string | null }) {
+    return (
+        <div className="rounded-xl bg-white px-2 py-2">
+            <p className="text-[10px] font-bold tracking-wide text-slate-400 uppercase">{label}</p>
+            <p className={`text-lg leading-tight font-black tabular-nums ${value ? 'text-brand-700' : 'text-slate-300'}`}>{value ?? '—'}</p>
+        </div>
+    );
+}
+
+function Tile({
+    href,
+    icon: Icon,
+    tone,
+    label,
+    value,
+    note,
+    className = '',
+}: {
+    href: string;
+    icon: typeof Palmtree;
+    tone: string;
+    label: string;
+    value: string;
+    note?: string;
+    className?: string;
+}) {
+    const body = (
+        <>
+            <Icon size={18} className={tone} />
+            <p className="mt-2 truncate text-[11px] font-bold text-slate-400">{label}</p>
+            <p className="truncate text-base font-black text-slate-800 tabular-nums">{value}</p>
+            {note && <p className="truncate text-[11px] text-slate-400">{note}</p>}
+        </>
+    );
+    const cls = `block min-w-0 rounded-3xl border border-slate-200 bg-white p-3.5 shadow-sm transition hover:border-brand-200 ${className}`;
+    return href.startsWith('#') ? (
+        <a href={href} className={cls}>
+            {body}
+        </a>
+    ) : (
+        <Link href={href} className={cls}>
+            {body}
+        </Link>
+    );
+}
+
 function History({ title, empty, children }: { title: string; empty: string; children: React.ReactNode[] }) {
     return (
         <div className="min-w-0 rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -325,7 +481,7 @@ function CutiCard({ leave, policy }: { leave: CutiInfo; policy: Props['leave_pol
             router.post('/self-service/long-service-leave', { sequence_no, decision }, { preserveScroll: true });
     };
     return (
-        <section className="grid gap-4 md:grid-cols-2 [&>*]:min-w-0">
+        <section id="cuti" className="grid scroll-mt-20 gap-4 md:grid-cols-2 [&>*]:min-w-0">
             <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                 <h2 className="flex items-center gap-2 text-sm font-bold text-slate-700">
                     <Palmtree size={16} className="text-violet-600" />

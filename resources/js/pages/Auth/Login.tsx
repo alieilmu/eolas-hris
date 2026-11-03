@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Form, Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Briefcase, FlaskConical, Loader2, LogIn } from 'lucide-react';
 import { LoginMark, useBranding } from '@/components/BrandLogo';
 import { Turnstile } from '@/components/Turnstile';
+import { isStandalone, markOpen } from '@/lib/pwa';
 
 const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-500';
 
@@ -20,6 +21,14 @@ export default function Login({
     const [captcha, setCaptcha] = useState('');
     // A token is good for one check: a refused sign-in needs a new one.
     const [attempt, setAttempt] = useState(0);
+    // Signing in from the installed app: a longer sign-in, opened again with the PIN.
+    const [app, setApp] = useState(false);
+    useEffect(() => {
+        if (isStandalone()) {
+            setApp(true);
+            markOpen();
+        }
+    }, []);
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-slate-50 to-accent-50 p-6">
@@ -116,10 +125,14 @@ export default function Login({
                                 </button>
                             )}
 
-                            <label className="flex items-center gap-2 text-xs font-medium text-slate-500">
-                                <input type="checkbox" name="remember" value="1" className="rounded border-slate-300 text-brand-600" />
-                                Ingat saya
-                            </label>
+                            {app ? (
+                                <input type="hidden" name="app" value="1" />
+                            ) : (
+                                <label className="flex items-center gap-2 text-xs font-medium text-slate-500">
+                                    <input type="checkbox" name="remember" value="1" className="rounded border-slate-300 text-brand-600" />
+                                    Ingat saya
+                                </label>
+                            )}
 
                             {turnstile_site_key && (
                                 <>

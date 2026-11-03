@@ -17,7 +17,7 @@ use Illuminate\Notifications\Notifiable;
     'name', 'email', 'password', 'role', 'employee_id', 'permissions', 'work_location_ids', 'sub_location_ids',
     'is_active', 'must_change_password', 'last_login_at',
 ])]
-#[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
+#[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'app_pin'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */

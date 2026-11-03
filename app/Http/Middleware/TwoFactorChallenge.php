@@ -14,7 +14,7 @@ class TwoFactorChallenge
     {
         $user = $request->user();
         if ($user && $user->hasTwoFactor() && $request->session()->get(TwoFactor::SESSION_PASSED) !== true
-            && ! $request->routeIs('two-factor.challenge*', 'logout')) {
+            && ! $request->routeIs('two-factor.challenge*', 'logout', 'app-lock*')) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Masukkan kode 2FA.'], 403);
             }

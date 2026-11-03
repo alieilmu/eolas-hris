@@ -8,6 +8,7 @@ use App\Models\TrialAccount;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Rules\Turnstile;
 use App\Support\Audit\Audit;
+use App\Support\Security\AppLock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
@@ -37,7 +38,7 @@ class LoginController extends Controller
         $request->session()->put(UseTenant::SESSION, $request->tenant);
         if ($request->tenant) {
             TrialAccount::where('database', $request->tenant)->update(['last_login_at' => now()]);
-            if ($request->boolean('remember')) {
+            if ($request->boolean('remember') || $request->longSession) {
                 Cookie::queue(Cookie::forever(UseTenant::COOKIE, $request->tenant));
             }
         }
@@ -53,6 +54,7 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         Cookie::queue(Cookie::forget(UseTenant::COOKIE));
+        Cookie::queue(Cookie::forget(AppLock::COOKIE));
 
         return Inertia::location(route('login'));
     }

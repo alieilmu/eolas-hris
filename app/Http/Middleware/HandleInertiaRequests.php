@@ -75,6 +75,8 @@ class HandleInertiaRequests extends Middleware
                 'approvals' => $user ? rescue(fn () => Workflow::pendingFor($user)->count(), 0, report: false) : 0,
                 // Menu => "view" | "edit", for the sidebar and the edit buttons.
                 'menus' => (object) ($user?->menus() ?? []),
+                // Signed in from the installed app on a phone: how it is opened again (null in a browser).
+                'app' => rescue(fn () => \App\Support\Security\AppLock::share($request, $user), null, report: false),
             ],
         ];
     }

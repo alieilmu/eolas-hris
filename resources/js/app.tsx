@@ -5,9 +5,13 @@ import { createRoot } from 'react-dom/client';
 import AppLayout from '@/layouts/AppLayout';
 import PortalLayout from '@/layouts/PortalLayout';
 import type { Auth } from '@/types';
+import { startPwa } from '@/lib/pwa';
 
 // White label: the name set in Settings → White Label, written into the page head by the server.
 const appName = document.querySelector<HTMLMetaElement>('meta[name="app-name"]')?.content || import.meta.env.VITE_APP_NAME || 'HRIS';
+// The app on the phone: the service worker and the install prompt.
+startPwa();
+
 const accent = getComputedStyle(document.documentElement).getPropertyValue('--color-accent-400').trim();
 
 createInertiaApp({
