@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Briefcase, ChevronRight, Clock, Fingerprint, Glasses, Palmtree, ReceiptText, ShieldCheck, Stethoscope, UserPen, X } from 'lucide-react';
+import { Briefcase, ChevronRight, Clock, Fingerprint, Glasses, LogIn, LogOut, Palmtree, ReceiptText, ShieldCheck, Stethoscope, UserPen, X } from 'lucide-react';
 import { InstallCard } from '@/components/InstallCard';
+import { MobileClockSheet, type MobileClockState } from '@/components/time/MobileClockSheet';
 import { BenefitClaimForm } from '@/components/compensation/BenefitClaimForm';
 import { LeaveTravelForm, type TripData } from '@/components/time/LeaveTravelForm';
 import { FlowNote, type WorkflowBrief } from '@/components/ApprovalHistory';
@@ -33,6 +34,9 @@ interface Props {
     /** Today's punches (HH:mm) and the planned shift. */
     attendance_today: { in: string | null; out: string | null; shift: string | null };
     latest_payslip: { id: number; label: string; take_home_pay: number; pay_date: string | null } | null;
+    mobile_clock: MobileClockState;
+    /** What is kept and why, until the employee agrees (UU PDP). */
+    mobile_consent: { version: string; points: string[] } | null;
 }
 
 type Status = 'pending' | 'approved' | 'rejected';
@@ -60,7 +64,10 @@ export default function PortalHome({
     leave_policy,
     attendance_today,
     latest_payslip,
+    mobile_clock,
+    mobile_consent,
 }: Props) {
+    const [clock, setClock] = useState<'in' | 'out' | null>(null);
     const app = usePage().props.auth.app;
     const [form, setForm] = useState<'claim' | 'leave' | 'business_trip' | null>(null);
     const person = { id: employee.id, employee_number: employee.employee_number, name: employee.name, position: employee.position, work_location: employee.work_location };
@@ -123,6 +130,29 @@ export default function PortalHome({
                                 <p className="truncate text-sm font-black text-slate-700">{attendance_today.shift ?? '-'}</p>
                             </div>
                         </div>
+                        {/* Absen dari HP, where the work location uses it. */}
+                        {mobile_clock.enabled && (
+                            <div className="mt-2 flex items-center gap-2">
+                                <button
+                                    onClick={() => setClock(mobile_clock.next)}
+                                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 px-3 py-3 text-sm font-black text-white shadow-sm hover:bg-brand-700"
+                                >
+                                    {mobile_clock.next === 'in' ? <LogIn size={17} /> : <LogOut size={17} />}
+                                    {mobile_clock.next === 'in' ? 'Absen Masuk' : 'Absen Pulang'}
+                                </button>
+                                {mobile_clock.next === 'out' && (
+                                    <button
+                                        onClick={() => setClock('in')}
+                                        className="rounded-xl bg-white px-3 py-3 text-xs font-bold text-slate-500 ring-1 ring-slate-200 hover:text-brand-700"
+                                    >
+                                        Masuk
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                        {mobile_clock.today.some((t) => t.source === 'mobile' && t.outside) && (
+                            <p className="mt-2 text-[11px] font-semibold text-amber-700">Ada absen hari ini yang ditandai di luar area kerja.</p>
+                        )}
                     </div>
 
                     <div className="mt-3 grid grid-cols-3 gap-2">
@@ -326,6 +356,7 @@ export default function PortalHome({
                 </section>
             </div>
 
+            {clock && <MobileClockSheet state={mobile_clock} consent={mobile_consent} type={clock} onClose={() => setClock(null)} />}
             {form === 'claim' && (
                 <BenefitClaimForm
                     people={[person]}

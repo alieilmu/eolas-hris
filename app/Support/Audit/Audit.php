@@ -80,6 +80,11 @@ class Audit
             'workflow.definition' => 'Alur persetujuan diubah',
             'recruitment.offer' => 'Penawaran kerja diajukan',
         ],
+        'Kehadiran' => [
+            'attendance.consent' => 'Persetujuan lokasi & foto absen',
+            'attendance.photo_viewed' => 'Foto absen dibuka',
+            'attendance.geofence' => 'Area absen HP diubah',
+        ],
         'Data karyawan' => [
             'employees.export' => 'Data karyawan diekspor',
             'employees.import' => 'Data karyawan diimpor',

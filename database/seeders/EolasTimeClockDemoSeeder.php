@@ -19,7 +19,8 @@ use Illuminate\Support\Facades\DB;
  * (and one new machine waiting to be accepted), and clock-ins for the worked days of the
  * demo Absensi — mostly on time, some late or early, some forgetting CI/CO, overtime after
  * the shift at the sites and a few days off worked. Then Kehadiran is processed into
- * Absensi and Lembur, and the older overtime is approved.
+ * Absensi and Lembur, and the older overtime is approved. Absen HP is on at every location,
+ * with an area for the office and, at the sites, the pit.
  */
 class EolasTimeClockDemoSeeder extends Seeder
 {
@@ -131,6 +132,19 @@ class EolasTimeClockDemoSeeder extends Seeder
                 OvertimeRecord::whereIn('id', $part)->update(['status' => $status, 'verified_by' => $admin, 'verified_at' => now(),
                     'verification_notes' => $status === 'rejected' ? 'Tanpa surat perintah lembur' : null]);
             }
+        }
+
+        // Absen HP: each location takes punches from the phone, outside its areas marked;
+        // the sites have a pit and an office, Head Office one building.
+        $places = [[-6.2253, 106.8081], [-0.9513, 114.8862], [-1.6815, 116.1950], [-2.2134, 115.4517], [-3.3194, 114.5908]];
+        foreach (WorkLocation::orderBy('sort_order')->get() as $i => $loc) {
+            [$lat, $lng] = $places[$i % count($places)];
+            $loc->update(['mobile_attendance' => 'flag']);
+            $loc->geofences()->delete();
+            $loc->geofences()->createMany($loc->isHeadOffice()
+                ? [['name' => 'Gedung kantor', 'latitude' => $lat, 'longitude' => $lng, 'radius_m' => 150]]
+                : [['name' => 'Kantor site', 'latitude' => $lat, 'longitude' => $lng, 'radius_m' => 300],
+                    ['name' => 'Pit', 'latitude' => $lat + 0.018, 'longitude' => $lng + 0.012, 'radius_m' => 1500]]);
         }
     }
 }

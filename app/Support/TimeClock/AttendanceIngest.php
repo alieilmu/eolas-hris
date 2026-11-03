@@ -14,8 +14,11 @@ use Illuminate\Support\Facades\DB;
  */
 class AttendanceIngest
 {
+    /** Columns only a punch from the phone fills (location, selfie); null for the others. */
+    private const EXTRA = ['latitude', 'longitude', 'accuracy_m', 'geofence_id', 'distance_m', 'outside_geofence', 'photo_path', 'client'];
+
     /**
-     * @param  list<array{pin: string, waktu: string, status?: ?int, verify?: ?string}>  $rows
+     * @param  list<array{pin: string, punched_at: string, status?: ?int, verify?: ?string, extra?: array<string, mixed>}>  $rows
      * @return array{diterima: int, tanpa_karyawan: int, duplikat: int}
      */
     public static function store(array $rows, ?AttendanceDevice $device, string $source, ?int $userId = null, ?string $notes = null): array
@@ -34,6 +37,7 @@ class AttendanceIngest
                 'punched_at' => CarbonImmutable::parse($r['punched_at'])->format('Y-m-d H:i:s'),
                 'status_code' => $r['status'] ?? null, 'verify' => $r['verify'] ?? null,
                 'source' => $source, 'notes' => $notes, 'created_by' => $userId, 'created_at' => $now, 'updated_at' => $now,
+                ...array_merge(array_fill_keys(self::EXTRA, null), array_intersect_key($r['extra'] ?? [], array_flip(self::EXTRA))),
             ];
         }
         $accepted = 0;

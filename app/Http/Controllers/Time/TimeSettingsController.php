@@ -10,6 +10,9 @@ use App\Models\ShiftPattern;
 use App\Models\ShiftCode;
 use App\Models\JobLevel;
 use App\Models\WorkLocation;
+use App\Models\WorkLocationGeofence;
+use App\Models\MobileAttendanceSetting;
+use App\Support\Audit\Audit;
 use App\Support\TimeClock\ShiftWindow;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +24,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** Pengaturan Waktu & Kehadiran: Kode Shift (with their hours), Pola Roster, Status Pengajuan Uang, Hari Libur, and Waktu Kerja & Lembur. */
+/** Pengaturan Waktu & Kehadiran: Kode Shift (with their hours), Pola Roster, Status Pengajuan Uang, Hari Libur, Waktu Kerja & Lembur, and Absen HP. */
 class TimeSettingsController extends Controller
 {
     public function index(): Response
@@ -59,6 +62,13 @@ class TimeSettingsController extends Controller
             ],
             // Waktu Kerja & Lembur.
             'work_schedule' => WorkLocation::orderBy('sort_order')->get(['id', 'name', 'type', 'work_schedule_scheme', 'daily_normal_hours']),
+            // Absen HP: per location, from where (geofences) and what happens outside them.
+            'mobile_attendance' => WorkLocation::with('geofences')->orderBy('sort_order')->get()->map(fn (WorkLocation $l) => [
+                'id' => $l->id, 'name' => $l->name, 'mode' => $l->mobile_attendance,
+                'geofences' => $l->geofences->map(fn (WorkLocationGeofence $g) => $g->only(['id', 'name', 'latitude', 'longitude', 'radius_m']))->values(),
+            ]),
+            'mobile_attendance_modes' => WorkLocation::MOBILE_ATTENDANCE,
+            'photo_retention_days' => MobileAttendanceSetting::current()->photo_retention_days,
             'scheme_options' => WorkLocation::SKEMA_KERJA,
             'overtime_policy' => OvertimePolicy::current()->only(['rounding_minutes', 'minimum_minutes', 'count_before_shift', 'daily_limit_hours', 'weekly_limit_hours']),
             'overtime_eligibility' => JobLevel::orderByDesc('layer')->orderBy('name')->get(['id', 'name', 'layer'])->map(function (JobLevel $g) {
@@ -164,6 +174,40 @@ class TimeSettingsController extends Controller
         ], [], ['work_schedule_scheme' => 'Skema kerja', 'daily_normal_hours' => 'Jam kerja normal']);
         $workLocation->update($data);
         Inertia::flash('success', "Waktu kerja {$workLocation->name} diperbarui.");
+
+        return back();
+    }
+
+    /** Absen HP of one location: the mode and its geofences (replaced as a whole). */
+    public function updateMobileAttendance(Request $request, WorkLocation $workLocation): RedirectResponse
+    {
+        $data = $request->validate([
+            'mode' => ['required', Rule::in(array_keys(WorkLocation::MOBILE_ATTENDANCE))],
+            'geofences' => ['present', 'array', 'max:20'],
+            'geofences.*.name' => ['required', 'string', 'max:100'],
+            'geofences.*.latitude' => ['required', 'numeric', 'between:-90,90'],
+            'geofences.*.longitude' => ['required', 'numeric', 'between:-180,180'],
+            'geofences.*.radius_m' => ['required', 'integer', 'min:20', 'max:20000'],
+        ], [], ['geofences.*.name' => 'Nama titik', 'geofences.*.latitude' => 'Latitude', 'geofences.*.longitude' => 'Longitude', 'geofences.*.radius_m' => 'Radius']);
+        if ($data['mode'] === 'reject' && ! $data['geofences']) {
+            throw ValidationException::withMessages(['geofences' => 'Tambahkan minimal satu titik area; tanpa area, semua absen akan ditolak.']);
+        }
+        DB::transaction(function () use ($workLocation, $data) {
+            $workLocation->update(['mobile_attendance' => $data['mode']]);
+            $workLocation->geofences()->delete();
+            $workLocation->geofences()->createMany($data['geofences']);
+        });
+        Audit::log('attendance.geofence', $workLocation, null, ['mode' => $data['mode'], 'points' => count($data['geofences'])]);
+        Inertia::flash('success', "Absen HP {$workLocation->name} disimpan.");
+
+        return back();
+    }
+
+    public function updatePhotoRetention(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['photo_retention_days' => ['required', 'integer', 'min:7', 'max:365']], [], ['photo_retention_days' => 'Masa simpan foto']);
+        MobileAttendanceSetting::current()->update($data);
+        Inertia::flash('success', "Foto absen disimpan {$data['photo_retention_days']} hari.");
 
         return back();
     }

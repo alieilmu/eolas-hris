@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'code', 'type', 'sort_order', 'work_schedule_scheme', 'daily_normal_hours', 'jkk_rate', 'minimum_wage'])]
+#[Fillable(['name', 'code', 'type', 'sort_order', 'work_schedule_scheme', 'daily_normal_hours', 'jkk_rate', 'minimum_wage', 'mobile_attendance'])]
 class WorkLocation extends Model
 {
     public const TYPE_HEAD_OFFICE = 'head_office';
@@ -22,6 +22,13 @@ class WorkLocation extends Model
         'mining_roster' => 'Waktu kerja tertentu ESDM · roster (Kepmenakertrans 234/2003)',
     ];
 
+    /** Clocking in from the phone: not used, only inside a geofence, or outside taken but marked. */
+    public const MOBILE_ATTENDANCE = [
+        'off' => 'Tidak dipakai',
+        'reject' => 'Hanya di dalam area (di luar ditolak)',
+        'flag' => 'Di luar area diterima, ditandai',
+    ];
+
     protected function casts(): array
     {
         return ['daily_normal_hours' => 'float', 'jkk_rate' => 'float', 'minimum_wage' => 'integer'];
@@ -30,6 +37,12 @@ class WorkLocation extends Model
     public function employees(): HasMany
     {
         return $this->hasMany(Employee::class);
+    }
+
+    /** Where its employees may clock in from the phone. */
+    public function geofences(): HasMany
+    {
+        return $this->hasMany(WorkLocationGeofence::class)->orderBy('id');
     }
 
     public function subLocations(): HasMany

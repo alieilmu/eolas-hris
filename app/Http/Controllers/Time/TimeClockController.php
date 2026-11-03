@@ -4,6 +4,10 @@ namespace App\Http\Controllers\Time;
 
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceLog;
+use App\Models\MobileAttendanceSetting;
+use App\Support\TimeClock\MobileClock;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Models\Employee;
 use App\Models\OvertimeRecord;
 use App\Support\Audit\Audit;
@@ -33,11 +37,12 @@ use Inertia\Response;
  *    absent, not matching the roster, late, early, working time and overtime;
  *  - Lembur: overtime counted from CI/CO, approved before payroll;
  *  - Log Absen: the raw logs, corrections by HR and file imports;
+ *  - Absen HP: punches from the phone with their place on the map and selfie, the marked ones first;
  *  - Mesin Absen: the machines, added and removed here, pushing over ADMS.
  */
 class TimeClockController extends Controller
 {
-    public const TABS = ['resume', 'overtime', 'log', 'device'];
+    public const TABS = ['resume', 'overtime', 'log', 'mobile', 'device'];
 
     /** The longest stretch a page reads at once. */
     private const MAKS_HARI = 62;
@@ -67,6 +72,7 @@ class TimeClockController extends Controller
             'resume' => $this->resume($from, $until, $location, $q, $props['filters']['status']),
             'overtime' => $this->overtime($from, $until, $location, $q, (string) $request->query('status', 'pending')),
             'log' => $this->logs($from, $until, $location, $q),
+            'mobile' => $this->mobile($from, $until, $location, $q, (string) $request->query('status', 'outside')),
             'device' => $this->device($request),
         });
     }
@@ -343,6 +349,44 @@ class TimeClockController extends Controller
             'employee_options' => $this->employees($from, $until, $location)->map(fn (Employee $k) => ['id' => $k->id, 'label' => "{$k->employee_number} · {$k->name}"])->values(),
             'device_options' => AttendanceDevice::where('status', '!=', 'new')->orderBy('name')->get(['id', 'name']),
         ];
+    }
+
+    /** Absen HP: punches from the phone, by default only those outside their work location's area. */
+    private function mobile(CarbonImmutable $from, CarbonImmutable $until, ?int $location, string $q, string $status): array
+    {
+        $visible = $this->employees($from, $until, $location, $q)->pluck('id');
+        $base = AttendanceLog::where('source', 'mobile')->whereIn('employee_id', $visible)
+            ->whereBetween('punched_at', [$from->toDateString().' 00:00:00', $until->toDateString().' 23:59:59']);
+
+        return [
+            'mobile_logs' => (clone $base)->when($status === 'outside', fn ($w) => $w->where('outside_geofence', true))
+                ->with(['employee:id,employee_number,name,work_location_id', 'employee.workLocation:id,name', 'geofence'])
+                ->orderByDesc('punched_at')->limit(1000)->get()
+                ->map(fn (AttendanceLog $l) => [
+                    'id' => $l->id, 'punched_at' => $l->punched_at->format('Y-m-d H:i:s'),
+                    'type' => $l->status_code === MobileClock::STATUS_OUT ? 'out' : 'in',
+                    'employee_number' => $l->employee?->employee_number, 'name' => $l->employee?->name, 'location' => $l->employee?->workLocation?->name,
+                    'latitude' => $l->latitude, 'longitude' => $l->longitude, 'accuracy_m' => $l->accuracy_m,
+                    'geofence' => $l->geofence ? $l->geofence->only(['name', 'latitude', 'longitude', 'radius_m']) : null,
+                    'distance_m' => $l->distance_m, 'outside' => (bool) $l->outside_geofence,
+                    'photo' => (bool) $l->photo_path, 'photo_deleted' => $l->photo_deleted_at !== null,
+                ]),
+            'mobile_counts' => ['all' => (clone $base)->count(), 'outside' => (clone $base)->where('outside_geofence', true)->count()],
+            'photo_retention_days' => MobileAttendanceSetting::current()->photo_retention_days,
+        ];
+    }
+
+    /** The selfie of a punch from the phone; the opening is recorded (UU PDP). */
+    public function photo(AttendanceLog $log): StreamedResponse
+    {
+        $employee = $log->employee_id ? Employee::find($log->employee_id) : null;
+        abort_unless($log->source === 'mobile' && $employee, 404);
+        abort_unless($log->photo_path && Storage::disk('local')->exists($log->photo_path), 410, 'Foto sudah dihapus (lewat masa simpan).');
+        Audit::log('attendance.photo_viewed', $employee, "Foto absen {$log->punched_at->format('d.m.Y H:i')}", ['log' => $log->id]);
+
+        return Storage::disk('local')->response($log->photo_path, null, [
+            'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff', 'Content-Security-Policy' => "default-src 'none'",
+        ]);
     }
 
     private function device(Request $request): array

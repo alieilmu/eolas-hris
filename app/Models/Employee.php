@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 #[Fillable([
     'employee_number', 'attendance_pin', 'name', 'email', 'status', 'position_id', 'work_location_id', 'candidate_id',
     'sub_location_id', 'job_level_id', 'directorate_id', 'division_id', 'department_id', 'section_id', 'discipline',
-    'termination_date', 'termination_reason', 'termination_notes',
+    'termination_date', 'termination_reason', 'termination_notes', 'attendance_consent_at', 'attendance_consent_version',
 ])]
 class Employee extends Model
 {
@@ -45,6 +45,7 @@ class Employee extends Model
     {
         return [
             'termination_date' => 'immutable_date:Y-m-d',
+            'attendance_consent_at' => 'datetime',
         ];
     }
 

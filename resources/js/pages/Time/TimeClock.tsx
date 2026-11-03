@@ -14,7 +14,9 @@ import {
     Pencil,
     Play,
     Plus,
+    MapPin,
     Search,
+    Smartphone,
     Timer,
     Trash2,
     Wifi,
@@ -24,7 +26,7 @@ import {
 import { AttendanceHeader, Field, Modal, ghostButton, inputClass, primaryButton, smallInput } from '@/components/time/ui';
 import { APPROVAL_STATUS, label } from '@/lib/labels';
 
-type Tab = 'resume' | 'overtime' | 'log' | 'device';
+type Tab = 'resume' | 'overtime' | 'log' | 'mobile' | 'device';
 
 interface Option {
     id: number;
@@ -82,7 +84,7 @@ interface LogRow {
     employee_number: string | null;
     name: string | null;
     device: string | null;
-    source: 'device' | 'import' | 'manual';
+    source: 'device' | 'import' | 'manual' | 'mobile';
     notes: string | null;
 }
 
@@ -101,6 +103,23 @@ interface MesinRow {
     logs_today: number;
     last_log: string | null;
     notes: string | null;
+}
+
+interface MobileRow {
+    id: number;
+    punched_at: string;
+    type: 'in' | 'out';
+    employee_number: string | null;
+    name: string | null;
+    location: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    accuracy_m: number | null;
+    geofence: { name: string; latitude: number; longitude: number; radius_m: number } | null;
+    distance_m: number | null;
+    outside: boolean;
+    photo: boolean;
+    photo_deleted: boolean;
 }
 
 interface Props {
@@ -122,6 +141,10 @@ interface Props {
     // log
     logs?: LogRow[];
     device_options?: { id: number; name: string }[];
+    // absen HP
+    mobile_logs?: MobileRow[];
+    mobile_counts?: { all: number; outside: number };
+    photo_retention_days?: number;
     // mesin
     devices?: MesinRow[];
     work_locations?: { id: number; name: string }[];
@@ -173,6 +196,7 @@ export default function TimeClock(props: Props) {
         { id: 'resume', label: 'Resume Absensi', icon: <Fingerprint size={15} /> },
         { id: 'overtime', label: 'Lembur', icon: <Timer size={15} /> },
         { id: 'log', label: 'Log Absen', icon: <Clock size={15} /> },
+        { id: 'mobile', label: 'Absen HP', icon: <Smartphone size={15} /> },
         { id: 'device', label: 'Mesin Absen', icon: <Cpu size={15} />, badge: props.new_devices },
     ];
 
@@ -194,7 +218,7 @@ export default function TimeClock(props: Props) {
                         {tabs.map((t) => (
                             <button
                                 key={t.id}
-                                onClick={() => go({ tab: t.id, status: t.id === 'overtime' ? 'pending' : 'issues' })}
+                                onClick={() => go({ tab: t.id, status: t.id === 'overtime' ? 'pending' : t.id === 'mobile' ? 'outside' : 'issues' })}
                                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold transition ${
                                     tab === t.id ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                                 }`}
@@ -238,6 +262,7 @@ export default function TimeClock(props: Props) {
                     {tab === 'resume' && <ResumeTab {...props} go={go} />}
                     {tab === 'overtime' && <LemburTab {...props} go={go} />}
                     {tab === 'log' && <LogTab {...props} />}
+                    {tab === 'mobile' && <MobileTab {...props} go={go} />}
                     {tab === 'device' && <MesinTab {...props} />}
                 </div>
             </div>
@@ -630,7 +655,7 @@ function LemburTab({ overtime_summary = [], overtime_records = [], overtime_stat
 function LogTab({ logs = [], can, employee_options = [], device_options = [] }: Props) {
     const [correction, setKoreksi] = useState(false);
     const form = useForm<{ file: File | null; attendance_device_id: string }>({ file: null, attendance_device_id: '' });
-    const SUMBER = { device: 'bg-slate-100 text-slate-600', import: 'bg-violet-100 text-violet-700', manual: 'bg-sky-100 text-sky-700' };
+    const SUMBER = { device: 'bg-slate-100 text-slate-600', import: 'bg-violet-100 text-violet-700', manual: 'bg-sky-100 text-sky-700', mobile: 'bg-teal-100 text-teal-700' };
 
     return (
         <div className="space-y-5">
@@ -685,7 +710,7 @@ function LogTab({ logs = [], can, employee_options = [], device_options = [] }: 
                                 <td className="px-3 py-2">{l.name ? `${l.employee_number} · ${l.name}` : <span className="text-xs text-rose-500">PIN tidak dikenal</span>}</td>
                                 <td className="px-3 py-2 text-xs text-slate-500">{l.device ?? '–'}</td>
                                 <td className="px-3 py-2">
-                                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${SUMBER[l.source]}`}>{l.source === 'manual' ? 'correction' : l.source}</span>
+                                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${SUMBER[l.source]}`}>{l.source === 'manual' ? 'correction' : l.source === 'mobile' ? 'HP' : l.source}</span>
                                 </td>
                                 <td className="px-3 py-2 text-xs text-slate-500">{l.notes ?? ''}</td>
                                 {can.edit && (
@@ -715,6 +740,190 @@ function LogTab({ logs = [], can, employee_options = [], device_options = [] }: 
             </div>
             {correction && <KoreksiModal initial={{ employee_id: 0, punched_at: '' }} options={employee_options} onClose={() => setKoreksi(false)} />}
         </div>
+    );
+}
+
+// --- Absen HP -----------------------------------------------------------------------------------
+
+function MobileTab({ mobile_logs = [], mobile_counts = { all: 0, outside: 0 }, photo_retention_days = 90, filters, go }: Props & { go: (p: Record<string, string | number | null>) => void }) {
+    const [open, setOpen] = useState<MobileRow | null>(null);
+    const chips = [
+        { key: 'outside', label: 'Di luar area', n: mobile_counts.outside, tone: 'text-amber-700' },
+        { key: 'all', label: 'Semua absen HP', n: mobile_counts.all, tone: 'text-brand-700' },
+    ];
+
+    return (
+        <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+                {chips.map((c) => (
+                    <button
+                        key={c.key}
+                        onClick={() => go({ status: c.key })}
+                        className={`rounded-2xl border px-4 py-2 text-left shadow-sm ${filters.status === c.key ? 'border-brand-300 bg-white ring-2 ring-brand-100' : 'border-slate-100 bg-white'}`}
+                    >
+                        <p className="text-[11px] font-bold text-slate-400">{c.label}</p>
+                        <p className={`text-lg font-black ${c.tone}`}>{c.n.toLocaleString('id-ID')}</p>
+                    </button>
+                ))}
+                <p className="ml-auto max-w-sm text-[11px] text-slate-400">
+                    Foto absen disimpan {photo_retention_days} hari lalu dihapus otomatis. Setiap foto yang dibuka tercatat di Audit Log.
+                </p>
+            </div>
+            <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
+                <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-left text-[10px] font-bold tracking-wide text-slate-500 uppercase">
+                        <tr>
+                            <th className="px-3 py-2">Waktu</th>
+                            <th className="px-3 py-2">Karyawan</th>
+                            <th className="px-3 py-2">Jenis</th>
+                            <th className="px-3 py-2">Area</th>
+                            <th className="px-3 py-2 text-right">Akurasi GPS</th>
+                            <th className="px-3 py-2" />
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {mobile_logs.map((l) => (
+                            <tr key={l.id} className="border-t border-slate-100">
+                                <td className="px-3 py-2 font-mono text-xs">{l.punched_at}</td>
+                                <td className="px-3 py-2">
+                                    {l.employee_number} · {l.name}
+                                    <span className="block text-[11px] text-slate-400">{l.location}</span>
+                                </td>
+                                <td className="px-3 py-2 text-xs font-bold text-slate-600">{l.type === 'in' ? 'Masuk' : 'Pulang'}</td>
+                                <td className="px-3 py-2">
+                                    {l.outside ? (
+                                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                                            Di luar{l.geofence && l.distance_m !== null ? ` · ${l.distance_m.toLocaleString('id-ID')} m dari ${l.geofence.name}` : ' · area belum diatur'}
+                                        </span>
+                                    ) : (
+                                        <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">{l.geofence?.name ?? 'Di dalam area'}</span>
+                                    )}
+                                </td>
+                                <td className="px-3 py-2 text-right text-xs text-slate-500 tabular-nums">{l.accuracy_m !== null ? `±${l.accuracy_m.toLocaleString('id-ID')} m` : '–'}</td>
+                                <td className="px-3 py-2 text-right">
+                                    <button onClick={() => setOpen(l)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-brand-700 hover:bg-brand-50">
+                                        <MapPin size={13} /> Peta & foto
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                        {mobile_logs.length === 0 && (
+                            <tr>
+                                <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">
+                                    {filters.status === 'outside' ? 'Tidak ada absen HP di luar area pada rentang ini.' : 'Belum ada absen HP pada rentang ini.'}
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+            {open && <MobileDetail row={open} onClose={() => setOpen(null)} />}
+        </div>
+    );
+}
+
+/**
+ * A plan of the punch, drawn here (no map service is sent the position): the area's circle,
+ * the GPS point with its accuracy, and a scale. North is up.
+ */
+function PunchMap({ row }: { row: MobileRow }) {
+    const lat0 = row.latitude ?? 0;
+    const lng0 = row.longitude ?? 0;
+    // Metres east / north of the punch.
+    const xy = (lat: number, lng: number) => [(lng - lng0) * Math.cos((lat0 * Math.PI) / 180) * 111320, (lat - lat0) * 110540];
+    const g = row.geofence;
+    const [gx, gy] = g ? xy(g.latitude, g.longitude) : [0, 0];
+    const acc = row.accuracy_m ?? 0;
+    // Centred between the punch and the area, both in view with room for the label.
+    const [cx, cy] = [gx / 2, gy / 2];
+    const reach = g ? Math.max(Math.abs(gx), Math.abs(gy)) / 2 + g.radius_m : 0;
+    const half = Math.max(100, acc * 1.3 + Math.max(Math.abs(cx), Math.abs(cy)), reach * 1.25);
+    const size = 400;
+    const k = size / 2 / half;
+    const px = (x: number) => size / 2 + (x - cx) * k;
+    const py = (y: number) => size / 2 - (y - cy) * k;
+    // A round scale bar about a quarter of the width.
+    const target = half / 2;
+    const step = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].find((v) => v >= target) ?? 50000;
+    const bar = step * k;
+
+    return (
+        <svg viewBox={`0 0 ${size} ${size}`} className="h-80 w-full rounded-2xl border border-slate-200 bg-slate-50" role="img" aria-label="Denah lokasi absen">
+            <g>
+                <defs>
+                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e2e8f0" strokeWidth="1" />
+                    </pattern>
+                </defs>
+                <rect width={size} height={size} fill="url(#grid)" />
+                {g && (
+                    <>
+                        <circle cx={px(gx)} cy={py(gy)} r={g.radius_m * k} fill="rgba(22,163,74,0.12)" stroke="#16a34a" strokeWidth="2" strokeDasharray="6 4" />
+                        <circle cx={px(gx)} cy={py(gy)} r="4" fill="#16a34a" />
+                        <text x={px(gx)} y={Math.max(14, py(gy) - g.radius_m * k - 6)} textAnchor="middle" fontSize="12" fontWeight="700" fill="#15803d">
+                            {g.name}
+                        </text>
+                        {row.outside && <line x1={px(gx)} y1={py(gy)} x2={px(0)} y2={py(0)} stroke="#d97706" strokeWidth="1.5" strokeDasharray="4 4" />}
+                    </>
+                )}
+                {acc > 0 && <circle cx={px(0)} cy={py(0)} r={Math.max(3, acc * k)} fill="rgba(37,99,235,0.12)" stroke="#2563eb" strokeWidth="1" />}
+                <circle cx={px(0)} cy={py(0)} r="6" fill={row.outside ? '#d97706' : '#2563eb'} stroke="#fff" strokeWidth="2" />
+            </g>
+            <g transform={`translate(12 ${size - 14})`}>
+                <line x1="0" y1="0" x2={bar} y2="0" stroke="#475569" strokeWidth="2" />
+                <line x1="0" y1="-4" x2="0" y2="4" stroke="#475569" strokeWidth="2" />
+                <line x1={bar} y1="-4" x2={bar} y2="4" stroke="#475569" strokeWidth="2" />
+                <text x={bar + 6} y="4" fontSize="11" fill="#475569">
+                    {step >= 1000 ? `${step / 1000} km` : `${step} m`}
+                </text>
+            </g>
+            <text x={size - 12} y="18" textAnchor="end" fontSize="11" fontWeight="700" fill="#64748b">
+                U ↑
+            </text>
+        </svg>
+    );
+}
+
+/** The punch on a plan next to its selfie; the photo loads only here, and the server records the opening. */
+function MobileDetail({ row, onClose }: { row: MobileRow; onClose: () => void }) {
+    const [showPhoto, setShowPhoto] = useState(false);
+    const lat = row.latitude ?? 0;
+    const lng = row.longitude ?? 0;
+
+    return (
+        <Modal title={`${row.name} · ${row.type === 'in' ? 'Masuk' : 'Pulang'} ${row.punched_at.slice(11, 16)}`} subtitle={row.punched_at.slice(0, 10)} onClose={onClose} width="max-w-3xl">
+            <div className="grid gap-4 md:grid-cols-[1fr_240px]">
+                <div>
+                    <PunchMap row={row} />
+                    <div className="mt-2 space-y-0.5 text-xs text-slate-500">
+                        <p>
+                            Titik absen <span className="font-mono">{lat.toFixed(6)}, {lng.toFixed(6)}</span> · akurasi ±{row.accuracy_m ?? '–'} m ·{' '}
+                            <a href={`https://www.google.com/maps?q=${lat},${lng}`} target="_blank" rel="noreferrer" className="font-bold text-brand-700 hover:underline">
+                                buka di Google Maps
+                            </a>
+                        </p>
+                        {row.geofence ? (
+                            <p className={row.outside ? 'font-bold text-amber-700' : 'text-brand-700'}>
+                                {row.outside ? `Di luar area: ${row.distance_m?.toLocaleString('id-ID')} m dari titik ${row.geofence.name} (radius ${row.geofence.radius_m} m).` : `Di dalam area ${row.geofence.name} (radius ${row.geofence.radius_m} m).`}
+                            </p>
+                        ) : (
+                            <p className="font-bold text-amber-700">Lokasi kerja ini belum punya titik area.</p>
+                        )}
+                    </div>
+                </div>
+                <div className="flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
+                    {row.photo_deleted || !row.photo ? (
+                        <p className="p-4 text-center text-xs text-slate-400">Foto sudah dihapus (lewat masa simpan).</p>
+                    ) : showPhoto ? (
+                        <img src={`${URL}/photo/${row.id}`} alt="Foto absen" className="h-full w-full object-cover" />
+                    ) : (
+                        <button onClick={() => setShowPhoto(true)} className={primaryButton}>
+                            Lihat foto
+                        </button>
+                    )}
+                </div>
+            </div>
+        </Modal>
     );
 }
 

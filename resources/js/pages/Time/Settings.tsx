@@ -5,6 +5,7 @@ import { CrudTable } from '@/components/settings/CrudTable';
 import { DirtyGuardProvider, useGuard } from '@/components/settings/DirtyGuard';
 import { OptionList, type OptionCategory } from '@/components/settings/OptionList';
 import { AttendanceHeader, smallInput } from '@/components/time/ui';
+import { MobileAttendanceSettings, type MobileLocation } from '@/components/time/MobileAttendanceSettings';
 import { JENIS_CELL, type Jenis, type Pattern, type PatternStep } from '@/lib/time';
 
 interface CodeRow {
@@ -33,6 +34,9 @@ interface Props {
     scheme_options: Record<string, string>;
     overtime_policy: OvertimePolicy;
     overtime_eligibility: HakLembur[];
+    mobile_attendance: MobileLocation[];
+    mobile_attendance_modes: Record<string, string>;
+    photo_retention_days: number;
 }
 
 interface WaktuKerja {
@@ -69,7 +73,20 @@ export default function AttendanceMasterData(props: Props) {
     );
 }
 
-function Page({ codes, type_options, patterns, cash_advance_status, public_holidays, work_schedule, scheme_options, overtime_policy, overtime_eligibility }: Props) {
+function Page({
+    codes,
+    type_options,
+    patterns,
+    cash_advance_status,
+    public_holidays,
+    work_schedule,
+    scheme_options,
+    overtime_policy,
+    overtime_eligibility,
+    mobile_attendance,
+    mobile_attendance_modes,
+    photo_retention_days,
+}: Props) {
     const guard = useGuard();
     const sections: { id: string; label: string; hint: string; render: () => ReactNode }[] = [
         {
@@ -155,6 +172,12 @@ function Page({ codes, type_options, patterns, cash_advance_status, public_holid
             label: 'Waktu Kerja & Lembur',
             hint: 'Dasar perhitungan lembur (PP 35/2021). Hari kerja: kelebihan dari jam kerja normal lokasi = lembur (jam ke-1 × 1,5, berikutnya × 2). Hari OFF roster dan hari libur nasional: semua jam kerja = lembur (skema 5 hari: jam 1–8 × 2, jam 9 × 3, jam 10+ × 4; skema 6 hari / ESDM: jam 1–7 × 2, jam 8 × 3, jam 9+ × 4). Jam istirahat shift tidak dihitung.',
             render: () => <WaktuKerjaPanel location={work_schedule} scheme={scheme_options} policy={overtime_policy} eligibility={overtime_eligibility} />,
+        },
+        {
+            id: 'mobile-attendance',
+            label: 'Absen HP',
+            hint: 'Absen masuk/pulang dari HP karyawan dengan GPS dan foto wajah. Per lokasi kerja: titik area (bisa lebih dari satu, mis. pit dan kantor site) dengan radiusnya, dan apa yang terjadi bila karyawan absen di luar area.',
+            render: () => <MobileAttendanceSettings locations={mobile_attendance} modes={mobile_attendance_modes} retention={photo_retention_days} />,
         },
         {
             id: 'public-holidays',

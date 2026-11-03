@@ -62,6 +62,7 @@ use App\Http\Controllers\SelfService\ProfileController as PortalDataController;
 use App\Http\Controllers\SelfService\SelfServiceController;
 use App\Http\Controllers\SelfService\PayslipController as PortalPayslipController;
 use App\Http\Controllers\SelfService\LoanController as PortalLoanController;
+use App\Http\Controllers\SelfService\ClockController as PortalClockController;
 use App\Http\Controllers\Recruitment\ApplicantController;
 use App\Http\Controllers\Recruitment\JobOfferController;
 use App\Http\Controllers\Recruitment\JobPostingController;
@@ -355,6 +356,8 @@ Route::middleware(['auth', 'app.lock', 'two-factor', 'account.ready', 'licensed'
                 Route::post('/device', 'storeDevice')->name('.device.store');
                 Route::put('/device/{device}', 'updateDevice')->whereNumber('device')->name('.device.update');
                 Route::delete('/device/{device}', 'destroyDevice')->whereNumber('device')->name('.device.destroy');
+                // The selfie of a punch from the phone: every opening is in the Audit Log.
+                Route::get('/photo/{log}', 'photo')->whereNumber('log')->name('.photo');
             });
             Route::post('/overtime/verification', 'verifyOvertime')->middleware('menu:overtime-approval')->name('.overtime.verify');
         });
@@ -384,6 +387,8 @@ Route::middleware(['auth', 'app.lock', 'two-factor', 'account.ready', 'licensed'
             Route::put('/work-schedule/{workLocation}', 'updateWorkSchedule')->whereNumber('workLocation')->name('work-schedule.update');
             Route::put('/overtime-policy', 'updateOvertimePolicy')->name('overtime-policy.update');
             Route::put('/overtime-eligibility', 'updateOvertimeEligibility')->name('overtime-eligibility.update');
+            Route::put('/mobile-attendance/{workLocation}', 'updateMobileAttendance')->whereNumber('workLocation')->name('mobile-attendance.update');
+            Route::put('/mobile-attendance-retention', 'updatePhotoRetention')->name('mobile-attendance.retention');
         });
     });
 
@@ -613,6 +618,9 @@ Route::middleware(['auth', 'app.lock', 'two-factor', 'account.ready', 'licensed'
         Route::get('/loans', [PortalLoanController::class, 'index'])->name('.loans');
         Route::post('/loans', [PortalLoanController::class, 'store'])->name('.loans.store');
         Route::delete('/loans/{loan}', [PortalLoanController::class, 'cancel'])->whereNumber('loan')->name('.loans.cancel');
+        // Absen HP: consent once, then clock in / out with GPS and a selfie.
+        Route::post('/clock/consent', [PortalClockController::class, 'consent'])->name('.clock.consent');
+        Route::post('/clock', [PortalClockController::class, 'store'])->middleware('throttle:10,1')->name('.clock');
     });
 });
 

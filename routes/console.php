@@ -16,3 +16,6 @@ Schedule::command('eolas:certifications:remind')->dailyAt('07:00')->withoutOverl
 
 // Workflow: approval steps past their time limit are reminded, then passed up to superiors.
 Schedule::command('eolas:workflow:escalate')->hourly()->withoutOverlapping();
+
+// Absen HP: selfies past their retention are deleted (the punch stays).
+Schedule::command('eolas:attendance:purge-photos')->dailyAt('02:15')->withoutOverlapping();

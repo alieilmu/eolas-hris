@@ -15,6 +15,7 @@ use App\Models\AttendanceLog;
 use App\Models\AttendanceRecord;
 use App\Models\PayrollRun;
 use App\Models\Payslip;
+use App\Support\TimeClock\MobileClock;
 use App\Support\Time\Airport;
 use App\Support\Time\LeaveTravelWriter;
 use App\Support\Compensation\AccountingMonth;
@@ -73,6 +74,9 @@ class SelfServiceController extends Controller
             'leave' => LeaveLedger::info($k),
             'leave_policy' => LeavePolicy::current()->only(['long_service_days', 'long_service_taken_salary_multiplier', 'long_service_cashout_salary_multiplier']),
             'attendance_today' => $this->attendanceToday($k, $today),
+            // Absen HP: whether the button shows, the areas, consent and the next punch.
+            'mobile_clock' => MobileClock::state($k),
+            'mobile_consent' => MobileClock::consented($k) ? null : MobileClock::consent(),
             'latest_payslip' => $this->latestPayslip($k),
         ]);
     }
