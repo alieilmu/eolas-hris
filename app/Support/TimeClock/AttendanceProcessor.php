@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
  *    an unworked day off stays Off. Days set by hand (manual / import) or by a trip are
  *    left alone; the others are marked sumber "mesin".
  *  - Lembur: overtime of employees entitled to it, waiting for approval in its Workflow. A
- *    day already approved or rejected is kept; a waiting one without overtime any more is
+ *    day already approved or rejected, or asked for from the portal, is kept; a waiting one without overtime any more is
  *    removed (and its flow withdrawn).
  */
 class AttendanceProcessor
@@ -74,8 +74,8 @@ class AttendanceProcessor
 
                 $l = $overtime_records[$key] ?? null;
                 $ot = $r['is_overtime_eligible'] ? $r['overtime'] : null;
-                if ($l && $l->status !== 'pending') {
-                    continue; // decided: kept as it is
+                if ($l && ($l->status !== 'pending' || $l->source === 'portal')) {
+                    continue; // decided, or asked for by the employee: kept as it is
                 }
                 if (! $ot || $ot['overtime_minutes'] <= 0) {
                     if ($l && $l->source === 'device') {

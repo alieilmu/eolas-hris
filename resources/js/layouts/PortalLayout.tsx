@@ -4,6 +4,8 @@ import { Award, ClipboardCheck, HandCoins, Home, KeyRound, LogOut, Menu, Receipt
 import { AppGuard } from '@/components/AppGuard';
 import { BrandLogo, brandLine, useBranding } from '@/components/BrandLogo';
 import { FlashToast } from '@/components/FlashToast';
+import { ClockQueueBar } from '@/components/time/ClockQueueBar';
+import { forgetClock } from '@/lib/clockQueue';
 
 // module: an add-on package (Modules) the license must include; none = Core.
 const NAV: { href: string; label: string; short?: string; icon: typeof Home; module?: 'talent' | 'lms' }[] = [
@@ -85,6 +87,8 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                             href="/logout"
                             method="post"
                             as="button"
+                            // The Absen HP state kept for the offline page goes with the account.
+                            onClick={() => void forgetClock()}
                             title="Keluar"
                             aria-label="Keluar"
                             className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
@@ -94,7 +98,10 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                     </div>
                 </div>
             </header>
-            <main className="mx-auto w-full max-w-5xl min-w-0 flex-1 px-3 pt-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-6">{children}</main>
+            <main className="mx-auto w-full max-w-5xl min-w-0 flex-1 px-3 pt-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-6">
+                <ClockQueueBar />
+                {children}
+            </main>
 
             {/* Phone: the menu at the bottom. */}
             <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">

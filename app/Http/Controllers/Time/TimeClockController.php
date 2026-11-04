@@ -72,7 +72,7 @@ class TimeClockController extends Controller
             'resume' => $this->resume($from, $until, $location, $q, $props['filters']['status']),
             'overtime' => $this->overtime($from, $until, $location, $q, (string) $request->query('status', 'pending')),
             'log' => $this->logs($from, $until, $location, $q),
-            'mobile' => $this->mobile($from, $until, $location, $q, (string) $request->query('status', 'outside')),
+            'mobile' => $this->mobile($from, $until, $location, $q, (string) $request->query('status', 'flagged')),
             'device' => $this->device($request),
         });
     }
@@ -242,6 +242,8 @@ class TimeClockController extends Controller
             'start_date' => $l->start_date?->format('d/m H:i'), 'end_date' => $l->end_date?->format('d/m H:i'),
             'work_hours' => round($l->worked_minutes / 60, 2), 'paid_hours' => $l->paid_hours, 'weighted_hours' => $l->weighted_hours,
             'status' => $l->status, 'verification_notes' => $l->verification_notes, 'verifier' => $l->verifier?->name,
+            // Asked for by the employee from the portal, with the reason.
+            'source' => $l->source, 'reason' => $l->source === 'portal' ? $l->notes : null,
         ];
     }
 
@@ -352,14 +354,19 @@ class TimeClockController extends Controller
     }
 
     /** Absen HP: punches from the phone, by default only those outside their work location's area. */
+    /**
+     * Absen HP for HR. "Ditandai": outside the area, or with a phone clock off from the
+     * server's; "offline": taken without a signal and sent later.
+     */
     private function mobile(CarbonImmutable $from, CarbonImmutable $until, ?int $location, string $q, string $status): array
     {
         $visible = $this->employees($from, $until, $location, $q)->pluck('id');
         $base = AttendanceLog::where('source', 'mobile')->whereIn('employee_id', $visible)
             ->whereBetween('punched_at', [$from->toDateString().' 00:00:00', $until->toDateString().' 23:59:59']);
+        $flagged = fn ($w) => $w->where(fn ($f) => $f->where('outside_geofence', true)->orWhere('time_suspect', true));
 
         return [
-            'mobile_logs' => (clone $base)->when($status === 'outside', fn ($w) => $w->where('outside_geofence', true))
+            'mobile_logs' => (clone $base)->when($status === 'flagged', $flagged)->when($status === 'offline', fn ($w) => $w->where('offline', true))
                 ->with(['employee:id,employee_number,name,work_location_id', 'employee.workLocation:id,name', 'geofence'])
                 ->orderByDesc('punched_at')->limit(1000)->get()
                 ->map(fn (AttendanceLog $l) => [
@@ -370,8 +377,15 @@ class TimeClockController extends Controller
                     'geofence' => $l->geofence ? $l->geofence->only(['name', 'latitude', 'longitude', 'radius_m']) : null,
                     'distance_m' => $l->distance_m, 'outside' => (bool) $l->outside_geofence,
                     'photo' => (bool) $l->photo_path, 'photo_deleted' => $l->photo_deleted_at !== null,
+                    'offline' => (bool) $l->offline, 'time_suspect' => (bool) $l->time_suspect,
+                    'device_time' => $l->device_time?->format('Y-m-d H:i:s'), 'received_at' => $l->received_at?->format('Y-m-d H:i:s'),
+                    'clock_offset' => MobileClock::offsetLabel($l->clock_offset_s),
                 ]),
-            'mobile_counts' => ['all' => (clone $base)->count(), 'outside' => (clone $base)->where('outside_geofence', true)->count()],
+            'mobile_counts' => [
+                'all' => (clone $base)->count(),
+                'flagged' => $flagged(clone $base)->count(),
+                'offline' => (clone $base)->where('offline', true)->count(),
+            ],
             'photo_retention_days' => MobileAttendanceSetting::current()->photo_retention_days,
         ];
     }

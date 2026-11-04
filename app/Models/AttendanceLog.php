@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'attendance_device_id', 'pin', 'employee_id', 'punched_at', 'status_code', 'verify', 'source', 'notes', 'created_by',
     'latitude', 'longitude', 'accuracy_m', 'geofence_id', 'distance_m', 'outside_geofence', 'photo_path', 'photo_deleted_at', 'client',
+    'client_uuid', 'device_time', 'received_at', 'clock_offset_s', 'offline', 'time_suspect',
 ])]
 class AttendanceLog extends Model
 {
@@ -20,6 +21,7 @@ class AttendanceLog extends Model
         return [
             'punched_at' => 'immutable_datetime', 'photo_deleted_at' => 'datetime', 'outside_geofence' => 'boolean',
             'latitude' => 'float', 'longitude' => 'float',
+            'device_time' => 'immutable_datetime', 'received_at' => 'immutable_datetime', 'offline' => 'boolean', 'time_suspect' => 'boolean',
         ];
     }
 

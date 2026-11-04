@@ -7,14 +7,15 @@ use App\Models\Attachment;
 use App\Models\EmployeeCertification;
 use App\Models\EmployeeChangeRequest;
 use App\Models\LeaveTravelRequest;
+use App\Support\Workflow\Workflow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Opens a nota / signed form inline, for the employee it belongs to or an admin who
- * may see its menu (Deklarasi / Monitoring, or Cuti & Dinas / Pengajuan Dinas) and
- * whose locations include that employee.
+ * Opens a nota / signed form inline, for the employee it belongs to, an approver of its
+ * flow (a superior deciding from the portal), or an admin who may see its menu (Deklarasi /
+ * Monitoring, or Cuti & Dinas / Pengajuan Dinas) and whose locations include that employee.
  */
 class AttachmentController extends Controller
 {
@@ -22,11 +23,18 @@ class AttachmentController extends Controller
     {
         // Through the record's own access scope: someone outside the account's locations is not found.
         $owner = $attachment->attachable()->first();
+        $user = $request->user();
+        // A superior's own scope is only themselves: the pengajuan of the one they approve, through its flow.
+        $approver = false;
+        if (! $owner && $user->isEmployee()) {
+            $owner = $attachment->attachable()->withoutGlobalScopes()->first();
+            $approver = $owner instanceof BenefitClaim || $owner instanceof LeaveTravelRequest ? Workflow::involves($owner, $user) : false;
+            abort_unless($approver, 404);
+        }
         abort_unless($owner instanceof BenefitClaim || $owner instanceof LeaveTravelRequest || $owner instanceof EmployeeChangeRequest || $owner instanceof EmployeeCertification, 404);
 
-        $user = $request->user();
         $allowed = $user->isEmployee()
-            ? $owner->employee_id === $user->employee_id
+            ? $approver || $owner->employee_id === $user->employee_id
             : match (true) {
                 $owner instanceof BenefitClaim => $user->canView('benefit-claims', 'benefit-balances'),
                 $owner instanceof LeaveTravelRequest => $user->canView('leave-travel', 'travel-requests'),

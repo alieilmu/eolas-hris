@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileText, Loader2, Paperclip, Upload, X } from 'lucide-react';
+import { Camera, FileText, Loader2, Paperclip, Upload, X } from 'lucide-react';
 import { AttachmentViewer } from '@/components/attachment/AttachmentViewer';
 import {
     draftFiles,
@@ -14,6 +14,9 @@ import {
 } from '@/lib/attachment';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf';
+
+/** A phone or tablet: the back camera is offered for a photo of the receipt. */
+const touch = () => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
 
 /**
  * Photos / PDFs for a form: pick or drop files (photos are shrunk, PDF pages counted),
@@ -38,6 +41,8 @@ export function AttachmentPicker({
     error?: string;
 }) {
     const input = useRef<HTMLInputElement>(null);
+    const camera = useRef<HTMLInputElement>(null);
+    const [phone] = useState(touch);
     const [busy, setBusy] = useState(false);
     const [problems, setProblems] = useState<string[]>([]);
     const [dragging, setDragging] = useState(false);
@@ -166,9 +171,32 @@ export function AttachmentPicker({
                         className={`flex h-20 flex-col items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-bold text-brand-600 hover:border-brand-300 hover:bg-brand-50 disabled:opacity-60 ${files.length ? 'w-20' : 'min-w-44 flex-1'}`}
                     >
                         {busy ? <Loader2 size={20} className="animate-spin" /> : files.length ? <Paperclip size={20} /> : <Upload size={20} />}
-                        {files.length ? 'Tambah' : 'Pilih / foto / seret file ke sini'}
+                        {files.length ? 'Tambah' : phone ? 'Pilih file / galeri' : 'Pilih / foto / seret file ke sini'}
                     </button>
+                    {phone && (
+                        <button
+                            type="button"
+                            onClick={() => camera.current?.click()}
+                            disabled={busy}
+                            className={`flex h-20 flex-col items-center justify-center gap-1 rounded-xl border border-brand-200 bg-brand-600 px-3 text-[11px] font-bold text-white hover:bg-brand-700 disabled:opacity-60 ${files.length ? 'w-20' : 'min-w-28 flex-1'}`}
+                        >
+                            <Camera size={20} />
+                            Kamera
+                        </button>
+                    )}
                 </div>
+                {/* The back camera straight away, for a photo of the nota. */}
+                <input
+                    ref={camera}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                        if (e.target.files) void add(e.target.files);
+                        e.target.value = '';
+                    }}
+                />
                 <input
                     ref={input}
                     type="file"

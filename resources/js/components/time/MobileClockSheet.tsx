@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Camera, CheckCircle2, Loader2, LocateFixed, MapPin, RefreshCw, ShieldCheck, TriangleAlert, X } from 'lucide-react';
+import { Camera, CheckCircle2, CloudOff, Loader2, LocateFixed, MapPin, RefreshCw, ShieldCheck, TriangleAlert, X } from 'lucide-react';
+import { enqueue, uuid } from '@/lib/clockQueue';
 
 export interface Geofence {
     name: string;
@@ -15,6 +16,8 @@ export interface MobileClockState {
     location: string | null;
     geofences: Geofence[];
     consented: boolean;
+    /** A punch queued without a signal older than this is refused when it arrives. */
+    offline_max_hours: number;
     next: 'in' | 'out';
     today: { time: string; source: string; type: 'in' | 'out' | null; outside: boolean }[];
 }
@@ -47,16 +50,24 @@ function nearest(pos: Position, fences: Geofence[]): { fence: Geofence; meters: 
 /**
  * Absen dari HP: agree once to the location and selfie being kept (UU PDP), then the GPS
  * position and a photo from the front camera, sent together; the server keeps its own time.
+ * Without a signal (or on the offline page) the punch waits on the phone with the phone's time
+ * of the tap, and is sent when the connection is back.
  */
 export function MobileClockSheet({
     state,
     consent,
     type,
+    user,
+    offlineOnly = false,
     onClose,
 }: {
     state: MobileClockState;
     consent: { version: string; points: string[] } | null;
     type: 'in' | 'out';
+    /** The signed-in account, which a queued punch is kept for. */
+    user: number;
+    /** The offline page: straight into the queue. */
+    offlineOnly?: boolean;
     onClose: () => void;
 }) {
     const [agreed, setAgreed] = useState(state.consented);
@@ -67,6 +78,7 @@ export function MobileClockSheet({
     const [cameraError, setCameraError] = useState<string | null>(null);
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [queuedAt, setQueuedAt] = useState<number | null>(null);
     const video = useRef<HTMLVideoElement>(null);
     const stream = useRef<MediaStream | null>(null);
     const fileInput = useRef<HTMLInputElement>(null);
@@ -163,13 +175,30 @@ export function MobileClockSheet({
         if (!pos || !photo) return;
         setSending(true);
         setError(null);
+        const takenAt = Date.now();
+        const id = uuid();
+        // No signal: kept on the phone, sent by the app once online.
+        const keep = () =>
+            enqueue({ id, user, type, latitude: pos.latitude, longitude: pos.longitude, accuracy: pos.accuracy, taken_at: takenAt, photo: photo.file })
+                .then(() => setQueuedAt(takenAt))
+                .catch(() => setError('Absen tidak bisa disimpan di HP ini. Coba lagi saat ada sinyal.'))
+                .finally(() => setSending(false));
+        if (offlineOnly || !navigator.onLine) {
+            void keep();
+            return;
+        }
+        const at = new Date(takenAt).toISOString();
         router.post(
             '/self-service/clock',
-            { type, latitude: pos.latitude, longitude: pos.longitude, accuracy: Math.round(pos.accuracy), photo: photo.file },
+            { id, type, latitude: pos.latitude, longitude: pos.longitude, accuracy: Math.round(pos.accuracy), taken_at: at, sent_at: at, photo: photo.file },
             {
                 forceFormData: true,
                 onSuccess: () => onClose(),
                 onError: (errors) => setError(Object.values(errors)[0] ?? 'Absen gagal dikirim.'),
+                onNetworkError: () => {
+                    void keep();
+                    return false;
+                },
                 onFinish: () => setSending(false),
             },
         );
@@ -190,7 +219,23 @@ export function MobileClockSheet({
                     </button>
                 </div>
 
-                {!agreed && consent ? (
+                {queuedAt ? (
+                    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+                        <span className="rounded-full bg-amber-50 p-4 text-amber-600">
+                            <CloudOff size={32} />
+                        </span>
+                        <p className="text-lg font-black text-slate-800">
+                            {title} pukul {new Date(queuedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} tersimpan di HP
+                        </p>
+                        <p className="text-sm text-slate-500">
+                            Belum ada sinyal. Absen ini terkirim otomatis saat HP online lagi — buka aplikasi ini sesekali. Lebih dari {state.offline_max_hours} jam
+                            tidak terkirim, absen ditolak.
+                        </p>
+                        <button onClick={onClose} className="mt-2 w-full max-w-xs rounded-2xl bg-brand-600 px-4 py-3 text-sm font-bold text-white hover:bg-brand-700">
+                            Selesai
+                        </button>
+                    </div>
+                ) : !agreed && consent ? (
                     <div className="min-h-0 flex-1 overflow-y-auto p-4">
                         <p className="flex items-center gap-2 text-sm font-bold text-slate-700">
                             <ShieldCheck size={18} className="text-brand-600" /> Persetujuan lokasi & foto
@@ -282,7 +327,7 @@ export function MobileClockSheet({
                     </div>
                 )}
 
-                {agreed && (
+                {agreed && !queuedAt && (
                     <div className="border-t border-slate-100 p-4">
                         <button
                             onClick={submit}
@@ -291,7 +336,9 @@ export function MobileClockSheet({
                         >
                             {sending && <Loader2 size={18} className="animate-spin" />} Kirim {title}
                         </button>
-                        <p className="mt-1.5 text-center text-[11px] text-slate-400">Jam absen memakai jam server, bukan jam HP.</p>
+                        <p className="mt-1.5 text-center text-[11px] text-slate-400">
+                            {offlineOnly ? 'Tanpa sinyal: absen disimpan di HP dan dikirim saat online.' : 'Jam absen memakai jam server, bukan jam HP.'}
+                        </p>
                     </div>
                 )}
             </div>

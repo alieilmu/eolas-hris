@@ -5,7 +5,7 @@ import { CrudTable } from '@/components/settings/CrudTable';
 import { DirtyGuardProvider, useGuard } from '@/components/settings/DirtyGuard';
 import { OptionList, type OptionCategory } from '@/components/settings/OptionList';
 import { AttendanceHeader, smallInput } from '@/components/time/ui';
-import { MobileAttendanceSettings, type MobileLocation } from '@/components/time/MobileAttendanceSettings';
+import { MobileAttendanceSettings, type MobileLimits, type MobileLocation } from '@/components/time/MobileAttendanceSettings';
 import { JENIS_CELL, type Jenis, type Pattern, type PatternStep } from '@/lib/time';
 
 interface CodeRow {
@@ -37,6 +37,7 @@ interface Props {
     mobile_attendance: MobileLocation[];
     mobile_attendance_modes: Record<string, string>;
     photo_retention_days: number;
+    mobile_attendance_limits: MobileLimits;
 }
 
 interface WaktuKerja {
@@ -86,6 +87,7 @@ function Page({
     mobile_attendance,
     mobile_attendance_modes,
     photo_retention_days,
+    mobile_attendance_limits,
 }: Props) {
     const guard = useGuard();
     const sections: { id: string; label: string; hint: string; render: () => ReactNode }[] = [
@@ -177,7 +179,7 @@ function Page({
             id: 'mobile-attendance',
             label: 'Absen HP',
             hint: 'Absen masuk/pulang dari HP karyawan dengan GPS dan foto wajah. Per lokasi kerja: titik area (bisa lebih dari satu, mis. pit dan kantor site) dengan radiusnya, dan apa yang terjadi bila karyawan absen di luar area.',
-            render: () => <MobileAttendanceSettings locations={mobile_attendance} modes={mobile_attendance_modes} retention={photo_retention_days} />,
+            render: () => <MobileAttendanceSettings locations={mobile_attendance} modes={mobile_attendance_modes} retention={photo_retention_days} limits={mobile_attendance_limits} />,
         },
         {
             id: 'public-holidays',

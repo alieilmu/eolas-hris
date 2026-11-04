@@ -13,33 +13,82 @@ export interface MobileLocation {
 const BASE = '/time/settings';
 const num = (v: number | string) => (String(v).trim() === '' ? null : Number(String(v).replace(',', '.')));
 
+export interface MobileLimits {
+    offline_max_hours: number;
+    clock_tolerance_minutes: number;
+}
+
 /**
  * Pengaturan Kehadiran → Absen HP: per work location, whether employees clock in from the
- * phone, the circles (geofences) they may do it in, and what happens outside them; and how
- * long the selfies are kept.
+ * phone, the circles (geofences) they may do it in, and what happens outside them; how long
+ * the selfies are kept; how old a punch taken without a signal may be when it arrives, and how
+ * far a phone's clock may be off before the punch is marked.
  */
-export function MobileAttendanceSettings({ locations, modes, retention }: { locations: MobileLocation[]; modes: Record<string, string>; retention: number }) {
-    const [days, setDays] = useState(retention);
+export function MobileAttendanceSettings({
+    locations,
+    modes,
+    retention,
+    limits,
+}: {
+    locations: MobileLocation[];
+    modes: Record<string, string>;
+    retention: number;
+    limits: MobileLimits;
+}) {
+    const saved = { photo_retention_days: retention, ...limits };
+    const [values, setValues] = useState(saved);
+    const dirty = JSON.stringify(values) !== JSON.stringify(saved);
+    const field = (key: keyof typeof saved, title: string, hint: string, unit: string, min: number, max: number) => (
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-slate-700">{title}</p>
+                <p className="text-[11px] text-slate-400">{hint}</p>
+            </div>
+            <input
+                type="number"
+                min={min}
+                max={max}
+                value={values[key]}
+                onChange={(e) => setValues((v) => ({ ...v, [key]: Number(e.target.value) }))}
+                className={`${smallInput} w-24`}
+                aria-label={title}
+            />
+            <span className="w-10 text-xs text-slate-500">{unit}</span>
+        </div>
+    );
     return (
         <div className="space-y-4">
             {locations.map((l) => (
                 // A new key once saved: the card starts again from what the server keeps.
                 <LocationCard key={`${l.id}:${l.mode}:${JSON.stringify(l.geofences)}`} location={l} modes={modes} />
             ))}
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 p-4">
-                <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-slate-700">Masa simpan foto absen</p>
-                    <p className="text-[11px] text-slate-400">Setelah lewat, foto dihapus otomatis tiap malam; jam dan lokasi absen tetap tersimpan (UU PDP).</p>
-                </div>
-                <input type="number" min={7} max={365} value={days} onChange={(e) => setDays(Number(e.target.value))} className={`${smallInput} w-24`} />
-                <span className="text-xs text-slate-500">hari</span>
-                {days !== retention && (
-                    <button
-                        onClick={() => router.put(`${BASE}/mobile-attendance-retention`, { photo_retention_days: days }, { preserveScroll: true })}
-                        className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-brand-700"
-                    >
-                        <Check size={13} /> Simpan
-                    </button>
+            <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200">
+                {field('photo_retention_days', 'Masa simpan foto absen', 'Setelah lewat, foto dihapus otomatis tiap malam; jam dan lokasi absen tetap tersimpan (UU PDP).', 'hari', 7, 365)}
+                {field(
+                    'offline_max_hours',
+                    'Batas absen offline',
+                    'Absen yang diambil tanpa sinyal tersimpan di HP dan terkirim otomatis saat online. Yang tiba lebih lama dari batas ini ditolak.',
+                    'jam',
+                    1,
+                    168,
+                )}
+                {field(
+                    'clock_tolerance_minutes',
+                    'Toleransi jam HP',
+                    'Jam HP yang berbeda dari jam server lebih dari ini membuat absen ditandai "jam HP tidak sesuai" untuk HR.',
+                    'menit',
+                    1,
+                    120,
+                )}
+                {dirty && (
+                    <div className="flex justify-end px-4 py-3">
+                        <button
+                            onClick={() => router.put(`${BASE}/mobile-attendance-retention`, values, { preserveScroll: true })}
+                            className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-brand-700"
+                        >
+                            <Check size={13} /> Simpan
+                        </button>
+                    </div>
                 )}
             </div>
         </div>

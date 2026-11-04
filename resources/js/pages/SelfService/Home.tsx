@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Briefcase, ChevronRight, Clock, Fingerprint, Glasses, LogIn, LogOut, Palmtree, ReceiptText, ShieldCheck, Stethoscope, UserPen, X } from 'lucide-react';
+import { Briefcase, ChevronRight, Clock, Fingerprint, Glasses, LogIn, LogOut, Palmtree, ReceiptText, ShieldCheck, Stethoscope, Timer, UserPen, X } from 'lucide-react';
 import { InstallCard } from '@/components/InstallCard';
 import { MobileClockSheet, type MobileClockState } from '@/components/time/MobileClockSheet';
 import { BenefitClaimForm } from '@/components/compensation/BenefitClaimForm';
@@ -14,6 +14,8 @@ import { TiketBadges, type Airport } from '@/components/time/AirportPicker';
 import { AttachmentButton } from '@/components/attachment/AttachmentPicker';
 import type { LampiranFile, LampiranLimits } from '@/lib/attachment';
 import { REQUEST_TYPE, label } from '@/lib/labels';
+import { forgetClock, saveClock, useClockQueue } from '@/lib/clockQueue';
+import { OvertimeForm, type OvertimeFormInfo, type OvertimeRow } from '@/components/time/OvertimeForm';
 
 interface Props {
     employee: PlafonInfo['employee'];
@@ -37,6 +39,9 @@ interface Props {
     mobile_clock: MobileClockState;
     /** What is kept and why, until the employee agrees (UU PDP). */
     mobile_consent: { version: string; points: string[] } | null;
+    /** Own overtime of the last 60 days, from the machines or asked for here. */
+    overtime_records: OvertimeRow[];
+    overtime_form: OvertimeFormInfo;
 }
 
 type Status = 'pending' | 'approved' | 'rejected';
@@ -66,15 +71,29 @@ export default function PortalHome({
     latest_payslip,
     mobile_clock,
     mobile_consent,
+    overtime_records,
+    overtime_form,
 }: Props) {
     const [clock, setClock] = useState<'in' | 'out' | null>(null);
-    const app = usePage().props.auth.app;
-    const [form, setForm] = useState<'claim' | 'leave' | 'business_trip' | null>(null);
+    const { app, user } = usePage().props.auth;
+    const [form, setForm] = useState<'claim' | 'leave' | 'business_trip' | 'overtime' | null>(null);
+    const { waiting } = useClockQueue(user?.id);
+
+    // Kept on the phone for the offline page, so a punch can be taken when the app opens with no signal.
+    useEffect(() => {
+        if (!user) return;
+        if (mobile_clock.enabled && mobile_clock.consented) void saveClock({ user: user.id, name: employee.name, state: mobile_clock, saved_at: Date.now() });
+        else void forgetClock();
+    }, [user, employee.name, mobile_clock]);
+
+    // A clock-in still waiting on the phone counts: the next one is the way home.
+    const today_ = new Date().toDateString();
+    const next = mobile_clock.next === 'in' && waiting.some((p) => p.type === 'in' && new Date(p.taken_at).toDateString() === today_) ? 'out' : mobile_clock.next;
     const person = { id: employee.id, employee_number: employee.employee_number, name: employee.name, position: employee.position, work_location: employee.work_location };
     const p = benefit_limit.medical;
     const used = p.benefit_limit ? Math.min(100, ((p.used + (p.pending ?? 0)) / p.benefit_limit) * 100) : 0;
 
-    const cancel = (type: 'claim' | 'leave-travel', id: number) => {
+    const cancel = (type: 'claim' | 'leave-travel' | 'overtime', id: number) => {
         if (confirm('Batalkan pengajuan ini?')) router.delete(`/self-service/submission/${type}/${id}`, { preserveScroll: true });
     };
 
@@ -82,6 +101,7 @@ export default function PortalHome({
         { key: 'claim' as const, label: 'Deklarasi Pengobatan / Kacamata', short: 'Klaim', icon: Stethoscope, tone: 'bg-emerald-600 hover:bg-emerald-700' },
         { key: 'leave' as const, label: 'Ajukan Cuti', short: 'Cuti', icon: Palmtree, tone: 'bg-violet-600 hover:bg-violet-700' },
         { key: 'business_trip' as const, label: 'Ajukan Dinas', short: 'Dinas', icon: Briefcase, tone: 'bg-sky-600 hover:bg-sky-700' },
+        ...(overtime_form.eligible ? [{ key: 'overtime' as const, label: 'Ajukan Lembur', short: 'Lembur', icon: Timer, tone: 'bg-amber-600 hover:bg-amber-700' }] : []),
     ];
 
     // The three newest pengajuan of any kind, for the top of the page.
@@ -95,6 +115,9 @@ export default function PortalHome({
             title: `${t.type === 'business_trip' ? 'Dinas' : 'Cuti'} ke ${t.destination_city} · ${t.old} hari`,
             subtitle: `${fmtDate(t.start_date)} – ${fmtDate(t.end_date)}`,
         })),
+        ...overtime_records
+            .filter((o) => o.source === 'portal')
+            .map((o) => ({ key: `o${o.id}`, at: o.date, icon: Timer, status: o.status, title: `Lembur · ${o.summary}`, subtitle: o.reason ?? '' })),
     ]
         .sort((a, b) => (b.at ?? '').localeCompare(a.at ?? ''))
         .slice(0, 3);
@@ -134,13 +157,13 @@ export default function PortalHome({
                         {mobile_clock.enabled && (
                             <div className="mt-2 flex items-center gap-2">
                                 <button
-                                    onClick={() => setClock(mobile_clock.next)}
+                                    onClick={() => setClock(next)}
                                     className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 px-3 py-3 text-sm font-black text-white shadow-sm hover:bg-brand-700"
                                 >
-                                    {mobile_clock.next === 'in' ? <LogIn size={17} /> : <LogOut size={17} />}
-                                    {mobile_clock.next === 'in' ? 'Absen Masuk' : 'Absen Pulang'}
+                                    {next === 'in' ? <LogIn size={17} /> : <LogOut size={17} />}
+                                    {next === 'in' ? 'Absen Masuk' : 'Absen Pulang'}
                                 </button>
-                                {mobile_clock.next === 'out' && (
+                                {next === 'out' && (
                                     <button
                                         onClick={() => setClock('in')}
                                         className="rounded-xl bg-white px-3 py-3 text-xs font-bold text-slate-500 ring-1 ring-slate-200 hover:text-brand-700"
@@ -155,7 +178,7 @@ export default function PortalHome({
                         )}
                     </div>
 
-                    <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div className={`mt-3 grid gap-2 ${actions.length > 3 ? 'grid-cols-4' : 'grid-cols-3'}`}>
                         {actions.map((a) => (
                             <button
                                 key={a.key}
@@ -354,9 +377,27 @@ export default function PortalHome({
                         ))}
                     </History>
                 </section>
+
+                {(overtime_form.eligible || overtime_records.length > 0) && (
+                    <History title="Lembur saya (60 hari)" empty="Belum ada lembur.">
+                        {overtime_records.map((o) => (
+                            <Item
+                                key={o.id}
+                                status={o.status}
+                                note={o.verification_notes}
+                                title={`${o.summary}${o.start && o.end ? ` · ${o.start}–${o.end}` : ''}`}
+                                subtitle={o.source === 'portal' ? `Diajukan dari HP${o.reason ? ` · ${o.reason}` : ''}` : 'Terhitung dari absen'}
+                                extra={o.workflow ? <FlowNote flow={o.workflow} /> : undefined}
+                                attachmentTitle="Lembur"
+                                onCancel={o.status === 'pending' && o.source === 'portal' ? () => cancel('overtime', o.id) : undefined}
+                            />
+                        ))}
+                    </History>
+                )}
             </div>
 
-            {clock && <MobileClockSheet state={mobile_clock} consent={mobile_consent} type={clock} onClose={() => setClock(null)} />}
+            {clock && user && <MobileClockSheet state={mobile_clock} consent={mobile_consent} type={clock} user={user.id} onClose={() => setClock(null)} />}
+            {form === 'overtime' && <OvertimeForm info={overtime_form} today={today} onClose={() => setForm(null)} />}
             {form === 'claim' && (
                 <BenefitClaimForm
                     people={[person]}
@@ -473,7 +514,7 @@ function Item({
     title: string;
     subtitle: string;
     extra?: React.ReactNode;
-    attachment: LampiranFile[];
+    attachment?: LampiranFile[];
     attachmentTitle: string;
     noun?: string;
     onCancel?: () => void;
@@ -487,9 +528,11 @@ function Item({
                 {note && <p className="mt-0.5 text-[11px] text-rose-600">Catatan HR: {note}</p>}
                 {extra}
             </div>
-            <span className="shrink-0">
-                <AttachmentButton files={attachment} title={attachmentTitle} noun={noun} />
-            </span>
+            {attachment && (
+                <span className="shrink-0">
+                    <AttachmentButton files={attachment} title={attachmentTitle} noun={noun} />
+                </span>
+            )}
             <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ring-1 ring-inset ${s.className}`}>{s.label}</span>
             {onCancel && (
                 <button onClick={onCancel} title="Batalkan" className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600">

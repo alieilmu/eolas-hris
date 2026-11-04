@@ -4,6 +4,8 @@ import { Check, ChevronDown, ExternalLink, Inbox, Loader2, UserRoundCheck, X } f
 import { ApprovalHistory, type ApprovalAction, type ApprovalStep } from '@/components/ApprovalHistory';
 import { AttendanceHeader, Modal, ghostButton, inputClass, primaryButton } from '@/components/time/ui';
 import { DelegationDialog } from '@/components/DelegationDialog';
+import { AttachmentButton } from '@/components/attachment/AttachmentPicker';
+import type { LampiranFile } from '@/lib/attachment';
 
 type Tab = 'pending' | 'decided' | 'mine';
 
@@ -22,6 +24,8 @@ interface Item {
     events: ApprovalAction[];
     can_decide: boolean;
     can_cancel: boolean;
+    /** Its nota / forms, opened here (a superior on the phone has no module page). */
+    attachments: LampiranFile[];
 }
 
 interface Props {
@@ -162,6 +166,7 @@ export default function Approvals({ tab, type, types, counts, has_own, acting_fo
                             )}
                             {i.summary && <p className="mt-1 text-sm text-slate-600">{i.summary}</p>}
                             <div className="mt-2 flex flex-wrap items-center gap-3">
+                                {i.attachments.length > 0 && <AttachmentButton files={i.attachments} title={`Lampiran ${i.type_label}`} />}
                                 <button onClick={() => setOpen(open === i.id ? null : i.id)} className="inline-flex items-center gap-1 text-xs font-bold text-brand-700 hover:underline">
                                     <ChevronDown size={14} className={open === i.id ? 'rotate-180' : ''} /> Riwayat persetujuan
                                 </button>

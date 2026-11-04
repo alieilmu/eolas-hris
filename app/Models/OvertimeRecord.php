@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Overtime of one employee on one day, counted from CI/CO (App\Support\Kehadiran\LemburHitung)
  * and paid only once approved. Reprocessing a day keeps an approval or a rejection. Overtime
  * counted since Workflow is approved through its flow ("overtime"), started by the processing.
+ * Source "portal": asked for by the employee (OvertimeRequest), with the reason in notes; the
+ * processing leaves it as asked.
  */
 #[Fillable(['employee_id', 'date', 'day_type', 'start_date', 'end_date', 'worked_minutes', 'overtime_minutes', 'paid_hours', 'weighted_hours', 'status', 'source', 'notes', 'verified_by', 'verified_at', 'verification_notes'])]
 class OvertimeRecord extends Model implements Approvable
@@ -40,6 +42,11 @@ class OvertimeRecord extends Model implements Approvable
     public function workflowCompleted(WorkflowInstance $instance): void
     {
         if ($instance->status === WorkflowInstance::CANCELLED) {
+            // Asked for from the portal and withdrawn: gone. From the machines: stays waiting.
+            if ($this->source === 'portal') {
+                $this->delete();
+            }
+
             return;
         }
         $last = Workflow::lastDecision($instance);

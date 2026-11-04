@@ -228,8 +228,22 @@ class Workflow
     {
         $instance->loadMissing('definition');
 
-        return $instance->isPending() && (self::TYPES[$instance->definition->type]['cancellable'] ?? true)
+        // Overtime from the machines cannot be withdrawn; one an employee asked for can.
+        return $instance->isPending() && ((self::TYPES[$instance->definition->type]['cancellable'] ?? true) || $instance->started_by !== null)
             && ((int) $user->employee_id === (int) $instance->employee_id || ($instance->started_by && (int) $user->id === (int) $instance->started_by));
+    }
+
+    /**
+     * Is this account an approver of the pengajuan's flow — deciding it now (itself or by
+     * delegation) or having decided a step of it? Lets a superior open its attachments.
+     */
+    public static function involves(Model $subject, User $user): bool
+    {
+        $instance = self::of($subject);
+
+        return $instance !== null && (self::canDecide($instance, $user)
+            || WorkflowAction::where('workflow_instance_id', $instance->id)->whereIn('decision', ['approved', 'rejected'])
+                ->where(fn ($q) => $q->where('user_id', $user->id)->orWhere('on_behalf_of', $user->id))->exists());
     }
 
     /**

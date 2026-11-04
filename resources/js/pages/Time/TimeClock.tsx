@@ -75,6 +75,9 @@ interface LemburRow {
     verifier: string | null;
     /** In a Workflow: the step it waits at, and whether this account decides it. */
     workflow: { id: number; step: string | null; can_decide: boolean } | null;
+    /** portal: asked for by the employee, with the reason. */
+    source: string;
+    reason: string | null;
 }
 
 interface LogRow {
@@ -120,6 +123,13 @@ interface MobileRow {
     outside: boolean;
     photo: boolean;
     photo_deleted: boolean;
+    /** Taken without a signal, sent later. */
+    offline: boolean;
+    /** The phone's clock was off from the server's beyond the tolerance. */
+    time_suspect: boolean;
+    device_time: string | null;
+    received_at: string | null;
+    clock_offset: string | null;
 }
 
 interface Props {
@@ -143,7 +153,7 @@ interface Props {
     device_options?: { id: number; name: string }[];
     // absen HP
     mobile_logs?: MobileRow[];
-    mobile_counts?: { all: number; outside: number };
+    mobile_counts?: { all: number; flagged: number; offline: number };
     photo_retention_days?: number;
     // mesin
     devices?: MesinRow[];
@@ -218,7 +228,7 @@ export default function TimeClock(props: Props) {
                         {tabs.map((t) => (
                             <button
                                 key={t.id}
-                                onClick={() => go({ tab: t.id, status: t.id === 'overtime' ? 'pending' : t.id === 'mobile' ? 'outside' : 'issues' })}
+                                onClick={() => go({ tab: t.id, status: t.id === 'overtime' ? 'pending' : t.id === 'mobile' ? 'flagged' : 'issues' })}
                                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold transition ${
                                     tab === t.id ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                                 }`}
@@ -590,6 +600,12 @@ function LemburTab({ overtime_summary = [], overtime_records = [], overtime_stat
                                         <span className="text-[11px] text-slate-400">
                                             {l.employee_number} · {l.location}
                                         </span>
+                                        {l.source === 'portal' && (
+                                            <span className="mt-0.5 block max-w-xs text-[11px] text-sky-700">
+                                                <b>Diajukan dari HP</b>
+                                                {l.reason ? ` · ${l.reason}` : ''}
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="px-3 py-2 text-xs text-slate-600">{HARI_LABEL[l.day_type]}</td>
                                     <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">
@@ -745,10 +761,11 @@ function LogTab({ logs = [], can, employee_options = [], device_options = [] }: 
 
 // --- Absen HP -----------------------------------------------------------------------------------
 
-function MobileTab({ mobile_logs = [], mobile_counts = { all: 0, outside: 0 }, photo_retention_days = 90, filters, go }: Props & { go: (p: Record<string, string | number | null>) => void }) {
+function MobileTab({ mobile_logs = [], mobile_counts = { all: 0, flagged: 0, offline: 0 }, photo_retention_days = 90, filters, go }: Props & { go: (p: Record<string, string | number | null>) => void }) {
     const [open, setOpen] = useState<MobileRow | null>(null);
     const chips = [
-        { key: 'outside', label: 'Di luar area', n: mobile_counts.outside, tone: 'text-amber-700' },
+        { key: 'flagged', label: 'Ditandai (di luar area / jam HP)', n: mobile_counts.flagged, tone: 'text-amber-700' },
+        { key: 'offline', label: 'Dikirim offline', n: mobile_counts.offline, tone: 'text-slate-700' },
         { key: 'all', label: 'Semua absen HP', n: mobile_counts.all, tone: 'text-brand-700' },
     ];
 
@@ -784,7 +801,10 @@ function MobileTab({ mobile_logs = [], mobile_counts = { all: 0, outside: 0 }, p
                     <tbody>
                         {mobile_logs.map((l) => (
                             <tr key={l.id} className="border-t border-slate-100">
-                                <td className="px-3 py-2 font-mono text-xs">{l.punched_at}</td>
+                                <td className="px-3 py-2 font-mono text-xs">
+                                    {l.punched_at}
+                                    <MobileTimeBadges row={l} />
+                                </td>
                                 <td className="px-3 py-2">
                                     {l.employee_number} · {l.name}
                                     <span className="block text-[11px] text-slate-400">{l.location}</span>
@@ -810,7 +830,11 @@ function MobileTab({ mobile_logs = [], mobile_counts = { all: 0, outside: 0 }, p
                         {mobile_logs.length === 0 && (
                             <tr>
                                 <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">
-                                    {filters.status === 'outside' ? 'Tidak ada absen HP di luar area pada rentang ini.' : 'Belum ada absen HP pada rentang ini.'}
+                                    {filters.status === 'flagged'
+                                        ? 'Tidak ada absen HP yang ditandai pada rentang ini.'
+                                        : filters.status === 'offline'
+                                          ? 'Tidak ada absen HP yang dikirim offline pada rentang ini.'
+                                          : 'Belum ada absen HP pada rentang ini.'}
                                 </td>
                             </tr>
                         )}
@@ -819,6 +843,21 @@ function MobileTab({ mobile_logs = [], mobile_counts = { all: 0, outside: 0 }, p
             </div>
             {open && <MobileDetail row={open} onClose={() => setOpen(null)} />}
         </div>
+    );
+}
+
+/** Sent later without a signal, and a phone clock off from the server's. */
+function MobileTimeBadges({ row }: { row: MobileRow }) {
+    if (!row.offline && !row.time_suspect) return null;
+    return (
+        <span className="mt-0.5 flex flex-wrap gap-1 font-sans">
+            {row.offline && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">Offline</span>}
+            {row.time_suspect && (
+                <span className="rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700" title={row.clock_offset ?? undefined}>
+                    Jam HP tidak sesuai
+                </span>
+            )}
+        </span>
     );
 }
 
@@ -908,6 +947,21 @@ function MobileDetail({ row, onClose }: { row: MobileRow; onClose: () => void })
                             </p>
                         ) : (
                             <p className="font-bold text-amber-700">Lokasi kerja ini belum punya titik area.</p>
+                        )}
+                        {(row.offline || row.time_suspect) && (
+                            <div className={`mt-2 rounded-xl px-3 py-2 ${row.time_suspect ? 'bg-rose-50 text-rose-800' : 'bg-slate-50 text-slate-600'}`}>
+                                {row.offline && (
+                                    <p>
+                                        Diambil tanpa sinyal, diterima server <b>{row.received_at}</b>. Jam absen dihitung dari jam HP saat tombol ditekan, dikoreksi
+                                        selisih jam HP saat dikirim.
+                                    </p>
+                                )}
+                                <p>
+                                    Jam HP saat absen: <b>{row.device_time ?? '–'}</b>
+                                    {row.clock_offset ? ` · ${row.clock_offset} dari jam server` : ' · sesuai jam server'}
+                                    {row.time_suspect ? ' — di luar toleransi, periksa kebenarannya.' : '.'}
+                                </p>
+                            </div>
                         )}
                     </div>
                 </div>

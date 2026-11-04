@@ -76,6 +76,8 @@ class MobileClock
                 'name' => $g->name, 'latitude' => $g->latitude, 'longitude' => $g->longitude, 'radius_m' => $g->radius_m,
             ])->values(),
             'consented' => self::consented($employee),
+            // A punch queued on the phone older than this is refused when it arrives.
+            'offline_max_hours' => MobileAttendanceSetting::current()->offline_max_hours,
             'next' => $today->isEmpty() ? 'in' : 'out',
             'today' => $today->map(fn (AttendanceLog $l) => [
                 'time' => $l->punched_at->format('H:i'), 'source' => $l->source,
@@ -118,14 +120,27 @@ class MobileClock
     }
 
     /**
-     * Takes a punch from the phone.
+     * Takes a punch from the phone. Sent right away, its time is the server's. Taken without a
+     * signal and sent later (offline), its time is the phone's at the tap, corrected by how far
+     * the phone's clock is off from the server's when sending; one older than the limit is
+     * refused. A phone clock off by more than the tolerance marks the punch for HR. The phone's
+     * id of the punch makes a second send of the same one harmless.
      *
      * @param  array{type: string, latitude: float, longitude: float, accuracy: float}  $data
+     * @param  array{id?: ?string, taken_at?: ?CarbonImmutable, sent_at?: ?CarbonImmutable, offline?: bool}  $timing
      *
      * @throws ValidationException
      */
-    public static function punch(Employee $employee, User $user, array $data, UploadedFile $photo, ?string $client = null): AttendanceLog
+    public static function punch(Employee $employee, User $user, array $data, UploadedFile $photo, ?string $client = null, array $timing = []): AttendanceLog
     {
+        $id = $timing['id'] ?? null;
+        if ($id && ($done = AttendanceLog::where('client_uuid', $id)->first())) {
+            if ((int) $done->employee_id !== (int) $employee->id) {
+                throw ValidationException::withMessages(['type' => 'Absen ini tercatat untuk akun lain.']);
+            }
+
+            return $done;
+        }
         $location = $employee->workLocation;
         $mode = $location?->mobile_attendance ?? 'off';
         if ($mode === 'off') {
@@ -134,10 +149,36 @@ class MobileClock
         if (! self::consented($employee)) {
             throw ValidationException::withMessages(['type' => 'Setujui dulu pemakaian lokasi dan foto untuk absen.']);
         }
+
+        $settings = MobileAttendanceSetting::current();
         $now = CarbonImmutable::now();
-        $last = AttendanceLog::where('employee_id', $employee->id)->latest('punched_at')->value('punched_at');
-        if ($last && CarbonImmutable::parse($last)->diffInSeconds($now, true) < self::MIN_GAP_SECONDS) {
-            throw ValidationException::withMessages(['type' => 'Absen baru saja tercatat. Tunggu sebentar sebelum absen lagi.']);
+        $offline = (bool) ($timing['offline'] ?? false);
+        $takenAt = $timing['taken_at'] ?? null;
+        $sentAt = $timing['sent_at'] ?? $takenAt;
+        // Server minus phone: what the phone's clock is off by.
+        $offset = $sentAt ? (int) round($sentAt->diffInSeconds($now, false)) : null;
+        if ($offline) {
+            if (! $takenAt) {
+                throw ValidationException::withMessages(['type' => 'Jam absen dari HP tidak terbaca. Absen ulang.']);
+            }
+            $at = $takenAt->addSeconds($offset ?? 0)->setTimezone($now->getTimezone())->startOfSecond();
+            $future = $at->gt($now);
+            $at = $at->min($now);
+            if ($at->diffInSeconds($now, true) > $settings->offline_max_hours * 3600) {
+                throw ValidationException::withMessages(['type' => "Absen offline {$at->format('d.m.Y H:i')} sudah lebih dari {$settings->offline_max_hours} jam, tidak bisa diterima. Hubungi HR untuk koreksi."]);
+            }
+        } else {
+            $at = $now;
+            $future = false;
+        }
+        $suspect = $future || ($offset !== null && abs($offset) > $settings->clock_tolerance_minutes * 60);
+
+        $near = AttendanceLog::where('employee_id', $employee->id)
+            ->whereBetween('punched_at', [$at->subSeconds(self::MIN_GAP_SECONDS)->format('Y-m-d H:i:s'), $at->addSeconds(self::MIN_GAP_SECONDS)->format('Y-m-d H:i:s')])->exists();
+        if ($near) {
+            throw ValidationException::withMessages(['type' => $offline
+                ? "Sudah ada absen pukul {$at->format('H:i')}. Absen offline ini tidak dicatat dua kali."
+                : 'Absen baru saja tercatat. Tunggu sebentar sebelum absen lagi.']);
         }
 
         $place = self::place($location, $data['latitude'], $data['longitude']);
@@ -147,18 +188,32 @@ class MobileClock
                 : 'Area absen lokasi kerja Anda belum diatur. Hubungi HR.']);
         }
 
-        $path = $photo->storeAs('attendance-photos/'.$now->format('Y/m'), $employee->id.'-'.$now->format('Ymd-His').'-'.Str::random(6).'.jpg', 'local');
+        $path = $photo->storeAs('attendance-photos/'.$at->format('Y/m'), $employee->id.'-'.$at->format('Ymd-His').'-'.Str::random(6).'.jpg', 'local');
         AttendanceIngest::store([[
-            'pin' => $employee->pin(), 'punched_at' => $now->format('Y-m-d H:i:s'),
+            'pin' => $employee->pin(), 'punched_at' => $at->format('Y-m-d H:i:s'),
             'status' => $data['type'] === 'out' ? self::STATUS_OUT : self::STATUS_IN, 'verify' => 'mobile',
             'extra' => [
                 'latitude' => $data['latitude'], 'longitude' => $data['longitude'], 'accuracy_m' => (int) round($data['accuracy']),
                 'geofence_id' => $place['geofence']?->id, 'distance_m' => $place['distance'], 'outside_geofence' => ! $place['inside'],
                 'photo_path' => $path, 'client' => $client ? Str::limit($client, 155, '') : null,
+                'client_uuid' => $id, 'device_time' => $takenAt?->setTimezone($now->getTimezone())->format('Y-m-d H:i:s'),
+                'received_at' => $now->format('Y-m-d H:i:s'), 'clock_offset_s' => $offset, 'offline' => $offline, 'time_suspect' => $suspect,
             ],
         ]], null, 'mobile', $user->id);
 
-        return AttendanceLog::where('employee_id', $employee->id)->where('punched_at', $now->format('Y-m-d H:i:s'))->where('source', 'mobile')->firstOrFail();
+        return AttendanceLog::where('employee_id', $employee->id)->where('punched_at', $at->format('Y-m-d H:i:s'))->where('source', 'mobile')->firstOrFail();
+    }
+
+    /** "Jam HP 2 jam 5 menit lebih lambat" — how far the phone's clock was off, for HR. */
+    public static function offsetLabel(?int $seconds): ?string
+    {
+        if ($seconds === null || abs($seconds) < 60) {
+            return null;
+        }
+        $m = intdiv(abs($seconds), 60);
+        $text = ($m >= 60 ? intdiv($m, 60).' jam'.($m % 60 ? ' '.($m % 60).' menit' : '') : "{$m} menit");
+
+        return 'Jam HP '.$text.($seconds > 0 ? ' lebih lambat' : ' lebih cepat');
     }
 
     /** Selfies older than the retention are deleted; the punch itself stays. Returns how many. */

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Employee;
 use App\Models\OvertimeRecord;
 use App\Models\AttendanceDevice;
 use App\Models\ShiftCode;
@@ -10,9 +11,11 @@ use App\Models\WorkLocation;
 use App\Support\TimeClock\ShiftWindow;
 use App\Support\TimeClock\TimeClockDefaults;
 use App\Support\TimeClock\AttendanceProcessor;
+use App\Support\TimeClock\OvertimeRequest;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Demo Kehadiran: Head Office on the office shift (NS), an attendance machine per location
@@ -20,7 +23,8 @@ use Illuminate\Support\Facades\DB;
  * demo Absensi — mostly on time, some late or early, some forgetting CI/CO, overtime after
  * the shift at the sites and a few days off worked. Then Kehadiran is processed into
  * Absensi and Lembur, and the older overtime is approved. Absen HP is on at every location,
- * with an area for the office and, at the sites, the pit.
+ * with an area for the office and, at the sites, the pit. A few portal accounts asked for
+ * overtime from the phone, waiting in its flow.
  */
 class EolasTimeClockDemoSeeder extends Seeder
 {
@@ -145,6 +149,21 @@ class EolasTimeClockDemoSeeder extends Seeder
                 ? [['name' => 'Gedung kantor', 'latitude' => $lat, 'longitude' => $lng, 'radius_m' => 150]]
                 : [['name' => 'Kantor site', 'latitude' => $lat, 'longitude' => $lng, 'radius_m' => 300],
                     ['name' => 'Pit', 'latitude' => $lat + 0.018, 'longitude' => $lng + 0.012, 'radius_m' => 1500]]);
+        }
+
+        // Lembur asked for from the phone: work the machines did not see, waiting for approval.
+        $reasons = ['Perbaikan pompa dewatering pit', 'Stock opname gudang akhir bulan', 'Menyelesaikan laporan produksi harian'];
+        foreach (User::where('role', User::ROLE_EMPLOYEE)->whereNotNull('employee_id')->orderBy('id')->limit(3)->get() as $n => $user) {
+            $employee = Employee::withoutGlobalScopes()->with('workLocation')->find($user->employee_id);
+            $date = CarbonImmutable::today()->subDays($n + 1)->toDateString();
+            if (! $employee || OvertimeRecord::where('employee_id', $employee->id)->whereDate('date', $date)->exists()) {
+                continue;
+            }
+            try {
+                OvertimeRequest::submit($employee, $user, ['date' => $date, 'start' => '18:00', 'end' => '20:00', 'reason' => $reasons[$n]]);
+            } catch (ValidationException) {
+                // Not entitled to overtime, or over the limit: no demo request for them.
+            }
         }
     }
 }

@@ -13,9 +13,11 @@ use App\Models\EmployeeChangeRequest;
 use App\Models\LeaveTravelRequest;
 use App\Models\AttendanceLog;
 use App\Models\AttendanceRecord;
+use App\Models\OvertimeRecord;
 use App\Models\PayrollRun;
 use App\Models\Payslip;
 use App\Support\TimeClock\MobileClock;
+use App\Support\TimeClock\OvertimeRequest;
 use App\Support\Time\Airport;
 use App\Support\Time\LeaveTravelWriter;
 use App\Support\Compensation\AccountingMonth;
@@ -36,7 +38,7 @@ use Inertia\Response;
 
 /**
  * Portal Karyawan: an employee's own plafon, and their pengajuan — deklarasi
- * pengobatan / kacamata, cuti and dinas — which wait for HR to approve them.
+ * pengobatan / kacamata, cuti, dinas and lembur — which wait in their approval flow.
  */
 class SelfServiceController extends Controller
 {
@@ -56,6 +58,8 @@ class SelfServiceController extends Controller
         $flows = Workflow::pendingOf(LeaveTravelRequest::class, $trips->pluck('id'));
         $claims = BenefitClaim::with(['employee.position', 'items.children', 'attachments'])->where('employee_id', $k->id)->latest('date')->latest('id')->limit(20)->get();
         $claimFlows = Workflow::pendingOf(BenefitClaim::class, $claims->pluck('id'));
+        $overtime = OvertimeRecord::where('employee_id', $k->id)->where('date', '>=', $today->subDays(60)->toDateString())->latest('date')->limit(20)->get();
+        $overtimeFlows = Workflow::pendingOf(OvertimeRecord::class, $overtime->pluck('id'));
 
         return Inertia::render('SelfService/Home', [
             'employee' => BenefitClaimController::identity($k),
@@ -78,6 +82,14 @@ class SelfServiceController extends Controller
             'mobile_clock' => MobileClock::state($k),
             'mobile_consent' => MobileClock::consented($k) ? null : MobileClock::consent(),
             'latest_payslip' => $this->latestPayslip($k),
+            // Lembur: own overtime of the last 60 days (machines and asked for here), and the form.
+            'overtime_records' => $overtime->map(fn (OvertimeRecord $o) => [
+                'id' => $o->id, 'date' => $o->date->toDateString(), 'summary' => $o->summary(),
+                'start' => $o->start_date?->format('H:i'), 'end' => $o->end_date?->format('H:i'),
+                'status' => $o->status, 'source' => $o->source, 'reason' => $o->source === 'portal' ? $o->notes : null,
+                'verification_notes' => $o->verification_notes, 'workflow' => Workflow::brief($overtimeFlows->get($o->id), $request->user()),
+            ]),
+            'overtime_form' => OvertimeRequest::form($k),
         ]);
     }
 
@@ -201,11 +213,32 @@ class SelfServiceController extends Controller
         return back();
     }
 
+    /** Pengajuan Lembur: overtime the machines did not count, with its hours and reason. */
+    public function storeOvertime(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+            'start' => ['required', 'date_format:H:i'],
+            'end' => ['required', 'date_format:H:i'],
+            'reason' => ['required', 'string', 'max:500'],
+        ], ['reason.required' => 'Tulis pekerjaan yang dilemburkan.'], ['date' => 'Tanggal', 'start' => 'Jam mulai', 'end' => 'Jam selesai']);
+        $record = OvertimeRequest::submit($this->me($request), $request->user(), $data);
+        Inertia::flash('success', "Pengajuan lembur {$record->summary()} terkirim dan menunggu persetujuan.");
+
+        return back();
+    }
+
     /** Withdraws an own pengajuan that HR has not decided on yet. */
     public function cancel(Request $request, string $type, int $id): RedirectResponse
     {
-        $model = $type === 'claim' ? BenefitClaim::class : LeaveTravelRequest::class;
-        $item = $model::where('employee_id', $request->user()->employee_id)->where('status', 'pending')->findOrFail($id);
+        $model = match ($type) {
+            'claim' => BenefitClaim::class,
+            'overtime' => OvertimeRecord::class,
+            default => LeaveTravelRequest::class,
+        };
+        $item = $model::where('employee_id', $request->user()->employee_id)->where('status', 'pending')
+            // Overtime counted from the machines is not the employee's to withdraw.
+            ->when($type === 'overtime', fn ($q) => $q->where('source', 'portal'))->findOrFail($id);
         // In a Workflow: withdrawn there (which removes it); from before Workflow: removed here.
         $flow = Workflow::of($item);
         $flow?->isPending() ? Workflow::cancel($flow, $request->user()) : $item->delete();

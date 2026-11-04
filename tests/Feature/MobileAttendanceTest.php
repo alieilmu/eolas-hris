@@ -131,7 +131,7 @@ class MobileAttendanceTest extends TestCase
 
         // HR sees it among the marked ones, with the map, and the photo opening is recorded.
         $this->actingAs($this->admin())->get('/time/clock?tab=mobile&from=2026-11-10&until=2026-11-10')->assertInertia(fn (Assert $p) => $p
-            ->where('mobile_counts', ['all' => 1, 'outside' => 1])->where('mobile_logs.0.outside', true)->where('mobile_logs.0.photo', true));
+            ->where('mobile_counts', ['all' => 1, 'flagged' => 1, 'offline' => 0])->where('mobile_logs.0.outside', true)->where('mobile_logs.0.photo', true));
         $this->get("/time/clock/photo/{$log->id}")->assertOk()->assertHeader('Cache-Control', 'no-store, private');
         $this->assertDatabaseHas('audit_logs', ['action' => 'attendance.photo_viewed', 'subject_id' => $this->employee->id]);
     }

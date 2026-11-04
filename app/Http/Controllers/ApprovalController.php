@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Attachment;
+use App\Models\BenefitClaim;
 use App\Models\Employee;
+use App\Models\LeaveTravelRequest;
 use App\Models\User;
 use App\Models\WorkflowInstance;
 use App\Support\Security\TwoFactor;
 use App\Support\Workflow\Delegations;
 use App\Support\Workflow\Workflow;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -44,6 +49,7 @@ class ApprovalController extends Controller
             ->with('definition.steps', 'actions')->limit(100)->get();
         $employees = Employee::withoutGlobalScopes()->with('position:id,name', 'workLocation:id,name')
             ->whereIn('id', $items->pluck('employee_id')->unique())->get()->keyBy('id');
+        $attachments = $this->attachments($items);
 
         return Inertia::render('Approvals/Index', [
             'tab' => $tab,
@@ -53,7 +59,9 @@ class ApprovalController extends Controller
             'has_own' => $user->employee_id !== null,
             // Approvers this account stands in for today (Delegasi).
             'acting_for' => User::whereIn('id', Delegations::principalsOf($user))->orderBy('name')->pluck('name'),
-            'items' => $items->map(fn (WorkflowInstance $i) => $this->item($i, $employees->get($i->employee_id), $user))->values(),
+            'items' => $items->map(fn (WorkflowInstance $i) => $this->item($i, $employees->get($i->employee_id), $user) + [
+                'attachments' => $attachments[$i->subject_type][$i->subject_id] ?? [],
+            ])->values(),
         ]);
     }
 
@@ -128,6 +136,28 @@ class ApprovalController extends Controller
         }
     }
 
+    /**
+     * The nota / forms of the pengajuan listed (deklarasi, cuti / dinas), by morph type and id,
+     * so an approver sees them without opening the module's page.
+     *
+     * @return array<string, array<int, list<array>>>
+     */
+    private function attachments(Collection $items): array
+    {
+        $out = [];
+        foreach ($items->groupBy('subject_type') as $type => $group) {
+            $class = Relation::getMorphedModel($type) ?? $type;
+            if (! in_array($class, [BenefitClaim::class, LeaveTravelRequest::class], true)) {
+                continue;
+            }
+            foreach ($class::withoutGlobalScopes()->with('attachments')->whereIn('id', $group->pluck('subject_id'))->get() as $subject) {
+                $out[$type][$subject->id] = $subject->attachments->map(fn (Attachment $a) => $a->toView())->values()->all();
+            }
+        }
+
+        return $out;
+    }
+
     private function item(WorkflowInstance $i, ?Employee $k, User $user): array
     {
         $steps = Workflow::history($i);
@@ -137,7 +167,8 @@ class ApprovalController extends Controller
             'type' => $i->definition->type,
             'type_label' => Workflow::TYPES[$i->definition->type]['label'] ?? $i->definition->type,
             'summary' => $i->summary,
-            'url' => $i->url,
+            // HR pages: an employee (a superior in the portal) decides here, with the summary and attachments.
+            'url' => $user->isEmployee() && ! str_starts_with((string) $i->url, '/self-service') ? null : $i->url,
             'status' => $i->status,
             'status_label' => WorkflowInstance::STATUS_LABELS[$i->status] ?? $i->status,
             'employee' => $k ? ['name' => $k->name, 'employee_number' => $k->employee_number, 'position' => $k->position?->name, 'location' => $k->workLocation?->name] : null,

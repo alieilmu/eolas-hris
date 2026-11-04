@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\DB;
 class AttendanceIngest
 {
     /** Columns only a punch from the phone fills (location, selfie); null for the others. */
-    private const EXTRA = ['latitude', 'longitude', 'accuracy_m', 'geofence_id', 'distance_m', 'outside_geofence', 'photo_path', 'client'];
+    private const EXTRA = ['latitude', 'longitude', 'accuracy_m', 'geofence_id', 'distance_m', 'outside_geofence', 'photo_path', 'client',
+        'client_uuid', 'device_time', 'received_at', 'clock_offset_s', 'offline', 'time_suspect'];
 
     /**
      * @param  list<array{pin: string, punched_at: string, status?: ?int, verify?: ?string, extra?: array<string, mixed>}>  $rows

@@ -601,7 +601,8 @@ Route::middleware(['auth', 'app.lock', 'two-factor', 'account.ready', 'licensed'
         Route::get('/benefit-limit', 'benefitLimit')->name('.benefit_limit');
         Route::post('/claim', 'storeClaim')->name('.claim');
         Route::post('/leave-travel', 'storeTrip')->name('.leave_travel');
-        Route::delete('/submission/{type}/{id}', 'cancel')->whereIn('type', ['claim', 'leave-travel'])->whereNumber('id')->name('.cancel');
+        Route::post('/overtime', 'storeOvertime')->name('.overtime');
+        Route::delete('/submission/{type}/{id}', 'cancel')->whereIn('type', ['claim', 'leave-travel', 'overtime'])->whereNumber('id')->name('.cancel');
         // Data Saya: changes to the own data, sent to HR.
         Route::get('/profile', [PortalDataController::class, 'show'])->name('.data');
         Route::post('/profile', [PortalDataController::class, 'store'])->name('.data.store');
@@ -620,7 +621,7 @@ Route::middleware(['auth', 'app.lock', 'two-factor', 'account.ready', 'licensed'
         Route::delete('/loans/{loan}', [PortalLoanController::class, 'cancel'])->whereNumber('loan')->name('.loans.cancel');
         // Absen HP: consent once, then clock in / out with GPS and a selfie.
         Route::post('/clock/consent', [PortalClockController::class, 'consent'])->name('.clock.consent');
-        Route::post('/clock', [PortalClockController::class, 'store'])->middleware('throttle:10,1')->name('.clock');
+        Route::post('/clock', [PortalClockController::class, 'store'])->middleware('throttle:20,1')->name('.clock');
     });
 });
 

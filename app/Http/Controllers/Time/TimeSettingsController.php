@@ -69,6 +69,7 @@ class TimeSettingsController extends Controller
             ]),
             'mobile_attendance_modes' => WorkLocation::MOBILE_ATTENDANCE,
             'photo_retention_days' => MobileAttendanceSetting::current()->photo_retention_days,
+            'mobile_attendance_limits' => MobileAttendanceSetting::current()->only(['offline_max_hours', 'clock_tolerance_minutes']),
             'scheme_options' => WorkLocation::SKEMA_KERJA,
             'overtime_policy' => OvertimePolicy::current()->only(['rounding_minutes', 'minimum_minutes', 'count_before_shift', 'daily_limit_hours', 'weekly_limit_hours']),
             'overtime_eligibility' => JobLevel::orderByDesc('layer')->orderBy('name')->get(['id', 'name', 'layer'])->map(function (JobLevel $g) {
@@ -203,11 +204,16 @@ class TimeSettingsController extends Controller
         return back();
     }
 
+    /** How long selfies are kept, how old a punch queued offline may be, how far a phone's clock may be off. */
     public function updatePhotoRetention(Request $request): RedirectResponse
     {
-        $data = $request->validate(['photo_retention_days' => ['required', 'integer', 'min:7', 'max:365']], [], ['photo_retention_days' => 'Masa simpan foto']);
+        $data = $request->validate([
+            'photo_retention_days' => ['required', 'integer', 'min:7', 'max:365'],
+            'offline_max_hours' => ['sometimes', 'required', 'integer', 'min:1', 'max:168'],
+            'clock_tolerance_minutes' => ['sometimes', 'required', 'integer', 'min:1', 'max:120'],
+        ], [], ['photo_retention_days' => 'Masa simpan foto', 'offline_max_hours' => 'Batas absen offline', 'clock_tolerance_minutes' => 'Toleransi jam HP']);
         MobileAttendanceSetting::current()->update($data);
-        Inertia::flash('success', "Foto absen disimpan {$data['photo_retention_days']} hari.");
+        Inertia::flash('success', 'Pengaturan Absen HP disimpan.');
 
         return back();
     }

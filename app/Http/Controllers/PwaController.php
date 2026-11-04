@@ -53,15 +53,16 @@ class PwaController extends Controller
 
     /**
      * The service worker: keeps the built scripts and styles (their names change with every
-     * release) and the offline page; pages themselves always come from the server, so no
-     * one's data stays on the phone. A new release gives a new version, which replaces the old.
+     * release) and the offline page with the files it runs (Absen HP without a signal); pages
+     * themselves always come from the server, so no one's data stays on the phone. A new
+     * release gives a new version, which replaces the old.
      */
     public function serviceWorker(): Response
     {
         $manifest = public_path('build/manifest.json');
         $version = substr(md5((is_file($manifest) ? (string) filemtime($manifest).md5_file($manifest) : 'dev').'|'.config('app.version', '')), 0, 12);
         $b = Branding::current();
-        $precache = json_encode(['/offline', $b->appIconUrl(192)], JSON_UNESCAPED_SLASHES);
+        $precache = json_encode(['/offline', $b->appIconUrl(192), ...self::offlineAssets($manifest)], JSON_UNESCAPED_SLASHES);
 
         $js = <<<JS
             // Eolas service worker {$version}
@@ -112,6 +113,35 @@ class PwaController extends Controller
             'Cache-Control' => 'no-cache',
             'Service-Worker-Allowed' => '/',
         ]);
+    }
+
+    /**
+     * The built files the offline page loads (its script, the chunks it imports, the styles),
+     * from Vite's manifest, so they are on the phone before the signal goes.
+     *
+     * @return list<string>
+     */
+    private static function offlineAssets(string $manifest): array
+    {
+        $entries = is_file($manifest) ? (json_decode((string) file_get_contents($manifest), true) ?: []) : [];
+        $files = [];
+        $walk = function (string $key) use (&$walk, &$files, $entries) {
+            $entry = $entries[$key] ?? null;
+            if (! $entry || isset($files[$entry['file']])) {
+                return;
+            }
+            $files[$entry['file']] = true;
+            foreach ($entry['css'] ?? [] as $css) {
+                $files[$css] = true;
+            }
+            foreach ($entry['imports'] ?? [] as $import) {
+                $walk($import);
+            }
+        };
+        $walk('resources/js/offline.tsx');
+        $walk('resources/css/app.css');
+
+        return array_map(fn (string $f) => '/build/'.$f, array_keys($files));
     }
 
     public function offline(): Response
