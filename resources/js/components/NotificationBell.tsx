@@ -6,6 +6,10 @@ import {
     ClipboardCheck,
     ClipboardList,
     CalendarHeart,
+    Award,
+    BadgeCheck,
+    HandCoins,
+    Timer,
     CheckCheck,
     Loader2,
     Palmtree,
@@ -20,7 +24,8 @@ import { postJson } from '@/lib/http';
 
 interface Item {
     id: string;
-    type: 'data-change-requests' | 'claim' | 'business_trip' | 'leave' | 'long-service-leave' | 'applicants' | 'workforce_planning' | 'workforce_planning-result' | null;
+    /** The kind (icon); one the bell does not know yet gets the plain bell. */
+    type: string | null;
     title: string;
     body: string;
     url: string | null;
@@ -30,7 +35,9 @@ interface Item {
 
 const POLL_MS = 60_000;
 
-const ICON: Record<NonNullable<Item['type']>, { icon: LucideIcon; tone: string }> = {
+const PLAIN = { icon: Bell, tone: 'bg-slate-100 text-slate-500' };
+
+const ICON: Record<string, { icon: LucideIcon; tone: string }> = {
     'data-change-requests': { icon: UserPen, tone: 'bg-sky-50 text-sky-600' },
     claim: { icon: Stethoscope, tone: 'bg-rose-50 text-rose-600' },
     business_trip: { icon: Plane, tone: 'bg-brand-50 text-brand-600' },
@@ -39,6 +46,12 @@ const ICON: Record<NonNullable<Item['type']>, { icon: LucideIcon; tone: string }
     applicants: { icon: UserRoundPlus, tone: 'bg-amber-50 text-amber-600' },
     workforce_planning: { icon: ClipboardList, tone: 'bg-indigo-50 text-indigo-600' },
     'workforce_planning-result': { icon: ClipboardCheck, tone: 'bg-indigo-50 text-indigo-600' },
+    certification: { icon: Award, tone: 'bg-amber-50 text-amber-600' },
+    'certification-own': { icon: Award, tone: 'bg-amber-50 text-amber-600' },
+    approval: { icon: ClipboardCheck, tone: 'bg-brand-50 text-brand-600' },
+    'approval-result': { icon: BadgeCheck, tone: 'bg-brand-50 text-brand-600' },
+    loan: { icon: HandCoins, tone: 'bg-teal-50 text-teal-600' },
+    overtime: { icon: Timer, tone: 'bg-amber-50 text-amber-600' },
 };
 
 /** "baru saja", "5 mnt lalu", "3 jam lalu", "2 hari lalu", else the date. */
@@ -272,7 +285,7 @@ export function NotificationBell({ panelLeft, dark = false }: { panelLeft: numbe
 }
 
 function NotifRow({ item, onClick }: { item: Item; onClick: () => void }) {
-    const look = item.type ? ICON[item.type] : { icon: Bell, tone: 'bg-slate-100 text-slate-500' };
+    const look = (item.type && ICON[item.type]) || PLAIN;
     const Icon = look.icon;
     return (
         <button
