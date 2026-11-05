@@ -85,7 +85,10 @@ export async function enablePush(key: string, name: string): Promise<void> {
         await sub.unsubscribe();
         sub = null;
     }
-    sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) });
+    // The browser's own errors are English and vague (private mode, no push service): say it plainly.
+    sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) }).catch(() => {
+        throw new Error('Browser ini tidak bisa menerima notifikasi push (mode penyamaran / incognito, atau layanan push tidak tersedia). Coba di Chrome biasa atau aplikasi yang dipasang.');
+    });
     await register(sub, name);
 }
 
