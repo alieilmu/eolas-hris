@@ -63,6 +63,8 @@ class PwaController extends Controller
         $version = substr(md5((is_file($manifest) ? (string) filemtime($manifest).md5_file($manifest) : 'dev').'|'.config('app.version', '')), 0, 12);
         $b = Branding::current();
         $precache = json_encode(['/offline', $b->appIconUrl(192), ...self::offlineAssets($manifest)], JSON_UNESCAPED_SLASHES);
+        $name = json_encode((string) $b->appName(), JSON_UNESCAPED_UNICODE);
+        $icon = json_encode($b->appIconUrl(192), JSON_UNESCAPED_SLASHES);
 
         $js = <<<JS
             // Eolas service worker {$version}
@@ -105,6 +107,33 @@ class PwaController extends Controller
                 if (request.mode === 'navigate') {
                     event.respondWith(fetch(request).catch(() => caches.match(OFFLINE)));
                 }
+            });
+
+            // Notifikasi push: shown even when the app is closed; a tap opens its page.
+            self.addEventListener('push', (event) => {
+                let data = {};
+                try { data = event.data ? event.data.json() : {}; } catch (e) { data = { body: event.data ? event.data.text() : '' }; }
+                event.waitUntil(self.registration.showNotification(data.title || {$name}, {
+                    body: data.body || '',
+                    icon: {$icon},
+                    badge: {$icon},
+                    tag: data.tag || undefined,
+                    renotify: !!data.tag,
+                    data: { url: data.url || '/' },
+                }));
+            });
+
+            self.addEventListener('notificationclick', (event) => {
+                event.notification.close();
+                const target = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin);
+                if (target.origin !== self.location.origin) return;
+                event.waitUntil(
+                    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+                        const open = list.find((c) => new URL(c.url).origin === self.location.origin);
+                        if (open) return open.focus().then((c) => (c || open).navigate(target.href)).catch(() => self.clients.openWindow(target.href));
+                        return self.clients.openWindow(target.href);
+                    }),
+                );
             });
             JS;
 

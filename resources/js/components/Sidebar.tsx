@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { ChevronDown, FlaskConical, KeyRound, LogOut, ShieldCheck, PanelLeftClose, PanelLeftOpen, Smartphone } from 'lucide-react';
+import { Bell, ChevronDown, FlaskConical, KeyRound, LogOut, ShieldCheck, PanelLeftClose, PanelLeftOpen, Smartphone } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { NotificationBell } from '@/components/NotificationBell';
+import { forgetPush } from '@/lib/push';
 import type { NavItem, NavModule } from '@/types';
 
 interface SidebarProps {
@@ -160,6 +161,7 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
                             href="/logout"
                             method="post"
                             as="button"
+                            onClick={() => void forgetPush()}
                             title="Keluar"
                             aria-label="Keluar"
                             className="flex h-9 w-9 items-center justify-center rounded-lg text-brand-200 hover:bg-rose-500/15 hover:text-rose-200"
@@ -266,9 +268,17 @@ export function Sidebar({ modules: allModules }: SidebarProps) {
                         Keamanan Aplikasi HP
                     </Link>
                     <Link
+                        href="/account/notifications"
+                        className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-brand-200 transition-all hover:bg-white/5 hover:text-white"
+                    >
+                        <Bell size={15} />
+                        Notifikasi HP
+                    </Link>
+                    <Link
                         href="/logout"
                         method="post"
                         as="button"
+                        onClick={() => void forgetPush()}
                         className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-brand-200 transition-all hover:bg-rose-500/15 hover:text-rose-200"
                     >
                         <LogOut size={15} />

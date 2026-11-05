@@ -62,6 +62,8 @@ Pilihan `--tls`:
 
 **Aplikasi di HP (PWA).** Portal karyawan bisa dipasang di HP sebagai aplikasi (Android: tombol "Pasang aplikasi"; iPhone: Bagikan → Tambahkan ke Layar Utama), dibuka dengan PIN atau sidik jari / wajah. HP hanya mengizinkan ini di HTTPS dengan sertifikat yang dipercaya HP itu. Dengan `internal`, root CA Caddy harus dipasang manual di setiap HP — praktis tidak bisa untuk ratusan karyawan. Pakai `letsencrypt` (server bisa dijangkau dari internet di port 80/443) atau `custom` dengan sertifikat dari CA publik. Lama login di aplikasi HP diatur di **Pengaturan → Branding → Aplikasi HP**.
 
+**Notifikasi push ke HP (opsional).** Karyawan yang mengaktifkan *Notifikasi HP* menerima kabar pengajuan, persetujuan, slip gaji terbit, dan sertifikat yang akan habis langsung di HP, walau aplikasi ditutup. Untuk itu server harus bisa membuka koneksi keluar (HTTPS, port 443) ke layanan push HP: `fcm.googleapis.com` (Android/Chrome), `*.push.apple.com` (iPhone/Safari), `*.push.services.mozilla.com` (Firefox), `*.notify.windows.com` (Edge). Kunci VAPID dibuat otomatis sekali per instalasi (`storage/app/push/vapid.json`, ikut backup storage; jangan dihapus, karena HP yang sudah berlangganan harus mendaftar ulang). Tanpa internet keluar, atau dengan `PUSH_ENABLED=false` di `.env`, notifikasi tetap tampil di lonceng aplikasi. Di iPhone, notifikasi hanya untuk aplikasi yang dipasang di layar utama (iOS 16.4 ke atas).
+
 ## 4. Setelah instalasi
 
 1. Buka alamat aplikasi, lalu login dengan email Super Admin.

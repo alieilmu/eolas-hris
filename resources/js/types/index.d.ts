@@ -35,8 +35,10 @@ export interface Auth {
     };
     /** Menu key => level, for the sidebar and the edit buttons. */
     menus: Record<string, MenuLevel>;
-    /** Unread notifications (pengajuan from the portal); 0 for employees. */
+    /** Unread notifications under the bell. */
     notifications: number;
+    /** Web Push: the server's VAPID public key; null when push is off. */
+    push: string | null;
     /** Pengajuan waiting for this account's decision (Persetujuan Saya). */
     approvals: number;
     /** Signed in from the installed app on a phone: how it is opened again; null in a browser. */

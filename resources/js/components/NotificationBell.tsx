@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { router, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import {
     Bell,
     BellRing,
@@ -14,6 +14,8 @@ import {
     Loader2,
     Palmtree,
     Plane,
+    ReceiptText,
+    Settings2,
     Stethoscope,
     UserPen,
     UserRoundPlus,
@@ -21,6 +23,7 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 import { postJson } from '@/lib/http';
+import { pushState } from '@/lib/push';
 
 interface Item {
     id: string;
@@ -52,6 +55,7 @@ const ICON: Record<string, { icon: LucideIcon; tone: string }> = {
     'approval-result': { icon: BadgeCheck, tone: 'bg-brand-50 text-brand-600' },
     loan: { icon: HandCoins, tone: 'bg-teal-50 text-teal-600' },
     overtime: { icon: Timer, tone: 'bg-amber-50 text-amber-600' },
+    payslip: { icon: ReceiptText, tone: 'bg-emerald-50 text-emerald-600' },
 };
 
 /** "baru saja", "5 mnt lalu", "3 jam lalu", "2 hari lalu", else the date. */
@@ -66,19 +70,28 @@ function ago(iso: string | null): string {
 }
 
 /**
- * The bell in the admin sidebar: pengajuan from the employee portal waiting for this account.
- * Checks every minute; a new one pops up in the corner (and as a browser notification when
- * allowed and the tab is in the background). The list opens beside the sidebar.
+ * The bell in the admin sidebar (pengajuan from the employee portal waiting for this account)
+ * and in the portal's top bar (results, slips, certificates). Checks every minute; a new one
+ * pops up in the corner (and as a browser notification when allowed, the tab is in the
+ * background and push does not bring it already). The list opens beside the sidebar, or
+ * under the portal's bar ($panelLeft unset).
  */
-export function NotificationBell({ panelLeft, dark = false }: { panelLeft: number; dark?: boolean }) {
-    const shared = usePage().props.auth.notifications;
+export function NotificationBell({ panelLeft, dark = false }: { panelLeft?: number; dark?: boolean }) {
+    const { auth } = usePage().props;
+    const shared = auth.notifications;
+    const employee = auth.user?.role === 'employee';
     const [unread, setUnread] = useState(shared);
     const [open, setOpen] = useState(false);
     const [items, setItems] = useState<Item[] | null>(null);
     const [popup, setPopup] = useState<Item | null>(null);
     const [permission, setPermission] = useState(() => ('Notification' in window ? Notification.permission : 'denied'));
+    const [pushOn, setPushOn] = useState(false);
     const lastSeen = useRef<string | null>(null);
     const panel = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (auth.push) void pushState().then((s) => setPushOn(s === 'on'));
+    }, [auth.push]);
 
     // Every page visit brings the count along.
     useEffect(() => setUnread(shared), [shared]);
@@ -117,7 +130,7 @@ export function NotificationBell({ panelLeft, dark = false }: { panelLeft: numbe
             const newest = data.latest;
             if (newest && lastSeen.current !== null && newest.id !== lastSeen.current) {
                 setPopup(newest);
-                if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+                if (document.hidden && !pushOn && 'Notification' in window && Notification.permission === 'granted') {
                     const n = new Notification(newest.title, { body: newest.body, tag: newest.id });
                     n.onclick = () => {
                         window.focus();
@@ -134,7 +147,7 @@ export function NotificationBell({ panelLeft, dark = false }: { panelLeft: numbe
             stop = true;
             clearInterval(timer);
         };
-    }, [open, load]);
+    }, [open, load, pushOn]);
 
     useEffect(() => {
         if (!popup) return;
@@ -187,7 +200,7 @@ export function NotificationBell({ panelLeft, dark = false }: { panelLeft: numbe
             <button
                 data-bell
                 onClick={toggle}
-                title={unread ? `${unread} pengajuan menunggu` : 'Notifikasi'}
+                title={unread ? `${unread} notifikasi belum dibaca` : 'Notifikasi'}
                 aria-label={unread ? `Notifikasi, ${unread} belum dibaca` : 'Notifikasi'}
                 aria-expanded={open}
                 className={`relative shrink-0 rounded-lg p-1.5 ${
@@ -207,8 +220,8 @@ export function NotificationBell({ panelLeft, dark = false }: { panelLeft: numbe
                     ref={panel}
                     role="dialog"
                     aria-label="Notifikasi"
-                    style={{ left: panelLeft }}
-                    className="fixed top-2 z-[65] flex max-h-[calc(100dvh-1rem)] w-[min(400px,calc(100vw-1rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-2xl max-sm:right-2 max-sm:left-2! max-sm:w-auto"
+                    style={panelLeft === undefined ? { right: 8 } : { left: panelLeft }}
+                    className="fixed top-[max(0.5rem,env(safe-area-inset-top))] z-[65] flex max-h-[calc(100dvh-1rem)] w-[min(400px,calc(100vw-1rem))] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-2xl max-sm:right-2 max-sm:left-2! max-sm:w-auto"
                 >
                     <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
                         <p className="flex-1 text-sm font-bold text-slate-800">
@@ -241,7 +254,9 @@ export function NotificationBell({ panelLeft, dark = false }: { panelLeft: numbe
                             <div className="px-6 py-10 text-center">
                                 <Bell size={28} className="mx-auto text-slate-200" />
                                 <p className="mt-2 text-sm font-bold text-slate-500">Belum ada notifikasi</p>
-                                <p className="text-xs text-slate-400">Pengajuan dari Portal Karyawan akan muncul di sini.</p>
+                                <p className="text-xs text-slate-400">
+                                    {employee ? 'Hasil pengajuan, slip gaji, dan pengingat sertifikat akan muncul di sini.' : 'Pengajuan dari Portal Karyawan akan muncul di sini.'}
+                                </p>
                             </div>
                         ) : (
                             <ul className="divide-y divide-slate-100">
@@ -254,7 +269,16 @@ export function NotificationBell({ panelLeft, dark = false }: { panelLeft: numbe
                         )}
                     </div>
 
-                    {permission === 'default' && (
+                    {auth.push ? (
+                        <Link
+                            href="/account/notifications"
+                            onClick={() => setOpen(false)}
+                            className="flex items-center gap-2 border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-xs font-bold text-brand-600 hover:bg-brand-50"
+                        >
+                            <Settings2 size={14} />
+                            {pushOn ? 'Pengaturan notifikasi HP' : 'Terima notifikasi di HP ini — tetap muncul saat aplikasi ditutup'}
+                        </Link>
+                    ) : permission === 'default' && (
                         <button
                             onClick={askPermission}
                             className="border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-left text-xs font-bold text-brand-600 hover:bg-brand-50"
@@ -272,7 +296,7 @@ export function NotificationBell({ panelLeft, dark = false }: { panelLeft: numbe
                 >
                     <p className="flex items-center gap-1.5 border-b border-slate-100 bg-accent-50 px-4 py-1.5 text-[11px] font-bold tracking-wide text-brand-800 uppercase">
                         <BellRing size={13} />
-                        Pengajuan baru
+                        {employee ? 'Notifikasi baru' : 'Pengajuan baru'}
                         <button onClick={() => setPopup(null)} aria-label="Tutup" className="ml-auto text-slate-400 hover:text-slate-600">
                             <X size={14} />
                         </button>

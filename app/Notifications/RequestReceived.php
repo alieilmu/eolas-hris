@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Channels\PushChannel;
 use App\Notifications\Channels\RequestChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
@@ -29,7 +30,7 @@ class RequestReceived extends Notification
 
     public function via(object $notifiable): array
     {
-        return [RequestChannel::class];
+        return [RequestChannel::class, PushChannel::class];
     }
 
     public function toArray(object $notifiable): array

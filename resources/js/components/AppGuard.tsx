@@ -1,11 +1,13 @@
 import { useEffect } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import { WifiOff } from 'lucide-react';
-import { isStandalone, useOnline, wasOpen } from '@/lib/pwa';
+import { deviceName, isStandalone, useOnline, wasOpen } from '@/lib/pwa';
+import { syncPush } from '@/lib/push';
 
 /**
  * In every signed-in shell: a bar while the phone has no connection, and the installed app's
- * lock — opened again from the home screen (a new app session), it asks for the PIN first.
+ * lock — opened again from the home screen (a new app session), it asks for the PIN first —
+ * and this phone's push subscription told to the server again.
  */
 export function AppGuard() {
     const { auth } = usePage().props;
@@ -17,6 +19,10 @@ export function AppGuard() {
             router.post('/app-lock/lock', {}, { replace: true });
         }
     }, [app]);
+
+    useEffect(() => {
+        void syncPush(auth.push, deviceName());
+    }, [auth.push]);
 
     if (online) return null;
 

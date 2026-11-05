@@ -20,4 +20,16 @@ return [
     // Days an ended demo keeps its workspace (to be extended) before it is removed.
     // The request itself is kept: it is a lead.
     'demo_keep_days' => (int) env('DEMO_KEEP_DAYS', 7),
+
+    // Notifikasi push ke HP (Web Push). Optional: needs the server to reach the phones' push
+    // services on the internet; off (or unreachable), notifications stay in the app's bell.
+    'push' => [
+        'enabled' => (bool) env('PUSH_ENABLED', true),
+        // The installation's VAPID key, made on first use (outside the workspaces' files).
+        'key_path' => env('PUSH_KEY_PATH', storage_path('app/push/vapid.json')),
+        // Contact for the push services: mailto:… or https://… (default: APP_URL).
+        'subject' => env('PUSH_SUBJECT', ''),
+        // The push services the server may send to (a phone's subscription names one of them).
+        'hosts' => array_filter(explode(',', (string) env('PUSH_HOSTS', 'fcm.googleapis.com,android.googleapis.com,push.apple.com,push.services.mozilla.com,notify.windows.com'))),
+    ],
 ];

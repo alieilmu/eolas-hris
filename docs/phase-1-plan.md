@@ -190,6 +190,14 @@ Tanggal mengikuti peta jalan (Fase 1 mulai Januari 2027). Bila minggu 0 selesai 
 
 **Selesai bila:** karyawan bisa absen (termasuk saat offline) dan mengajukan cuti dari HP tanpa membuka versi desktop, dan atasan menyetujuinya dari HP.
 
+**Status 5 Nov 2026: kode selesai, menunggu deploy dan uji di HP nyata.**
+- **Web Push (VAPID) tanpa paket tambahan:** kunci ES256 dibuat sekali per instalasi (`storage/app/push/vapid.json`), pesan dienkripsi untuk HP (RFC 8291, aes128gcm) dan ditandatangani (RFC 8292), dikirim lewat antrean (`SendPush`, per workspace). Hanya layanan push yang dikenal (FCM, Apple, Mozilla, Windows; `PUSH_HOSTS`). HP yang sudah tidak berlangganan (404/410) atau gagal 30× berturut-turut dihapus. `PUSH_ENABLED=false` atau server tanpa internet: notifikasi tetap di lonceng. Server Eolas sudah dicek bisa menjangkau FCM dan Apple.
+- **Semua notifikasi yang ada ikut ke HP** (`RequestReceived` → `PushChannel`), dengan tag per pengajuan sehingga notifikasi lama di HP diganti. Baru: **Slip gaji terbit** saat proses gaji disetujui.
+- **Akun → Notifikasi HP** (`/account/notifications`, admin dan karyawan): aktifkan/matikan di HP ini, pilihan per jenis (Pengajuan saya, Persetujuan, Slip gaji terbit, Sertifikat akan habis), daftar perangkat, kirim tes. iPhone di Safari: petunjuk pasang ke Layar Utama dulu (iOS 16.4+). Kartu *Aktifkan notifikasi* di Beranda HP. Keluar dari akun menghentikan langganan HP itu; HP yang dipakai akun lain pindah ke akun tersebut.
+- **Lonceng di portal karyawan** (sebelumnya hanya di sidebar admin): hasil pengajuan, slip, sertifikat.
+- Service worker: `push` → notifikasi sistem; ketuk → membuka halamannya.
+- Test: `PushNotificationTest` (5): enkripsi didekripsi seperti HP dan JWT VAPID diverifikasi, endpoint/kunci tidak valid ditolak, HP pindah akun, jenis dimatikan hanya di lonceng, 201/500/410/tanpa koneksi, push dimatikan di server; `PayrollRunTest`: notifikasi slip; 271 test lolos.
+
 ## Minggu 10 — HR Analytics: data dan halaman
 
 - Tren 12 bulan dihitung dari data yang ada (tanggal masuk/keluar, absensi, slip gaji); ditambah tabel ringkasan bulanan yang diisi scheduler supaya halaman tetap cepat untuk ribuan karyawan.

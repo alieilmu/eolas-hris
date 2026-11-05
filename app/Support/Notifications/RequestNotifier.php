@@ -3,15 +3,18 @@
 namespace App\Support\Notifications;
 
 use App\Models\Applicant;
-use App\Models\LongServiceLeave;
 use App\Models\BenefitClaim;
 use App\Models\BenefitClaimItem;
 use App\Models\Employee;
-use App\Models\WorkforcePlanRevision;
+use App\Models\EmployeeCertification;
 use App\Models\EmployeeChangeRequest;
 use App\Models\LeaveTravelRequest;
+use App\Models\Loan;
+use App\Models\LongServiceLeave;
+use App\Models\PayrollRun;
 use App\Models\User;
 use App\Models\WorkflowInstance;
+use App\Models\WorkforcePlanRevision;
 use App\Notifications\RequestReceived;
 use App\Support\Access\AccessScope;
 use App\Support\Leave\LeaveLedger;
@@ -57,7 +60,7 @@ class RequestNotifier
     }
 
     /** @return array{type: string, ref: string, title: string, body: string, url: string} */
-    public static function loanNotice(\App\Models\Loan $l): array
+    public static function loanNotice(Loan $l): array
     {
         return ['type' => 'loan', 'ref' => "loan:{$l->id}", 'title' => 'Pengajuan Pinjaman',
             'body' => 'mengajukan pinjaman Rp '.number_format($l->principal, 0, ',', '.')." untuk {$l->tenor} bulan", 'url' => '/compensation/loans?status=pending'];
@@ -88,7 +91,7 @@ class RequestNotifier
     }
 
     /** A certificate about to expire (or expired today): HR of the employee's location, and the employee. */
-    public static function certificationExpiring(\App\Models\EmployeeCertification $c, int $days): void
+    public static function certificationExpiring(EmployeeCertification $c, int $days): void
     {
         $c->loadMissing('employee', 'type');
         $when = $days <= 0 ? 'habis hari ini' : "habis dalam {$days} hari (".$c->expires_at->format('d.m.Y').')';
@@ -100,6 +103,23 @@ class RequestNotifier
                 "{$c->type->name} {$when}. Segera perpanjang dan kirim salinannya ke HR.", '/self-service/certifications',
                 ['id' => $c->employee_id, 'employee_number' => $c->employee->employee_number, 'name' => $c->employee->name])));
         }
+    }
+
+    /** A payroll run approved: its slips are in the portal now, for each employee with an account. */
+    public static function payslips(PayrollRun $run): void
+    {
+        $what = match ($run->type) {
+            'thr' => 'Slip THR',
+            'final' => 'Slip final pay',
+            default => 'Slip gaji '.$run->periodOf()->label(),
+        };
+        $run->payslips()->select('employee_id')->distinct()->pluck('employee_id')->chunk(500)->each(function ($ids) use ($run, $what) {
+            $to = User::whereIn('employee_id', $ids->all())->where('is_active', true)->get();
+            if ($to->isNotEmpty()) {
+                self::safely(fn () => Notification::send($to, new RequestReceived('payslip', "payslip:{$run->id}", 'Slip gaji terbit',
+                    "{$what} sudah bisa dibuka.", '/self-service/payslips', ['id' => null, 'employee_number' => null, 'name' => null])));
+            }
+        });
     }
 
     /** A new application from the public form (no employee yet: every admin of Recruitment). */

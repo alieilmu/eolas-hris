@@ -130,6 +130,8 @@ class PayrollRunTest extends TestCase
         $this->post("/compensation/payroll/{$run->id}/calculate")->assertStatus(422);
         $this->signIn($this->admin())->post("/compensation/payroll/{$run->id}/approve")->assertRedirect();
         $this->assertSame('approved', $run->fresh()->status);
+        // The employee is told the slip is out (the bell, and the phone when it wants that).
+        $this->assertSame(['payslip', '/self-service/payslips'], [$employee->notifications()->sole()->data['type'], $employee->notifications()->sole()->data['url']]);
 
         $this->actingAs($employee)->get('/self-service/payslips')->assertInertia(fn (Assert $p) => $p->component('SelfService/Payslips')
             ->has('slips', 1)->where('slip.id', $slip->id)->where('slip.take_home_pay', $slip->take_home_pay)->where('password', 'birth_date'));

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Briefcase, ChevronRight, Clock, Fingerprint, Glasses, LogIn, LogOut, Palmtree, ReceiptText, ShieldCheck, Stethoscope, Timer, UserPen, X } from 'lucide-react';
 import { InstallCard } from '@/components/InstallCard';
+import { PushCard } from '@/components/PushCard';
 import { MobileClockSheet, type MobileClockState } from '@/components/time/MobileClockSheet';
 import { BenefitClaimForm } from '@/components/compensation/BenefitClaimForm';
 import { LeaveTravelForm, type TripData } from '@/components/time/LeaveTravelForm';
@@ -127,6 +128,7 @@ export default function PortalHome({
             <Head title="Layanan Mandiri" />
             <div className="space-y-5">
                 <InstallCard />
+                <PushCard />
 
                 <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                     <p className="text-xs font-bold text-slate-400">{greeting()},</p>

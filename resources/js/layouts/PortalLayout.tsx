@@ -1,11 +1,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { Award, ClipboardCheck, HandCoins, Home, KeyRound, LogOut, Menu, ReceiptText, Smartphone, UserPen, X } from 'lucide-react';
+import { Award, Bell, ClipboardCheck, HandCoins, Home, KeyRound, LogOut, Menu, ReceiptText, Smartphone, UserPen, X } from 'lucide-react';
 import { AppGuard } from '@/components/AppGuard';
 import { BrandLogo, brandLine, useBranding } from '@/components/BrandLogo';
 import { FlashToast } from '@/components/FlashToast';
+import { NotificationBell } from '@/components/NotificationBell';
 import { ClockQueueBar } from '@/components/time/ClockQueueBar';
 import { forgetClock } from '@/lib/clockQueue';
+import { forgetPush } from '@/lib/push';
 
 // module: an add-on package (Modules) the license must include; none = Core.
 const NAV: { href: string; label: string; short?: string; icon: typeof Home; module?: 'talent' | 'lms' }[] = [
@@ -67,6 +69,7 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                     </nav>
                     <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
                         {user && <span className="mr-2 hidden max-w-48 truncate text-sm font-bold text-slate-600 lg:block">{user.name}</span>}
+                        <NotificationBell />
                         <Link
                             href="/account/app"
                             title="Keamanan aplikasi HP"
@@ -87,8 +90,11 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                             href="/logout"
                             method="post"
                             as="button"
-                            // The Absen HP state kept for the offline page goes with the account.
-                            onClick={() => void forgetClock()}
+                            // The Absen HP state kept for the offline page, and the phone's notifications, go with the account.
+                            onClick={() => {
+                                void forgetClock();
+                                void forgetPush();
+                            }}
                             title="Keluar"
                             aria-label="Keluar"
                             className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
@@ -132,7 +138,7 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                                 <X size={16} />
                             </button>
                         </div>
-                        {[...rest, { href: '/account/password', label: 'Ganti password', icon: KeyRound }].map((item) => (
+                        {[...rest, { href: '/account/notifications', label: 'Notifikasi HP', icon: Bell }, { href: '/account/password', label: 'Ganti password', icon: KeyRound }].map((item) => (
                             <Link
                                 key={item.href}
                                 href={item.href}

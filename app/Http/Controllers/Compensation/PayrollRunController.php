@@ -14,6 +14,7 @@ use App\Support\Access\AccessScope;
 use App\Support\Audit\Audit;
 use App\Support\Excel\TableExcel;
 use App\Support\Payroll\PayrollPeriod;
+use App\Support\Notifications\RequestNotifier;
 use App\Support\Payroll\PayrollRunner;
 use App\Support\Payroll\PayslipPdf;
 use Carbon\CarbonImmutable;
@@ -207,6 +208,7 @@ class PayrollRunController extends Controller
         abort_unless($this->mayApprove($run, $request->user()), 403, 'Proses gaji tidak bisa disetujui oleh yang menghitung atau mengajukannya.');
         $run->update(['status' => 'approved', 'approved_by' => $request->user()->id, 'approved_at' => now()]);
         PayrollRunner::settle($run);
+        RequestNotifier::payslips($run);
         Audit::log('payroll.run_approved', $run, $run->label(), ['take_home_pay' => $run->totals['all']['take_home_pay'] ?? null]);
         Inertia::flash('success', 'Proses gaji disetujui. Slip sudah terlihat di portal karyawan.');
 

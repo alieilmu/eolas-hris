@@ -158,6 +158,16 @@ Route::middleware(['auth', 'app.lock', 'two-factor', 'account.ready', 'licensed'
         Route::delete('/passkey/{passkey}', 'destroyPasskey')->whereNumber('passkey')->name('.passkey.destroy');
     });
 
+    // Akun → Notifikasi: notifications pushed to this phone / browser (Web Push), and which kinds.
+    Route::controller(\App\Http\Controllers\Account\PushController::class)->prefix('account/notifications')->name('account.notifications')->group(function () {
+        Route::get('/', 'show');
+        Route::put('/', 'preferences')->name('.preferences');
+        Route::post('/subscription', 'subscribe')->middleware('throttle:20,1')->name('.subscribe');
+        Route::delete('/subscription', 'unsubscribe')->name('.unsubscribe');
+        Route::delete('/devices/{device}', 'destroy')->whereNumber('device')->name('.devices.destroy');
+        Route::post('/test', 'test')->middleware('throttle:6,1')->name('.test');
+    });
+
     // Modul Recruitment: Tracking (stages and candidates), Pelamar, Pengaturan Form and Laporan.
     Route::middleware('menu:recruitment')->prefix('recruitment')->name('recruitment.')->group(function () {
         Route::controller(PipelineController::class)->group(function () {

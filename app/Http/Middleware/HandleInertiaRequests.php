@@ -6,6 +6,8 @@ use App\Models\Branding;
 use App\Models\User;
 use App\Models\WorkspaceSetup;
 use App\Support\Modules;
+use App\Support\Push\WebPush;
+use App\Support\Security\AppLock;
 use App\Support\Tenancy\Tenant;
 use App\Support\Workflow\Workflow;
 use Illuminate\Http\Request;
@@ -69,14 +71,16 @@ class HandleInertiaRequests extends Middleware
                     'viewSensitiveData' => (bool) $user?->canAccessSensitiveData(),
                     'manageUsers' => (bool) $user?->isAdmin(),
                 ],
-                // Unread pengajuan notifications (the bell); employees have none.
-                'notifications' => $user && ! $user->isEmployee() ? rescue(fn () => $user->unreadNotifications()->count(), 0) : 0,
+                // Unread notifications (the bell): pengajuan for HR; results, slips, certificates for employees.
+                'notifications' => $user ? rescue(fn () => $user->unreadNotifications()->count(), 0) : 0,
+                // Web Push: the server's key, for the phone to keep its subscription fresh (null: off).
+                'push' => $user && WebPush::enabled() ? rescue(fn () => WebPush::publicKey(), null) : null,
                 // Pengajuan waiting for this account's decision (Persetujuan Saya), admins and employees alike.
                 'approvals' => $user ? rescue(fn () => Workflow::pendingFor($user)->count(), 0, report: false) : 0,
                 // Menu => "view" | "edit", for the sidebar and the edit buttons.
                 'menus' => (object) ($user?->menus() ?? []),
                 // Signed in from the installed app on a phone: how it is opened again (null in a browser).
-                'app' => rescue(fn () => \App\Support\Security\AppLock::share($request, $user), null, report: false),
+                'app' => rescue(fn () => AppLock::share($request, $user), null, report: false),
             ],
         ];
     }
